@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Cut Game 🍉</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body {
+      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: rgba(255,255,255,0.1);
+    }
+    #scoreBoard {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 22px;
+      color: #fff;
+      background: rgba(0,0,0,0.5);
+      padding: 8px 18px;
+      border-radius: 10px;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40px;
+      color: #fff;
+      display: none;
+      background: rgba(0,0,0,0.7);
+      padding: 20px;
+      border-radius: 15px;
+      animation: pop 0.5s ease-in-out;
+    }
+    @keyframes pop {
+      from { transform: translate(-50%,-50%) scale(0.5); }
+      to { transform: translate(-50%,-50%) scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div id="scoreBoard">Score: 0</div>
+  <div id="gameOver">💥 Game Over!<br>Tap to Restart</div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let fruits = [];
+    let score = 0;
+    let gameOver = false;
+
+    const fruitColors = ["red", "green", "yellow", "orange", "pink"];
+    const fruitEmoji = ["🍎","🍉","🍊","🍌","🍓"];
+    const bombs = ["💣","🧨"];
+
+    // नया fruit या bomb बनाओ
+    function spawnFruit() {
+      const isBomb = Math.random() < 0.15; 
+      const fruit = {
+        x: Math.random() * (canvas.width - 60) + 30,
+        y: canvas.height + 50,
+        size: 40,
+        speed: Math.random() * 4 + 2 + score * 0.05,
+        emoji: isBomb ? bombs[Math.floor(Math.random()*bombs.length)] : fruitEmoji[Math.floor(Math.random()*fruitEmoji.length)],
+        bomb: isBomb
+      };
+      fruits.push(fruit);
+    }
+
+    function drawFruit(fruit) {
+      ctx.font = fruit.size + "px Arial";
+      ctx.fillText(fruit.emoji, fruit.x, fruit.y);
+    }
+
+    function updateFruits() {
+      for (let i = 0; i < fruits.length; i++) {
+        let f = fruits[i];
+        f.y -= f.speed;
+        drawFruit(f);
+
+        // fruit miss hone par kuch nahi hoga (game over nahi)
+        if (f.y < -50) {
+          fruits.splice(i,1);
+          i--;
+        }
+      }
+    }
+
+    function gameLoop() {
+      if (gameOver) return;
+
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      updateFruits();
+
+      if (Math.random() < 0.03) spawnFruit();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function cutFruit(x,y) {
+      for (let i = 0; i < fruits.length; i++) {
+        let f = fruits[i];
+        if (x > f.x-30 && x < f.x+30 && y > f.y-30 && y < f.y+30) {
+          if (f.bomb) {
+            endGame();
+          } else {
+            score++;
+            document.getElementById("scoreBoard").innerText = "Score: " + score;
+          }
+          fruits.splice(i,1);
+          return;
+        }
+      }
+    }
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById("gameOver").style.display = "block";
+    }
+
+    function restartGame() {
+      fruits = [];
+      score = 0;
+      gameOver = false;
+      document.getElementById("scoreBoard").innerText = "Score: 0";
+      document.getElementById("gameOver").style.display = "none";
+      gameLoop();
+    }
+
+    canvas.addEventListener("click", (e)=>cutFruit(e.clientX, e.clientY));
+    canvas.addEventListener("touchstart", (e)=>{
+      let touch = e.touches[0];
+      cutFruit(touch.clientX, touch.clientY);
+    });
+    document.getElementById("gameOver").addEventListener("click", restartGame);
+
+    gameLoop();
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Cut Game 🍉</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body {
+      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: rgba(255,255,255,0.1);
+    }
+    #scoreBoard {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 22px;
+      color: #fff;
+      background: rgba(0,0,0,0.5);
+      padding: 8px 18px;
+      border-radius: 10px;
+    }
+    #gameOver {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 40px;
+      color: #fff;
+      display: none;
+      background: rgba(0,0,0,0.7);
+      padding: 20px;
+      border-radius: 15px;
+      animation: pop 0.5s ease-in-out;
+    }
+    @keyframes pop {
+      from { transform: translate(-50%,-50%) scale(0.5); }
+      to { transform: translate(-50%,-50%) scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div id="scoreBoard">Score: 0</div>
+  <div id="gameOver">💥 Game Over!<br>Tap to Restart</div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let fruits = [];
+    let score = 0;
+    let gameOver = false;
+
+    const fruitColors = ["red", "green", "yellow", "orange", "pink"];
+    const fruitEmoji = ["🍎","🍉","🍊","🍌","🍓"];
+    const bombs = ["💣","🧨"];
+
+    // नया fruit या bomb बनाओ
+    function spawnFruit() {
+      const isBomb = Math.random() < 0.15; 
+      const fruit = {
+        x: Math.random() * (canvas.width - 60) + 30,
+        y: canvas.height + 50,
+        size: 40,
+        speed: Math.random() * 4 + 2 + score * 0.05,
+        emoji: isBomb ? bombs[Math.floor(Math.random()*bombs.length)] : fruitEmoji[Math.floor(Math.random()*fruitEmoji.length)],
+        bomb: isBomb
+      };
+      fruits.push(fruit);
+    }
+
+    function drawFruit(fruit) {
+      ctx.font = fruit.size + "px Arial";
+      ctx.fillText(fruit.emoji, fruit.x, fruit.y);
+    }
+
+    function updateFruits() {
+      for (let i = 0; i < fruits.length; i++) {
+        let f = fruits[i];
+        f.y -= f.speed;
+        drawFruit(f);
+
+        // fruit miss hone par kuch nahi hoga (game over nahi)
+        if (f.y < -50) {
+          fruits.splice(i,1);
+          i--;
+        }
+      }
+    }
+
+    function gameLoop() {
+      if (gameOver) return;
+
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      updateFruits();
+
+      if (Math.random() < 0.03) spawnFruit();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function cutFruit(x,y) {
+      for (let i = 0; i < fruits.length; i++) {
+        let f = fruits[i];
+        if (x > f.x-30 && x < f.x+30 && y > f.y-30 && y < f.y+30) {
+          if (f.bomb) {
+            endGame();
+          } else {
+            score++;
+            document.getElementById("scoreBoard").innerText = "Score: " + score;
+          }
+          fruits.splice(i,1);
+          return;
+        }
+      }
+    }
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById("gameOver").style.display = "block";
+    }
+
+    function restartGame() {
+      fruits = [];
+      score = 0;
+      gameOver = false;
+      document.getElementById("scoreBoard").innerText = "Score: 0";
+      document.getElementById("gameOver").style.display = "none";
+      gameLoop();
+    }
+
+    canvas.addEventListener("click", (e)=>cutFruit(e.clientX, e.clientY));
+    canvas.addEventListener("touchstart", (e)=>{
+      let touch = e.touches[0];
+      cutFruit(touch.clientX, touch.clientY);
+    });
+    document.getElementById("gameOver").addEventListener("click", restartGame);
+
+    gameLoop();
+  </script>
+</body>
+</html>
