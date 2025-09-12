@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Cut Game 🍉</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
+      background:linear-gradient(135deg,#001f3f,#003366);
+      font-family:Arial, sans-serif;
+      overflow:hidden;
+    }
+    #gameCanvas{
+      background:#111;
+      border:3px solid #0ff;
+      border-radius:20px;
+      box-shadow:0 0 25px #0ff;
+      touch-action:none; /* touch gestures smooth */
+    }
+    #scoreBoard{
+      position:absolute;
+      top:15px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:20px;
+      color:#fff;
+      background:rgba(0,0,0,0.5);
+      padding:8px 20px;
+      border-radius:10px;
+      border:2px solid #0ff;
+    }
+  </style>
+</head>
+<body>
+  <div id="scoreBoard">Score: 0</div>
+  <canvas id="gameCanvas" width="360" height="550"></canvas>
+
+  <script>
+    const canvas=document.getElementById("gameCanvas");
+    const ctx=canvas.getContext("2d");
+
+    let score=0;
+    let fruits=[];
+    let slices=[];
+    let trail=[]; // finger trail
+
+    // Fruit & Bomb Images
+    const fruitImages=[
+      "https://i.ibb.co/zxgH7pP/apple.png",
+      "https://i.ibb.co/3zMhg7C/banana.png",
+      "https://i.ibb.co/6wW3dDw/watermelon.png",
+      "https://i.ibb.co/0r5Pm0W/strawberry.png",
+      "https://i.ibb.co/VHvXZ7T/orange.png"
+    ];
+    const bombImage="https://i.ibb.co/LPfKQmV/bomb.png";
+
+    function loadImage(src){
+      return new Promise(resolve=>{
+        const img=new Image();
+        img.src=src;
+        img.onload=()=>resolve(img);
+      });
+    }
+
+    let loadedFruits=[];
+    let bombImg=null;
+
+    Promise.all(fruitImages.map(src=>loadImage(src)))
+      .then(images=>{
+        loadedFruits=images;
+        return loadImage(bombImage);
+      })
+      .then(img=>{
+        bombImg=img;
+        gameLoop();
+        setInterval(spawnFruit,1200);
+      });
+
+    class Fruit{
+      constructor(x,y,speed,img,isBomb){
+        this.x=x;
+        this.y=y;
+        this.speed=speed;
+        this.img=img;
+        this.isBomb=isBomb;
+        this.size=50;
+      }
+      draw(){
+        ctx.drawImage(this.img,this.x-this.size/2,this.y-this.size/2,this.size,this.size);
+      }
+      update(){
+        this.y+=this.speed;
+      }
+    }
+
+    class SliceEffect{
+      constructor(x,y){
+        this.x=x;
+        this.y=y;
+        this.alpha=1;
+      }
+      draw(){
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,20,0,Math.PI*2);
+        ctx.fillStyle="rgba(255,255,255,"+this.alpha+")";
+        ctx.fill();
+      }
+      update(){
+        this.alpha-=0.05;
+      }
+    }
+
+    function spawnFruit(){
+      let x=Math.random()*(canvas.width-60)+30;
+      let y=-30;
+      let speed=Math.random()*3+2;
+      let isBomb=Math.random()<0.15;
+      let img=isBomb?bombImg:loadedFruits[Math.floor(Math.random()*loadedFruits.length)];
+      fruits.push(new Fruit(x,y,speed,img,isBomb));
+    }
+
+    function drawFruits(){
+      for(let i=0;i<fruits.length;i++){
+        fruits[i].draw();
+        fruits[i].update();
+        if(fruits[i].y>canvas.height+30){
+          fruits.splice(i,1);
+        }
+      }
+    }
+
+    function drawSlices(){
+      for(let i=0;i<slices.length;i++){
+        slices[i].draw();
+        slices[i].update();
+        if(slices[i].alpha<=0){
+          slices.splice(i,1);
+        }
+      }
+    }
+
+    function drawTrail(){
+      ctx.beginPath();
+      for(let i=0;i<trail.length;i++){
+        let p=trail[i];
+        ctx.lineTo(p.x,p.y);
+      }
+      ctx.strokeStyle="rgba(0,255,255,0.7)";
+      ctx.lineWidth=5;
+      ctx.lineCap="round";
+      ctx.stroke();
+
+      // fade trail
+      if(trail.length>12) trail.shift();
+    }
+
+    function updateScore(){
+      document.getElementById("scoreBoard").innerText=`Score: ${score}`;
+    }
+
+    function sliceAt(x,y){
+      for(let i=0;i<fruits.length;i++){
+        let dx=x-fruits[i].x;
+        let dy=y-fruits[i].y;
+        let distance=Math.sqrt(dx*dx+dy*dy);
+        if(distance<30){
+          if(fruits[i].isBomb){
+            alert("💣 Bomb Cut! Game Over!\nFinal Score: "+score);
+            document.location.reload();
+            return;
+          }else{
+            score++;
+            updateScore();
+            slices.push(new SliceEffect(fruits[i].x,fruits[i].y));
+            fruits.splice(i,1);
+            break;
+          }
+        }
+      }
+    }
+
+    // Mouse control
+    canvas.addEventListener("mousemove",function(e){
+      const rect=canvas.getBoundingClientRect();
+      const x=e.clientX-rect.left;
+      const y=e.clientY-rect.top;
+      trail.push({x,y});
+      sliceAt(x,y);
+    });
+
+    // Touch control
+    canvas.addEventListener("touchmove",function(e){
+      const rect=canvas.getBoundingClientRect();
+      const x=e.touches[0].clientX-rect.left;
+      const y=e.touches[0].clientY-rect.top;
+      trail.push({x,y});
+      sliceAt(x,y);
+    });
+
+    function gameLoop(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawFruits();
+      drawSlices();
+      drawTrail();
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Cut Game 🍉</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
+      background:linear-gradient(135deg,#001f3f,#003366);
+      font-family:Arial, sans-serif;
+      overflow:hidden;
+    }
+    #gameCanvas{
+      background:#111;
+      border:3px solid #0ff;
+      border-radius:20px;
+      box-shadow:0 0 25px #0ff;
+      touch-action:none; /* touch gestures smooth */
+    }
+    #scoreBoard{
+      position:absolute;
+      top:15px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:20px;
+      color:#fff;
+      background:rgba(0,0,0,0.5);
+      padding:8px 20px;
+      border-radius:10px;
+      border:2px solid #0ff;
+    }
+  </style>
+</head>
+<body>
+  <div id="scoreBoard">Score: 0</div>
+  <canvas id="gameCanvas" width="360" height="550"></canvas>
+
+  <script>
+    const canvas=document.getElementById("gameCanvas");
+    const ctx=canvas.getContext("2d");
+
+    let score=0;
+    let fruits=[];
+    let slices=[];
+    let trail=[]; // finger trail
+
+    // Fruit & Bomb Images
+    const fruitImages=[
+      "https://i.ibb.co/zxgH7pP/apple.png",
+      "https://i.ibb.co/3zMhg7C/banana.png",
+      "https://i.ibb.co/6wW3dDw/watermelon.png",
+      "https://i.ibb.co/0r5Pm0W/strawberry.png",
+      "https://i.ibb.co/VHvXZ7T/orange.png"
+    ];
+    const bombImage="https://i.ibb.co/LPfKQmV/bomb.png";
+
+    function loadImage(src){
+      return new Promise(resolve=>{
+        const img=new Image();
+        img.src=src;
+        img.onload=()=>resolve(img);
+      });
+    }
+
+    let loadedFruits=[];
+    let bombImg=null;
+
+    Promise.all(fruitImages.map(src=>loadImage(src)))
+      .then(images=>{
+        loadedFruits=images;
+        return loadImage(bombImage);
+      })
+      .then(img=>{
+        bombImg=img;
+        gameLoop();
+        setInterval(spawnFruit,1200);
+      });
+
+    class Fruit{
+      constructor(x,y,speed,img,isBomb){
+        this.x=x;
+        this.y=y;
+        this.speed=speed;
+        this.img=img;
+        this.isBomb=isBomb;
+        this.size=50;
+      }
+      draw(){
+        ctx.drawImage(this.img,this.x-this.size/2,this.y-this.size/2,this.size,this.size);
+      }
+      update(){
+        this.y+=this.speed;
+      }
+    }
+
+    class SliceEffect{
+      constructor(x,y){
+        this.x=x;
+        this.y=y;
+        this.alpha=1;
+      }
+      draw(){
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,20,0,Math.PI*2);
+        ctx.fillStyle="rgba(255,255,255,"+this.alpha+")";
+        ctx.fill();
+      }
+      update(){
+        this.alpha-=0.05;
+      }
+    }
+
+    function spawnFruit(){
+      let x=Math.random()*(canvas.width-60)+30;
+      let y=-30;
+      let speed=Math.random()*3+2;
+      let isBomb=Math.random()<0.15;
+      let img=isBomb?bombImg:loadedFruits[Math.floor(Math.random()*loadedFruits.length)];
+      fruits.push(new Fruit(x,y,speed,img,isBomb));
+    }
+
+    function drawFruits(){
+      for(let i=0;i<fruits.length;i++){
+        fruits[i].draw();
+        fruits[i].update();
+        if(fruits[i].y>canvas.height+30){
+          fruits.splice(i,1);
+        }
+      }
+    }
+
+    function drawSlices(){
+      for(let i=0;i<slices.length;i++){
+        slices[i].draw();
+        slices[i].update();
+        if(slices[i].alpha<=0){
+          slices.splice(i,1);
+        }
+      }
+    }
+
+    function drawTrail(){
+      ctx.beginPath();
+      for(let i=0;i<trail.length;i++){
+        let p=trail[i];
+        ctx.lineTo(p.x,p.y);
+      }
+      ctx.strokeStyle="rgba(0,255,255,0.7)";
+      ctx.lineWidth=5;
+      ctx.lineCap="round";
+      ctx.stroke();
+
+      // fade trail
+      if(trail.length>12) trail.shift();
+    }
+
+    function updateScore(){
+      document.getElementById("scoreBoard").innerText=`Score: ${score}`;
+    }
+
+    function sliceAt(x,y){
+      for(let i=0;i<fruits.length;i++){
+        let dx=x-fruits[i].x;
+        let dy=y-fruits[i].y;
+        let distance=Math.sqrt(dx*dx+dy*dy);
+        if(distance<30){
+          if(fruits[i].isBomb){
+            alert("💣 Bomb Cut! Game Over!\nFinal Score: "+score);
+            document.location.reload();
+            return;
+          }else{
+            score++;
+            updateScore();
+            slices.push(new SliceEffect(fruits[i].x,fruits[i].y));
+            fruits.splice(i,1);
+            break;
+          }
+        }
+      }
+    }
+
+    // Mouse control
+    canvas.addEventListener("mousemove",function(e){
+      const rect=canvas.getBoundingClientRect();
+      const x=e.clientX-rect.left;
+      const y=e.clientY-rect.top;
+      trail.push({x,y});
+      sliceAt(x,y);
+    });
+
+    // Touch control
+    canvas.addEventListener("touchmove",function(e){
+      const rect=canvas.getBoundingClientRect();
+      const x=e.touches[0].clientX-rect.left;
+      const y=e.touches[0].clientY-rect.top;
+      trail.push({x,y});
+      sliceAt(x,y);
+    });
+
+    function gameLoop(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawFruits();
+      drawSlices();
+      drawTrail();
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
