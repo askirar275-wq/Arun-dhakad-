@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Ninja 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg,#ff9a9e,#fad0c4);
+    overflow:hidden;
+  }
+  canvas {
+    display:block;
+    margin:auto;
+    background:#111;
+    border:3px solid #fff;
+  }
+  #overlay {
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,0,0,0.85);
+    color:#fff;
+    text-align:center;
+    padding:20px;
+  }
+  #overlay h1 {
+    font-size:2.5em;
+    margin-bottom:10px;
+    animation: glow 2s infinite alternate;
+  }
+  @keyframes glow {
+    from { text-shadow:0 0 10px #fff;}
+    to { text-shadow:0 0 20px #ff0;}
+  }
+  .btn {
+    padding:10px 20px;
+    margin:10px;
+    border:2px solid #fff;
+    background:transparent;
+    color:#fff;
+    font-size:1.2em;
+    border-radius:12px;
+    cursor:pointer;
+    transition:all 0.3s;
+  }
+  .btn:hover {background:#fff;color:#000;transform:scale(1.1);}
+  .settings {
+    background:rgba(255,255,255,0.1);
+    padding:15px;
+    border-radius:10px;
+    margin:10px;
+    width:260px;
+    text-align:left;
+  }
+  .settings label {display:block;margin:8px 0 4px;}
+  .settings select {width:100%;padding:5px;border-radius:6px;border:none;}
+  .instructions {
+    background:rgba(255,255,255,0.1);
+    padding:10px;
+    border-radius:8px;
+    margin-top:10px;
+    font-size:0.9em;
+    text-align:left;
+  }
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <h1>🍉 Fruit Ninja 🍌</h1>
+  <div id="highScoreBox">🏆 High Score: 0</div>
+  <div class="settings">
+    <label>🎚️ Difficulty:</label>
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+    <label>🍎 Fruit Size:</label>
+    <select id="fruitSize">
+      <option value="small">Small</option>
+      <option value="medium" selected>Medium</option>
+      <option value="large">Large</option>
+    </select>
+    <label>🎨 Theme:</label>
+    <select id="theme">
+      <option value="dark" selected>Dark</option>
+      <option value="light">Light</option>
+    </select>
+    <label>🔊 Sound:</label>
+    <select id="sound">
+      <option value="on" selected>ON</option>
+      <option value="off">OFF</option>
+    </select>
+  </div>
+  <div class="instructions">
+    📜 <b>कैसे खेलें:</b><br>
+    ➡️ Swipe करके फल काटो 🍎<br>
+    ➡️ बम से बचो 💣<br>
+    ➡️ जितना ज्यादा स्कोर उतना अच्छा 🏅
+  </div>
+  <button class="btn" onclick="startGame()">▶️ Start Game</button>
+  <button class="btn" onclick="resetHighScore()">🔁 Reset High Score</button>
+</div>
+
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<script>
+let canvas=document.getElementById("gameCanvas");
+let ctx=canvas.getContext("2d");
+
+let fruits=[];
+let slices=[];
+let score=0,highScore=0;
+let gameRunning=false;
+let fruitSize=40;
+
+// गेम स्टार्ट करना
+function startGame(){
+  document.getElementById("overlay").style.display="none";
+  fruits=[];
+  slices=[];
+  score=0;
+  gameRunning=true;
+  animate();
+}
+
+// हाईस्कोर रीसेट
+function resetHighScore(){
+  highScore=0;
+  document.getElementById("highScoreBox").innerText="🏆 High Score: "+highScore;
+}
+
+// फ्रूट क्लास
+class Fruit{
+  constructor(x,y,isBomb=false){
+    this.x=x;
+    this.y=y;
+    this.vy=Math.random()*-8-4;
+    this.vx=Math.random()*4-2;
+    this.isBomb=isBomb;
+  }
+  update(){
+    this.x+=this.vx;
+    this.y+=this.vy;
+    this.vy+=0.2;
+    ctx.fillStyle=this.isBomb?"red":"lime";
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,fruitSize/2,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// फ्रूट स्पॉन करना
+function spawnFruit(){
+  let isBomb=Math.random()<0.1;
+  fruits.push(new Fruit(Math.random()*canvas.width,canvas.height,isBomb));
+}
+
+// स्लाइस चेक करना
+function checkSlice(x,y){
+  fruits.forEach((fruit,index)=>{
+    if(x>fruit.x-fruitSize/2 && x<fruit.x+fruitSize/2 && y>fruit.y-fruitSize/2 && y<fruit.y+fruitSize/2){
+      if(fruit.isBomb){endGame();}
+      else {
+        score++;
+        fruits.splice(index,1);
+      }
+    }
+  });
+}
+
+// गेम ओवर
+function endGame(){
+  gameRunning=false;
+  if(score>highScore){highScore=score;}
+  document.getElementById("overlay").style.display="flex";
+  document.getElementById("highScoreBox").innerText="🏆 High Score: "+highScore;
+}
+
+// एनीमेशन
+function animate(){
+  if(!gameRunning) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(Math.random()<0.03) spawnFruit();
+
+  fruits.forEach((fruit,index)=>{
+    fruit.update();
+    if(fruit.y>canvas.height){fruits.splice(index,1);}
+  });
+
+  slices.forEach((s,i)=>{
+    ctx.strokeStyle="rgba(255,255,255,"+s.alpha+")";
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(s.x1,s.y1);
+    ctx.lineTo(s.x2,s.y2);
+    ctx.stroke();
+    s.alpha-=0.05;
+    if(s.alpha<=0) slices.splice(i,1);
+  });
+
+  ctx.fillStyle="#fff";
+  ctx.font="20px Arial";
+  ctx.fillText("Score: "+score,10,30);
+
+  requestAnimationFrame(animate);
+}
+
+// Mouse और Touch Events
+let isSwiping=false,lastX=0,lastY=0;
+
+canvas.addEventListener("mousedown",e=>{
+  isSwiping=true;
+  lastX=e.offsetX; lastY=e.offsetY;
+});
+canvas.addEventListener("mousemove",e=>{
+  if(!isSwiping) return;
+  const x=e.offsetX,y=e.offsetY;
+  slices.push({x1:lastX,y1:lastY,x2:x,y2:y,alpha:1});
+  checkSlice(x,y);
+  lastX=x; lastY=y;
+});
+canvas.addEventListener("mouseup",()=>{isSwiping=false;});
+
+canvas.addEventListener("touchstart",e=>{
+  isSwiping=true;
+  const t=e.touches[0];
+  lastX=t.clientX-canvas.getBoundingClientRect().left;
+  lastY=t.clientY-canvas.getBoundingClientRect().top;
+});
+canvas.addEventListener("touchmove",e=>{
+  if(!isSwiping) return;
+  const t=e.touches[0];
+  const x=t.clientX-canvas.getBoundingClientRect().left;
+  const y=t.clientY-canvas.getBoundingClientRect().top;
+  slices.push({x1:lastX,y1:lastY,x2:x,y2:y,alpha:1});
+  checkSlice(x,y);
+  lastX=x; lastY=y;
+});
+canvas.addEventListener("touchend",()=>{isSwiping=false;});
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Ninja 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg,#ff9a9e,#fad0c4);
+    overflow:hidden;
+  }
+  canvas {
+    display:block;
+    margin:auto;
+    background:#111;
+    border:3px solid #fff;
+  }
+  #overlay {
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,0,0,0.85);
+    color:#fff;
+    text-align:center;
+    padding:20px;
+  }
+  #overlay h1 {
+    font-size:2.5em;
+    margin-bottom:10px;
+    animation: glow 2s infinite alternate;
+  }
+  @keyframes glow {
+    from { text-shadow:0 0 10px #fff;}
+    to { text-shadow:0 0 20px #ff0;}
+  }
+  .btn {
+    padding:10px 20px;
+    margin:10px;
+    border:2px solid #fff;
+    background:transparent;
+    color:#fff;
+    font-size:1.2em;
+    border-radius:12px;
+    cursor:pointer;
+    transition:all 0.3s;
+  }
+  .btn:hover {background:#fff;color:#000;transform:scale(1.1);}
+  .settings {
+    background:rgba(255,255,255,0.1);
+    padding:15px;
+    border-radius:10px;
+    margin:10px;
+    width:260px;
+    text-align:left;
+  }
+  .settings label {display:block;margin:8px 0 4px;}
+  .settings select {width:100%;padding:5px;border-radius:6px;border:none;}
+  .instructions {
+    background:rgba(255,255,255,0.1);
+    padding:10px;
+    border-radius:8px;
+    margin-top:10px;
+    font-size:0.9em;
+    text-align:left;
+  }
+</style>
+</head>
+<body>
+
+<div id="overlay">
+  <h1>🍉 Fruit Ninja 🍌</h1>
+  <div id="highScoreBox">🏆 High Score: 0</div>
+  <div class="settings">
+    <label>🎚️ Difficulty:</label>
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+    <label>🍎 Fruit Size:</label>
+    <select id="fruitSize">
+      <option value="small">Small</option>
+      <option value="medium" selected>Medium</option>
+      <option value="large">Large</option>
+    </select>
+    <label>🎨 Theme:</label>
+    <select id="theme">
+      <option value="dark" selected>Dark</option>
+      <option value="light">Light</option>
+    </select>
+    <label>🔊 Sound:</label>
+    <select id="sound">
+      <option value="on" selected>ON</option>
+      <option value="off">OFF</option>
+    </select>
+  </div>
+  <div class="instructions">
+    📜 <b>कैसे खेलें:</b><br>
+    ➡️ Swipe करके फल काटो 🍎<br>
+    ➡️ बम से बचो 💣<br>
+    ➡️ जितना ज्यादा स्कोर उतना अच्छा 🏅
+  </div>
+  <button class="btn" onclick="startGame()">▶️ Start Game</button>
+  <button class="btn" onclick="resetHighScore()">🔁 Reset High Score</button>
+</div>
+
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<script>
+let canvas=document.getElementById("gameCanvas");
+let ctx=canvas.getContext("2d");
+
+let fruits=[];
+let slices=[];
+let score=0,highScore=0;
+let gameRunning=false;
+let fruitSize=40;
+
+// गेम स्टार्ट करना
+function startGame(){
+  document.getElementById("overlay").style.display="none";
+  fruits=[];
+  slices=[];
+  score=0;
+  gameRunning=true;
+  animate();
+}
+
+// हाईस्कोर रीसेट
+function resetHighScore(){
+  highScore=0;
+  document.getElementById("highScoreBox").innerText="🏆 High Score: "+highScore;
+}
+
+// फ्रूट क्लास
+class Fruit{
+  constructor(x,y,isBomb=false){
+    this.x=x;
+    this.y=y;
+    this.vy=Math.random()*-8-4;
+    this.vx=Math.random()*4-2;
+    this.isBomb=isBomb;
+  }
+  update(){
+    this.x+=this.vx;
+    this.y+=this.vy;
+    this.vy+=0.2;
+    ctx.fillStyle=this.isBomb?"red":"lime";
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,fruitSize/2,0,Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// फ्रूट स्पॉन करना
+function spawnFruit(){
+  let isBomb=Math.random()<0.1;
+  fruits.push(new Fruit(Math.random()*canvas.width,canvas.height,isBomb));
+}
+
+// स्लाइस चेक करना
+function checkSlice(x,y){
+  fruits.forEach((fruit,index)=>{
+    if(x>fruit.x-fruitSize/2 && x<fruit.x+fruitSize/2 && y>fruit.y-fruitSize/2 && y<fruit.y+fruitSize/2){
+      if(fruit.isBomb){endGame();}
+      else {
+        score++;
+        fruits.splice(index,1);
+      }
+    }
+  });
+}
+
+// गेम ओवर
+function endGame(){
+  gameRunning=false;
+  if(score>highScore){highScore=score;}
+  document.getElementById("overlay").style.display="flex";
+  document.getElementById("highScoreBox").innerText="🏆 High Score: "+highScore;
+}
+
+// एनीमेशन
+function animate(){
+  if(!gameRunning) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(Math.random()<0.03) spawnFruit();
+
+  fruits.forEach((fruit,index)=>{
+    fruit.update();
+    if(fruit.y>canvas.height){fruits.splice(index,1);}
+  });
+
+  slices.forEach((s,i)=>{
+    ctx.strokeStyle="rgba(255,255,255,"+s.alpha+")";
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(s.x1,s.y1);
+    ctx.lineTo(s.x2,s.y2);
+    ctx.stroke();
+    s.alpha-=0.05;
+    if(s.alpha<=0) slices.splice(i,1);
+  });
+
+  ctx.fillStyle="#fff";
+  ctx.font="20px Arial";
+  ctx.fillText("Score: "+score,10,30);
+
+  requestAnimationFrame(animate);
+}
+
+// Mouse और Touch Events
+let isSwiping=false,lastX=0,lastY=0;
+
+canvas.addEventListener("mousedown",e=>{
+  isSwiping=true;
+  lastX=e.offsetX; lastY=e.offsetY;
+});
+canvas.addEventListener("mousemove",e=>{
+  if(!isSwiping) return;
+  const x=e.offsetX,y=e.offsetY;
+  slices.push({x1:lastX,y1:lastY,x2:x,y2:y,alpha:1});
+  checkSlice(x,y);
+  lastX=x; lastY=y;
+});
+canvas.addEventListener("mouseup",()=>{isSwiping=false;});
+
+canvas.addEventListener("touchstart",e=>{
+  isSwiping=true;
+  const t=e.touches[0];
+  lastX=t.clientX-canvas.getBoundingClientRect().left;
+  lastY=t.clientY-canvas.getBoundingClientRect().top;
+});
+canvas.addEventListener("touchmove",e=>{
+  if(!isSwiping) return;
+  const t=e.touches[0];
+  const x=t.clientX-canvas.getBoundingClientRect().left;
+  const y=t.clientY-canvas.getBoundingClientRect().top;
+  slices.push({x1:lastX,y1:lastY,x2:x,y2:y,alpha:1});
+  checkSlice(x,y);
+  lastX=x; lastY=y;
+});
+canvas.addEventListener("touchend",()=>{isSwiping=false;});
+</script>
+</body>
+</html>
