@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Ninja Lite 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:sans-serif;background:linear-gradient(135deg,#ff9a9e,#fad0c4);
+       height:100vh;overflow:hidden;display:flex;justify-content:center;align-items:center;}
+  #home,#gameScreen,#shopModal,#couponModal,#gameOverModal{
+       position:absolute;top:0;left:0;width:100%;height:100%;display:none;
+       flex-direction:column;justify-content:center;align-items:center;}
+  #home{display:flex;gap:15px;flex-wrap:wrap;padding:20px;}
+  .card{background:rgba(255,255,255,0.7);padding:15px 25px;border-radius:15px;
+       box-shadow:0 4px 12px rgba(0,0,0,0.2);text-align:center;cursor:pointer;transition:.2s;}
+  .card:hover{transform:scale(1.05);}
+  button{padding:10px 20px;border:2px solid #333;border-radius:12px;background:#fff;
+         cursor:pointer;font-size:16px;transition:.2s;}
+  button:hover{background:#333;color:#fff;}
+  #gameCanvas{background:#222;border-radius:12px;touch-action:none;}
+  .modal{background:rgba(0,0,0,0.6);justify-content:center;align-items:center;}
+  .modalContent{background:#fff;padding:20px;border-radius:15px;text-align:center;max-width:300px;}
+</style>
+</head>
+<body>
+
+<!-- Home -->
+<div id="home">
+  <div class="card" onclick="startGame()">▶️ Start</div>
+  <div class="card" onclick="openModal('shopModal')">🛒 Shop</div>
+  <div class="card">🏆 High Score</div>
+  <div class="card">ℹ️ About</div>
+  <div style="width:100%;text-align:center;">
+    <h3>Fruit Ninja by Arun</h3>
+    <p>Coins: <span id="coinDisplay">0</span> | Level: <span id="levelDisplay">1</span></p>
+  </div>
+</div>
+
+<!-- Game -->
+<div id="gameScreen">
+  <canvas id="gameCanvas" width="320" height="480"></canvas>
+  <p>Score: <span id="scoreDisplay">0</span> | Time: <span id="timeDisplay">60</span></p>
+  <button onclick="endToHome()">🏠 Home</button>
+</div>
+
+<!-- Shop -->
+<div id="shopModal" class="modal">
+  <div class="modalContent">
+    <h3>Shop</h3>
+    <p>Coins: <span id="shopCoins">0</span></p>
+    <button onclick="buyExtraTime()">+30s (10 coins)</button><br><br>
+    <button onclick="closeModal('shopModal')">Close</button>
+  </div>
+</div>
+
+<!-- Coupon -->
+<div id="couponModal" class="modal">
+  <div class="modalContent">
+    <h3>🎁 Coupon Reward</h3>
+    <p id="couponText"></p>
+    <button onclick="applyCouponAndStartNext()">Continue</button>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div id="gameOverModal" class="modal">
+  <div class="modalContent">
+    <h3>Game Over!</h3>
+    <p>Score: <span id="finalScore">0</span></p>
+    <p>Fruits Cut: <span id="singleCuts">0</span> | Combos: <span id="comboCuts">0</span></p>
+    <p>Total Coins: <span id="finalCoins">0</span></p>
+    <p>Home in 3s...</p>
+  </div>
+</div>
+
+<script>
+let coins=parseInt(localStorage.getItem('fn_coins')||'0',10);
+let currentLevel=parseInt(localStorage.getItem('fn_level')||'1',10);
+document.getElementById('coinDisplay').innerText=coins;
+document.getElementById('levelDisplay').innerText=currentLevel;
+
+let canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+let fruits=[],score=0,gameTimer=60,gameRunning=false,spawnInterval,timerInterval;
+let singleCuts=0,comboCuts=0;
+
+const fruitEmojis=["🍎","🍌","🍑","🍉"],bombEmoji="💣";
+
+function startGame(){
+  document.getElementById('home').style.display='none';
+  document.getElementById('gameScreen').style.display='flex';
+  startLevel(currentLevel);
+}
+
+function startLevel(level){
+  fruits=[];score=0;singleCuts=0;comboCuts=0;gameRunning=true;gameTimer=60;
+  let extra=parseInt(localStorage.getItem('fn_extraTime')||'0',10);
+  if(extra>0){gameTimer+=extra;localStorage.removeItem('fn_extraTime');}
+  updateUI();
+  clearInterval(spawnInterval);clearInterval(timerInterval);
+  spawnInterval=setInterval(spawnFruit,1000);
+  timerInterval=setInterval(()=>{
+    gameTimer--;updateUI();
+    if(gameTimer<=0){stopGame();levelCompleted();}
+  },1000);
+  requestAnimationFrame(animate);
+}
+
+function spawnFruit(){
+  let emoji=Math.random()<0.1?bombEmoji:fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  let x=Math.random()*canvas.width,y=canvas.height+30;
+  let speedY=-(5+Math.random()*5),speedX=(Math.random()-0.5)*4;
+  fruits.push({x,y,sx:speedX,sy:speedY,r:20,emoji});
+}
+
+function animate(){
+  if(!gameRunning)return;
+  ctx.fillStyle="#222";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font="24px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+  for(let f of fruits){f.x+=f.sx;f.y+=f.sy;f.sy+=0.2;ctx.fillText(f.emoji,f.x,f.y);}
+  fruits=fruits.filter(f=>f.y<canvas.height+40);
+  requestAnimationFrame(animate);
+}
+
+// swipe cut
+let last=null;
+function cutAt(x,y){
+  if(!gameRunning)return;
+  let hit=[];
+  for(let i=fruits.length-1;i>=0;i--){
+    let f=fruits[i],dx=x-f.x,dy=y-f.y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.r){
+      hit.push(f);fruits.splice(i,1);
+    }
+  }
+  if(hit.length>0){
+    for(let f of hit){
+      if(f.emoji===bombEmoji){stopGame();showGameOver();return;}
+      score++;coins++;singleCuts++;
+    }
+    if(hit.length>1){comboCuts++;coins+=hit.length*5;}
+    updateUI();
+  }
+  // blade line
+  if(last){
+    ctx.strokeStyle="white";ctx.lineWidth=2;ctx.beginPath();
+    ctx.moveTo(last.x,last.y);ctx.lineTo(x,y);ctx.stroke();
+  }
+  last={x,y};
+}
+canvas.addEventListener("mousemove",e=>{
+  if(e.buttons>0)cutAt(e.offsetX,e.offsetY);
+});
+canvas.addEventListener("touchmove",e=>{
+  let r=canvas.getBoundingClientRect();
+  cutAt(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top);
+});
+
+function updateUI(){
+  document.getElementById('scoreDisplay').innerText=score;
+  document.getElementById('timeDisplay').innerText=gameTimer;
+  document.getElementById('coinDisplay').innerText=coins;
+}
+
+function stopGame(){gameRunning=false;clearInterval(spawnInterval);clearInterval(timerInterval);}
+
+function levelCompleted(){
+  coins+=5;localStorage.setItem('fn_coins',coins);
+  currentLevel++;localStorage.setItem('fn_level',currentLevel);
+  document.getElementById('levelDisplay').innerText=currentLevel;
+  if(currentLevel%5===0){
+    let reward=Math.random()<0.5?'time':'coins';
+    if(reward==='time'){localStorage.setItem('fn_extraTime',30);
+      document.getElementById('couponText').innerText='+30s Bonus Time!';}
+    else{coins+=20;localStorage.setItem('fn_coins',coins);
+      document.getElementById('couponText').innerText='+20 Coins!';}
+    openModal('couponModal');
+  }else endToHome();
+}
+
+function showGameOver(){
+  document.getElementById('finalScore').innerText=score;
+  document.getElementById('singleCuts').innerText=singleCuts;
+  document.getElementById('comboCuts').innerText=comboCuts;
+  document.getElementById('finalCoins').innerText=coins;
+  openModal('gameOverModal');
+  setTimeout(()=>{closeModal('gameOverModal');endToHome();},3000);
+}
+
+function buyExtraTime(){
+  if(coins>=10){coins-=10;localStorage.setItem('fn_coins',coins);
+    localStorage.setItem('fn_extraTime',30);alert('+30s purchased! Next level me milega');
+    document.getElementById('shopCoins').innerText=coins;updateUI();}
+  else alert('Not enough coins!');
+}
+function applyCouponAndStartNext(){closeModal('couponModal');startGame();}
+function endToHome(){stopGame();document.getElementById('gameScreen').style.display='none';
+  document.getElementById('home').style.display='flex';}
+function openModal(id){document.getElementById(id).style.display='flex';}
+function closeModal(id){document.getElementById(id).style.display='none';}
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Ninja Lite 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:sans-serif;background:linear-gradient(135deg,#ff9a9e,#fad0c4);
+       height:100vh;overflow:hidden;display:flex;justify-content:center;align-items:center;}
+  #home,#gameScreen,#shopModal,#couponModal,#gameOverModal{
+       position:absolute;top:0;left:0;width:100%;height:100%;display:none;
+       flex-direction:column;justify-content:center;align-items:center;}
+  #home{display:flex;gap:15px;flex-wrap:wrap;padding:20px;}
+  .card{background:rgba(255,255,255,0.7);padding:15px 25px;border-radius:15px;
+       box-shadow:0 4px 12px rgba(0,0,0,0.2);text-align:center;cursor:pointer;transition:.2s;}
+  .card:hover{transform:scale(1.05);}
+  button{padding:10px 20px;border:2px solid #333;border-radius:12px;background:#fff;
+         cursor:pointer;font-size:16px;transition:.2s;}
+  button:hover{background:#333;color:#fff;}
+  #gameCanvas{background:#222;border-radius:12px;touch-action:none;}
+  .modal{background:rgba(0,0,0,0.6);justify-content:center;align-items:center;}
+  .modalContent{background:#fff;padding:20px;border-radius:15px;text-align:center;max-width:300px;}
+</style>
+</head>
+<body>
+
+<!-- Home -->
+<div id="home">
+  <div class="card" onclick="startGame()">▶️ Start</div>
+  <div class="card" onclick="openModal('shopModal')">🛒 Shop</div>
+  <div class="card">🏆 High Score</div>
+  <div class="card">ℹ️ About</div>
+  <div style="width:100%;text-align:center;">
+    <h3>Fruit Ninja by Arun</h3>
+    <p>Coins: <span id="coinDisplay">0</span> | Level: <span id="levelDisplay">1</span></p>
+  </div>
+</div>
+
+<!-- Game -->
+<div id="gameScreen">
+  <canvas id="gameCanvas" width="320" height="480"></canvas>
+  <p>Score: <span id="scoreDisplay">0</span> | Time: <span id="timeDisplay">60</span></p>
+  <button onclick="endToHome()">🏠 Home</button>
+</div>
+
+<!-- Shop -->
+<div id="shopModal" class="modal">
+  <div class="modalContent">
+    <h3>Shop</h3>
+    <p>Coins: <span id="shopCoins">0</span></p>
+    <button onclick="buyExtraTime()">+30s (10 coins)</button><br><br>
+    <button onclick="closeModal('shopModal')">Close</button>
+  </div>
+</div>
+
+<!-- Coupon -->
+<div id="couponModal" class="modal">
+  <div class="modalContent">
+    <h3>🎁 Coupon Reward</h3>
+    <p id="couponText"></p>
+    <button onclick="applyCouponAndStartNext()">Continue</button>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div id="gameOverModal" class="modal">
+  <div class="modalContent">
+    <h3>Game Over!</h3>
+    <p>Score: <span id="finalScore">0</span></p>
+    <p>Fruits Cut: <span id="singleCuts">0</span> | Combos: <span id="comboCuts">0</span></p>
+    <p>Total Coins: <span id="finalCoins">0</span></p>
+    <p>Home in 3s...</p>
+  </div>
+</div>
+
+<script>
+let coins=parseInt(localStorage.getItem('fn_coins')||'0',10);
+let currentLevel=parseInt(localStorage.getItem('fn_level')||'1',10);
+document.getElementById('coinDisplay').innerText=coins;
+document.getElementById('levelDisplay').innerText=currentLevel;
+
+let canvas=document.getElementById('gameCanvas'),ctx=canvas.getContext('2d');
+let fruits=[],score=0,gameTimer=60,gameRunning=false,spawnInterval,timerInterval;
+let singleCuts=0,comboCuts=0;
+
+const fruitEmojis=["🍎","🍌","🍑","🍉"],bombEmoji="💣";
+
+function startGame(){
+  document.getElementById('home').style.display='none';
+  document.getElementById('gameScreen').style.display='flex';
+  startLevel(currentLevel);
+}
+
+function startLevel(level){
+  fruits=[];score=0;singleCuts=0;comboCuts=0;gameRunning=true;gameTimer=60;
+  let extra=parseInt(localStorage.getItem('fn_extraTime')||'0',10);
+  if(extra>0){gameTimer+=extra;localStorage.removeItem('fn_extraTime');}
+  updateUI();
+  clearInterval(spawnInterval);clearInterval(timerInterval);
+  spawnInterval=setInterval(spawnFruit,1000);
+  timerInterval=setInterval(()=>{
+    gameTimer--;updateUI();
+    if(gameTimer<=0){stopGame();levelCompleted();}
+  },1000);
+  requestAnimationFrame(animate);
+}
+
+function spawnFruit(){
+  let emoji=Math.random()<0.1?bombEmoji:fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  let x=Math.random()*canvas.width,y=canvas.height+30;
+  let speedY=-(5+Math.random()*5),speedX=(Math.random()-0.5)*4;
+  fruits.push({x,y,sx:speedX,sy:speedY,r:20,emoji});
+}
+
+function animate(){
+  if(!gameRunning)return;
+  ctx.fillStyle="#222";ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font="24px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";
+  for(let f of fruits){f.x+=f.sx;f.y+=f.sy;f.sy+=0.2;ctx.fillText(f.emoji,f.x,f.y);}
+  fruits=fruits.filter(f=>f.y<canvas.height+40);
+  requestAnimationFrame(animate);
+}
+
+// swipe cut
+let last=null;
+function cutAt(x,y){
+  if(!gameRunning)return;
+  let hit=[];
+  for(let i=fruits.length-1;i>=0;i--){
+    let f=fruits[i],dx=x-f.x,dy=y-f.y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.r){
+      hit.push(f);fruits.splice(i,1);
+    }
+  }
+  if(hit.length>0){
+    for(let f of hit){
+      if(f.emoji===bombEmoji){stopGame();showGameOver();return;}
+      score++;coins++;singleCuts++;
+    }
+    if(hit.length>1){comboCuts++;coins+=hit.length*5;}
+    updateUI();
+  }
+  // blade line
+  if(last){
+    ctx.strokeStyle="white";ctx.lineWidth=2;ctx.beginPath();
+    ctx.moveTo(last.x,last.y);ctx.lineTo(x,y);ctx.stroke();
+  }
+  last={x,y};
+}
+canvas.addEventListener("mousemove",e=>{
+  if(e.buttons>0)cutAt(e.offsetX,e.offsetY);
+});
+canvas.addEventListener("touchmove",e=>{
+  let r=canvas.getBoundingClientRect();
+  cutAt(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top);
+});
+
+function updateUI(){
+  document.getElementById('scoreDisplay').innerText=score;
+  document.getElementById('timeDisplay').innerText=gameTimer;
+  document.getElementById('coinDisplay').innerText=coins;
+}
+
+function stopGame(){gameRunning=false;clearInterval(spawnInterval);clearInterval(timerInterval);}
+
+function levelCompleted(){
+  coins+=5;localStorage.setItem('fn_coins',coins);
+  currentLevel++;localStorage.setItem('fn_level',currentLevel);
+  document.getElementById('levelDisplay').innerText=currentLevel;
+  if(currentLevel%5===0){
+    let reward=Math.random()<0.5?'time':'coins';
+    if(reward==='time'){localStorage.setItem('fn_extraTime',30);
+      document.getElementById('couponText').innerText='+30s Bonus Time!';}
+    else{coins+=20;localStorage.setItem('fn_coins',coins);
+      document.getElementById('couponText').innerText='+20 Coins!';}
+    openModal('couponModal');
+  }else endToHome();
+}
+
+function showGameOver(){
+  document.getElementById('finalScore').innerText=score;
+  document.getElementById('singleCuts').innerText=singleCuts;
+  document.getElementById('comboCuts').innerText=comboCuts;
+  document.getElementById('finalCoins').innerText=coins;
+  openModal('gameOverModal');
+  setTimeout(()=>{closeModal('gameOverModal');endToHome();},3000);
+}
+
+function buyExtraTime(){
+  if(coins>=10){coins-=10;localStorage.setItem('fn_coins',coins);
+    localStorage.setItem('fn_extraTime',30);alert('+30s purchased! Next level me milega');
+    document.getElementById('shopCoins').innerText=coins;updateUI();}
+  else alert('Not enough coins!');
+}
+function applyCouponAndStartNext(){closeModal('couponModal');startGame();}
+function endToHome(){stopGame();document.getElementById('gameScreen').style.display='none';
+  document.getElementById('home').style.display='flex';}
+function openModal(id){document.getElementById(id).style.display='flex';}
+function closeModal(id){document.getElementById(id).style.display='none';}
+</script>
+</body>
+</html>
