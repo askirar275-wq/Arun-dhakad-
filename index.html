@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Cut Game - Levels</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #111;
+      overflow: hidden;
+    }
+    canvas {
+      background: #111;
+      display: block;
+    }
+    #scoreboard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 20px;
+      font-family: Arial, sans-serif;
+    }
+    #lives {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-size: 20px;
+      font-family: Arial, sans-serif;
+    }
+    #menu {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .btn {
+      padding: 10px 20px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      background: black;
+      color: white;
+      outline: 2px solid lime;
+      cursor: pointer;
+      transition: 0.3s;
+      margin: 10px;
+      display: block;
+      width: 200px;
+    }
+    .btn:hover {
+      background: lime;
+      color: black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="scoreboard">Score: 0</div>
+  <div id="lives">Lives: ❤️❤️❤️</div>
+
+  <!-- Level Menu -->
+  <div id="menu">
+    <h1 style="color:white; font-family:Arial;">🍉 Fruit Cut Game 🍎</h1>
+    <button class="btn" onclick="startGame('easy')">Easy</button>
+    <button class="btn" onclick="startGame('medium')">Medium</button>
+    <button class="btn" onclick="startGame('hard')">Hard</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let fruits = [];
+    let score = 0;
+    let lives = 3;
+    let gameRunning = false;
+    let spawnRate = 1500; // default
+    let bombChance = 0.15; // default
+    let fruitSpeed = [2, 5]; // default range
+
+    const fruitEmojis = ["🍎", "🍌", "🍉", "🍇", "🍓", "🍍"];
+    const bombEmoji = "💣";
+
+    class Fruit {
+      constructor(x, y, emoji, isBomb = false) {
+        this.x = x;
+        this.y = y;
+        this.size = 40;
+        this.emoji = emoji;
+        this.speedY = Math.random() * (fruitSpeed[1] - fruitSpeed[0]) + fruitSpeed[0];
+        this.isBomb = isBomb;
+        this.sliced = false;
+      }
+      draw() {
+        ctx.font = this.size + "px Arial";
+        ctx.fillText(this.emoji, this.x, this.y);
+      }
+      update() {
+        this.y += this.speedY;
+        this.draw();
+      }
+    }
+
+    function spawnFruit() {
+      const x = Math.random() * (canvas.width - 50);
+      const y = -50;
+      const isBomb = Math.random() < bombChance;
+      const emoji = isBomb ? bombEmoji : fruitEmojis[Math.floor(Math.random() * fruitEmojis.length)];
+      fruits.push(new Fruit(x, y, emoji, isBomb));
+    }
+
+    function drawSplash(x, y) {
+      ctx.beginPath();
+      ctx.arc(x, y, 20, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,0,0,0.5)`;
+      ctx.fill();
+    }
+
+    function sliceFruit(fruit) {
+      fruit.sliced = true;
+      score += 10;
+      document.getElementById("scoreboard").innerText = "Score: " + score;
+
+      ctx.font = fruit.size + "px Arial";
+      ctx.fillText(fruit.emoji, fruit.x - 15, fruit.y - 10);
+      ctx.fillText(fruit.emoji, fruit.x + 15, fruit.y + 10);
+
+      drawSplash(fruit.x, fruit.y);
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      ctx.fillStyle = "red";
+      ctx.font = "50px Arial";
+      ctx.fillText("Game Over!", canvas.width / 2 - 120, canvas.height / 2);
+
+      // menu वापस दिखाओ
+      setTimeout(() => {
+        document.getElementById("menu").style.display = "block";
+      }, 2000);
+    }
+
+    function animate() {
+      if (!gameRunning) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < fruits.length; i++) {
+        const fruit = fruits[i];
+        if (!fruit.sliced) fruit.update();
+
+        if (fruit.y > canvas.height) {
+          fruits.splice(i, 1);
+          i--;
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function detectSlice(x, y) {
+      for (let i = 0; i < fruits.length; i++) {
+        const fruit = fruits[i];
+        if (
+          x > fruit.x - fruit.size &&
+          x < fruit.x + fruit.size &&
+          y > fruit.y - fruit.size &&
+          y < fruit.y + fruit.size &&
+          !fruit.sliced
+        ) {
+          if (fruit.isBomb) {
+            lives--;
+            document.getElementById("lives").innerText = "Lives: " + "❤️".repeat(lives);
+            fruits.splice(i, 1);
+            if (lives <= 0) {
+              gameOver();
+              return;
+            }
+          } else {
+            sliceFruit(fruit);
+            fruits.splice(i, 1);
+            i--;
+          }
+        }
+      }
+    }
+
+    canvas.addEventListener("mousemove", (e) => detectSlice(e.clientX, e.clientY));
+    canvas.addEventListener("touchmove", (e) => {
+      const touch = e.touches[0];
+      detectSlice(touch.clientX, touch.clientY);
+    });
+
+    function startGame(level) {
+      // Level settings
+      if (level === "easy") {
+        spawnRate = 1500;
+        bombChance = 0.1;
+        fruitSpeed = [2, 4];
+      } else if (level === "medium") {
+        spawnRate = 1000;
+        bombChance = 0.2;
+        fruitSpeed = [3, 6];
+      } else if (level === "hard") {
+        spawnRate = 600;
+        bombChance = 0.3;
+        fruitSpeed = [4, 8];
+      }
+
+      // Reset
+      fruits = [];
+      score = 0;
+      lives = 3;
+      document.getElementById("scoreboard").innerText = "Score: " + score;
+      document.getElementById("lives").innerText = "Lives: ❤️❤️❤️";
+
+      // Menu hide
+      document.getElementById("menu").style.display = "none";
+
+      // Start game
+      gameRunning = true;
+      animate();
+      setInterval(() => {
+        if (gameRunning) spawnFruit();
+      }, spawnRate);
+    }
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Cut Game - Levels</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #111;
+      overflow: hidden;
+    }
+    canvas {
+      background: #111;
+      display: block;
+    }
+    #scoreboard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 20px;
+      font-family: Arial, sans-serif;
+    }
+    #lives {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-size: 20px;
+      font-family: Arial, sans-serif;
+    }
+    #menu {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .btn {
+      padding: 10px 20px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      background: black;
+      color: white;
+      outline: 2px solid lime;
+      cursor: pointer;
+      transition: 0.3s;
+      margin: 10px;
+      display: block;
+      width: 200px;
+    }
+    .btn:hover {
+      background: lime;
+      color: black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="scoreboard">Score: 0</div>
+  <div id="lives">Lives: ❤️❤️❤️</div>
+
+  <!-- Level Menu -->
+  <div id="menu">
+    <h1 style="color:white; font-family:Arial;">🍉 Fruit Cut Game 🍎</h1>
+    <button class="btn" onclick="startGame('easy')">Easy</button>
+    <button class="btn" onclick="startGame('medium')">Medium</button>
+    <button class="btn" onclick="startGame('hard')">Hard</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let fruits = [];
+    let score = 0;
+    let lives = 3;
+    let gameRunning = false;
+    let spawnRate = 1500; // default
+    let bombChance = 0.15; // default
+    let fruitSpeed = [2, 5]; // default range
+
+    const fruitEmojis = ["🍎", "🍌", "🍉", "🍇", "🍓", "🍍"];
+    const bombEmoji = "💣";
+
+    class Fruit {
+      constructor(x, y, emoji, isBomb = false) {
+        this.x = x;
+        this.y = y;
+        this.size = 40;
+        this.emoji = emoji;
+        this.speedY = Math.random() * (fruitSpeed[1] - fruitSpeed[0]) + fruitSpeed[0];
+        this.isBomb = isBomb;
+        this.sliced = false;
+      }
+      draw() {
+        ctx.font = this.size + "px Arial";
+        ctx.fillText(this.emoji, this.x, this.y);
+      }
+      update() {
+        this.y += this.speedY;
+        this.draw();
+      }
+    }
+
+    function spawnFruit() {
+      const x = Math.random() * (canvas.width - 50);
+      const y = -50;
+      const isBomb = Math.random() < bombChance;
+      const emoji = isBomb ? bombEmoji : fruitEmojis[Math.floor(Math.random() * fruitEmojis.length)];
+      fruits.push(new Fruit(x, y, emoji, isBomb));
+    }
+
+    function drawSplash(x, y) {
+      ctx.beginPath();
+      ctx.arc(x, y, 20, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,0,0,0.5)`;
+      ctx.fill();
+    }
+
+    function sliceFruit(fruit) {
+      fruit.sliced = true;
+      score += 10;
+      document.getElementById("scoreboard").innerText = "Score: " + score;
+
+      ctx.font = fruit.size + "px Arial";
+      ctx.fillText(fruit.emoji, fruit.x - 15, fruit.y - 10);
+      ctx.fillText(fruit.emoji, fruit.x + 15, fruit.y + 10);
+
+      drawSplash(fruit.x, fruit.y);
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      ctx.fillStyle = "red";
+      ctx.font = "50px Arial";
+      ctx.fillText("Game Over!", canvas.width / 2 - 120, canvas.height / 2);
+
+      // menu वापस दिखाओ
+      setTimeout(() => {
+        document.getElementById("menu").style.display = "block";
+      }, 2000);
+    }
+
+    function animate() {
+      if (!gameRunning) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < fruits.length; i++) {
+        const fruit = fruits[i];
+        if (!fruit.sliced) fruit.update();
+
+        if (fruit.y > canvas.height) {
+          fruits.splice(i, 1);
+          i--;
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function detectSlice(x, y) {
+      for (let i = 0; i < fruits.length; i++) {
+        const fruit = fruits[i];
+        if (
+          x > fruit.x - fruit.size &&
+          x < fruit.x + fruit.size &&
+          y > fruit.y - fruit.size &&
+          y < fruit.y + fruit.size &&
+          !fruit.sliced
+        ) {
+          if (fruit.isBomb) {
+            lives--;
+            document.getElementById("lives").innerText = "Lives: " + "❤️".repeat(lives);
+            fruits.splice(i, 1);
+            if (lives <= 0) {
+              gameOver();
+              return;
+            }
+          } else {
+            sliceFruit(fruit);
+            fruits.splice(i, 1);
+            i--;
+          }
+        }
+      }
+    }
+
+    canvas.addEventListener("mousemove", (e) => detectSlice(e.clientX, e.clientY));
+    canvas.addEventListener("touchmove", (e) => {
+      const touch = e.touches[0];
+      detectSlice(touch.clientX, touch.clientY);
+    });
+
+    function startGame(level) {
+      // Level settings
+      if (level === "easy") {
+        spawnRate = 1500;
+        bombChance = 0.1;
+        fruitSpeed = [2, 4];
+      } else if (level === "medium") {
+        spawnRate = 1000;
+        bombChance = 0.2;
+        fruitSpeed = [3, 6];
+      } else if (level === "hard") {
+        spawnRate = 600;
+        bombChance = 0.3;
+        fruitSpeed = [4, 8];
+      }
+
+      // Reset
+      fruits = [];
+      score = 0;
+      lives = 3;
+      document.getElementById("scoreboard").innerText = "Score: " + score;
+      document.getElementById("lives").innerText = "Lives: ❤️❤️❤️";
+
+      // Menu hide
+      document.getElementById("menu").style.display = "none";
+
+      // Start game
+      gameRunning = true;
+      animate();
+      setInterval(() => {
+        if (gameRunning) spawnFruit();
+      }, spawnRate);
+    }
+  </script>
+</body>
+</html>
