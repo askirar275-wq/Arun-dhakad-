@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fruit Slice Game 🍉</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg,#1d4350,#a43931);
+      height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      overflow:hidden;
+    }
+    #gameContainer{
+      position:relative;
+      width:100%;
+      max-width:480px;
+      height:100vh;
+      background:#000;
+      overflow:hidden;
+      border-radius:12px;
+      box-shadow:0 0 15px rgba(0,0,0,0.6);
+    }
+    canvas{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+    #scoreBoard{
+      position:absolute;
+      top:10px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:20px;
+      color:#fff;
+      background:rgba(0,0,0,0.5);
+      padding:5px 15px;
+      border-radius:8px;
+    }
+    .btn{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      padding:10px 20px;
+      border:2px solid #fff;
+      border-radius:30px;
+      background:transparent;
+      color:#fff;
+      font-size:18px;
+      cursor:pointer;
+      transition:all 0.3s ease;
+    }
+    .btn:hover{
+      background:#fff;
+      color:#000;
+      transform:translateX(-50%) scale(1.1);
+    }
+    #restartBtn{bottom:80px;display:none;}
+    #nextLevelBtn{bottom:20px;display:none;}
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <div id="scoreBoard">Score: 0</div>
+    <button id="restartBtn" class="btn">🔄 Restart</button>
+    <button id="nextLevelBtn" class="btn">➡️ Next Level</button>
+  </div>
+
+  <script>
+    const canvas=document.getElementById("gameCanvas");
+    const ctx=canvas.getContext("2d");
+    canvas.width=window.innerWidth>480?480:window.innerWidth;
+    canvas.height=window.innerHeight;
+
+    let fruits=[];
+    let score=0;
+    let level=1;
+    let isGameOver=false;
+
+    const scoreBoard=document.getElementById("scoreBoard");
+    const restartBtn=document.getElementById("restartBtn");
+    const nextLevelBtn=document.getElementById("nextLevelBtn");
+
+    const fruitColors=["red","orange","yellow","lime","violet","cyan"];
+
+    function spawnFruit(){
+      const x=Math.random()*(canvas.width-40)+20;
+      const y=canvas.height+20;
+      const radius=20;
+      const color=fruitColors[Math.floor(Math.random()*fruitColors.length)];
+      const speed=3+level;
+      fruits.push({x,y,r:radius,color,speed});
+    }
+
+    function drawFruits(){
+      fruits.forEach(fruit=>{
+        ctx.beginPath();
+        ctx.arc(fruit.x,fruit.y,fruit.r,0,Math.PI*2);
+        ctx.fillStyle=fruit.color;
+        ctx.fill();
+        ctx.closePath();
+      });
+    }
+
+    function updateFruits(){
+      fruits.forEach(fruit=>fruit.y-=fruit.speed);
+      fruits=fruits.filter(fruit=>fruit.y+fruit.r>0);
+    }
+
+    function checkSlice(x,y){
+      fruits=fruits.filter(fruit=>{
+        const dist=Math.hypot(fruit.x-x,fruit.y-y);
+        if(dist<fruit.r){
+          score+=10;
+          scoreBoard.innerText="Score: "+score;
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function gameLoop(){
+      if(isGameOver) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawFruits();
+      updateFruits();
+
+      if(Math.random()<0.03*level) spawnFruit();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    canvas.addEventListener("mousemove",e=>checkSlice(e.offsetX,e.offsetY));
+    canvas.addEventListener("touchmove",e=>{
+      const rect=canvas.getBoundingClientRect();
+      const x=e.touches[0].clientX-rect.left;
+      const y=e.touches[0].clientY-rect.top;
+      checkSlice(x,y);
+    });
+
+    function startGame(){
+      score=0;
+      level=1;
+      isGameOver=false;
+      scoreBoard.innerText="Score: 0";
+      restartBtn.style.display="none";
+      nextLevelBtn.style.display="none";
+      fruits=[];
+      gameLoop();
+    }
+
+    restartBtn.addEventListener("click",()=>startGame());
+    nextLevelBtn.addEventListener("click",()=>{
+      level++;
+      isGameOver=false;
+      fruits=[];
+      score=0;
+      scoreBoard.innerText="Score: 0";
+      restartBtn.style.display="none";
+      nextLevelBtn.style.display="none";
+      gameLoop();
+    });
+
+    // Start game
+    startGame();
+
+    // End game after 30s per level
+    setInterval(()=>{
+      if(!isGameOver){
+        isGameOver=true;
+        restartBtn.style.display="block";
+        nextLevelBtn.style.display="block";
+      }
+    },30000);
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fruit Slice Game 🍉</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg,#1d4350,#a43931);
+      height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      overflow:hidden;
+    }
+    #gameContainer{
+      position:relative;
+      width:100%;
+      max-width:480px;
+      height:100vh;
+      background:#000;
+      overflow:hidden;
+      border-radius:12px;
+      box-shadow:0 0 15px rgba(0,0,0,0.6);
+    }
+    canvas{
+      width:100%;
+      height:100%;
+      display:block;
+    }
+    #scoreBoard{
+      position:absolute;
+      top:10px;
+      left:50%;
+      transform:translateX(-50%);
+      font-size:20px;
+      color:#fff;
+      background:rgba(0,0,0,0.5);
+      padding:5px 15px;
+      border-radius:8px;
+    }
+    .btn{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      padding:10px 20px;
+      border:2px solid #fff;
+      border-radius:30px;
+      background:transparent;
+      color:#fff;
+      font-size:18px;
+      cursor:pointer;
+      transition:all 0.3s ease;
+    }
+    .btn:hover{
+      background:#fff;
+      color:#000;
+      transform:translateX(-50%) scale(1.1);
+    }
+    #restartBtn{bottom:80px;display:none;}
+    #nextLevelBtn{bottom:20px;display:none;}
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <div id="scoreBoard">Score: 0</div>
+    <button id="restartBtn" class="btn">🔄 Restart</button>
+    <button id="nextLevelBtn" class="btn">➡️ Next Level</button>
+  </div>
+
+  <script>
+    const canvas=document.getElementById("gameCanvas");
+    const ctx=canvas.getContext("2d");
+    canvas.width=window.innerWidth>480?480:window.innerWidth;
+    canvas.height=window.innerHeight;
+
+    let fruits=[];
+    let score=0;
+    let level=1;
+    let isGameOver=false;
+
+    const scoreBoard=document.getElementById("scoreBoard");
+    const restartBtn=document.getElementById("restartBtn");
+    const nextLevelBtn=document.getElementById("nextLevelBtn");
+
+    const fruitColors=["red","orange","yellow","lime","violet","cyan"];
+
+    function spawnFruit(){
+      const x=Math.random()*(canvas.width-40)+20;
+      const y=canvas.height+20;
+      const radius=20;
+      const color=fruitColors[Math.floor(Math.random()*fruitColors.length)];
+      const speed=3+level;
+      fruits.push({x,y,r:radius,color,speed});
+    }
+
+    function drawFruits(){
+      fruits.forEach(fruit=>{
+        ctx.beginPath();
+        ctx.arc(fruit.x,fruit.y,fruit.r,0,Math.PI*2);
+        ctx.fillStyle=fruit.color;
+        ctx.fill();
+        ctx.closePath();
+      });
+    }
+
+    function updateFruits(){
+      fruits.forEach(fruit=>fruit.y-=fruit.speed);
+      fruits=fruits.filter(fruit=>fruit.y+fruit.r>0);
+    }
+
+    function checkSlice(x,y){
+      fruits=fruits.filter(fruit=>{
+        const dist=Math.hypot(fruit.x-x,fruit.y-y);
+        if(dist<fruit.r){
+          score+=10;
+          scoreBoard.innerText="Score: "+score;
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function gameLoop(){
+      if(isGameOver) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawFruits();
+      updateFruits();
+
+      if(Math.random()<0.03*level) spawnFruit();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    canvas.addEventListener("mousemove",e=>checkSlice(e.offsetX,e.offsetY));
+    canvas.addEventListener("touchmove",e=>{
+      const rect=canvas.getBoundingClientRect();
+      const x=e.touches[0].clientX-rect.left;
+      const y=e.touches[0].clientY-rect.top;
+      checkSlice(x,y);
+    });
+
+    function startGame(){
+      score=0;
+      level=1;
+      isGameOver=false;
+      scoreBoard.innerText="Score: 0";
+      restartBtn.style.display="none";
+      nextLevelBtn.style.display="none";
+      fruits=[];
+      gameLoop();
+    }
+
+    restartBtn.addEventListener("click",()=>startGame());
+    nextLevelBtn.addEventListener("click",()=>{
+      level++;
+      isGameOver=false;
+      fruits=[];
+      score=0;
+      scoreBoard.innerText="Score: 0";
+      restartBtn.style.display="none";
+      nextLevelBtn.style.display="none";
+      gameLoop();
+    });
+
+    // Start game
+    startGame();
+
+    // End game after 30s per level
+    setInterval(()=>{
+      if(!isGameOver){
+        isGameOver=true;
+        restartBtn.style.display="block";
+        nextLevelBtn.style.display="block";
+      }
+    },30000);
+  </script>
+</body>
+</html>
