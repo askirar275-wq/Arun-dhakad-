@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Cut Fruit — Lite</title>
+<style>
+  :root{
+    --bg:#0f0f10; --card:#121214; --muted:#bdbdbd; --accent:#ff6b6b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:Inter,system-ui,Arial,sans-serif;background:var(--bg);color:#fff}
+  .app{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px}
+  header{width:100%;max-width:980px;display:flex;align-items:center;gap:10px}
+  h1{font-size:20px;margin-left:6px}
+  .frame{width:100%;max-width:980px;height:calc(100vh - 140px);background:linear-gradient(180deg,#111,#1b1b1b);border-radius:14px;overflow:hidden;position:relative;border:1px solid rgba(255,255,255,0.04)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  .hud{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;z-index:20}
+  .pill{background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.06);font-weight:700;display:flex;gap:10px;align-items:center}
+  .controls{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:20}
+  .btn{background:transparent;border:2px solid rgba(255,255,255,0.12);padding:8px 12px;border-radius:10px;color:#fff;font-weight:700;cursor:pointer}
+  .btn:active{transform:scale(.98)}
+  /* overlays */
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.6));z-index:60}
+  .card{background:var(--card);padding:16px;border-radius:12px;width:92%;max-width:420px;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+  .card h2{margin-bottom:8px}
+  .list{padding-left:16px;line-height:1.6;color:var(--muted)}
+  .switch{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+  .switch input{transform:scale(1.2)}
+  small{color:var(--muted)}
+  /* small screens */
+  @media(max-width:420px){ h1{font-size:18px} .card{padding:12px} .pill{font-size:14px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <img src="" alt="" style="width:44px;height:44px;border-radius:10px;background:linear-gradient(45deg,#ff9a9e,#fecfef)"/>
+    <h1>🍉 Cut Fruit — Lite</h1>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn" id="updatesOpen">ℹ️</button>
+      <button class="btn" id="settingsOpen">⚙️</button>
+    </div>
+  </header>
+
+  <div class="frame" id="frame">
+    <canvas id="canvas"></canvas>
+
+    <div class="hud">
+      <div class="pill">⏳ <span id="time">60</span>s</div>
+      <div class="pill">⭐ <span id="score">0</span></div>
+      <div class="pill">💰 <span id="coins">0</span></div>
+      <div style="margin-left:8px"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="pauseBtn">⏸ Pause</button>
+      <button class="btn" id="powerBtn">⚡ Use Power</button>
+      <button class="btn" id="restartBtn">🔄 Restart</button>
+    </div>
+
+    <!-- Home overlay -->
+    <div class="overlay" id="homeOverlay" style="display:flex">
+      <div class="card" style="text-align:center">
+        <h2>🍉 Cut Fruit</h2>
+        <p style="color:var(--muted)">Swipe to cut emoji fruits • 60s • combo bonus • power-ups</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+          <button class="btn" id="startBtn">▶ Start</button>
+          <button class="btn" id="updatesBtn">ℹ Updates</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div class="overlay" id="gameOverOverlay">
+      <div class="card" style="text-align:center">
+        <h2>Game Over 😢</h2>
+        <p>⭐ Score: <strong id="finalScore">0</strong></p>
+        <p>💰 Coins: <strong id="finalCoins">0</strong></p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+          <button class="btn" id="homeBtn">🏠 Home</button>
+          <button class="btn" id="playAgainBtn">🔄 Play Again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Updates popup -->
+    <div class="overlay" id="updatesOverlay">
+      <div class="card">
+        <h2>📜 Updates</h2>
+        <ul class="list">
+          <li>🍎 Emoji fruits (🍎🍌🍉🍇...)</li>
+          <li>⬆️ Fruits launch up then fall (gravity)</li>
+          <li>✂️ Swipe cutting + juice particles</li>
+          <li>⭐ Combo bonus (2+ cuts → extra coins)</li>
+          <li>⚡ Power-up, Pause, Restart</li>
+          <li>⚙️ Settings: Dark, Sound, Vibration, Music</li>
+          <li>📱 Mobile-friendly & App-ready</li>
+        </ul>
+        <div style="text-align:center;margin-top:10px">
+          <button class="btn" id="closeUpdates">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings popup -->
+    <div class="overlay" id="settingsOverlay">
+      <div class="card">
+        <h2>⚙ Settings</h2>
+        <div class="switch"><span>🌙 Dark Mode</span><input id="optDark" type="checkbox"/></div>
+        <div class="switch"><span>🔊 Sound</span><input id="optSound" type="checkbox" checked/></div>
+        <div class="switch"><span>📳 Vibration</span><input id="optVib" type="checkbox"/></div>
+        <div class="switch"><span>🎵 Music</span><input id="optMusic" type="checkbox"/></div>
+        <small>Settings are saved locally</small>
+        <div style="text-align:center;margin-top:10px">
+          <button class="btn" id="closeSettings">Close</button>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- frame -->
+</div>
+
+<script>
+/* =========================
+   Lightweight Fruit Cut Game
+   Single-file, mobile friendly
+   ========================= */
+
+/* Canvas + DPR */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: true });
+const frame = document.getElementById('frame');
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+function resize() {
+  const rect = frame.getBoundingClientRect();
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  canvas.width = Math.round(rect.width * DPR);
+  canvas.height = Math.round(rect.height * DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+setTimeout(resize,60);
+
+/* Elements */
+const homeOverlay = document.getElementById('homeOverlay');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const updatesOverlay = document.getElementById('updatesOverlay');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const updatesOpen = document.getElementById('updatesOpen');
+const settingsOpen = document.getElementById('settingsOpen');
+
+const startBtn = document.getElementById('startBtn');
+const updatesBtn = document.getElementById('updatesBtn');
+const closeUpdates = document.getElementById('closeUpdates');
+const closeSettings = document.getElementById('closeSettings');
+
+const timeEl = document.getElementById('time');
+const scoreEl = document.getElementById('score');
+const coinsEl = document.getElementById('coins');
+const finalScoreEl = document.getElementById('finalScore');
+const finalCoinsEl = document.getElementById('finalCoins');
+
+const pauseBtn = document.getElementById('pauseBtn');
+const powerBtn = document.getElementById('powerBtn');
+const restartBtn = document.getElementById('restartBtn');
+const homeBtn = document.getElementById('homeBtn');
+const playAgainBtn = document.getElementById('playAgainBtn');
+
+/* Settings */
+const optDark = document.getElementById('optDark');
+const optSound = document.getElementById('optSound');
+const optVib = document.getElementById('optVib');
+const optMusic = document.getElementById('optMusic');
+
+function loadSettings(){
+  const s = JSON.parse(localStorage.getItem('cutfruit_settings')||'{}');
+  optDark.checked = !!s.dark;
+  optSound.checked = s.sound!==false;
+  optVib.checked = !!s.vib;
+  optMusic.checked = !!s.music;
+  applyTheme();
+}
+function saveSettings(){
+  const s = { dark:optDark.checked, sound:optSound.checked, vib:optVib.checked, music:optMusic.checked };
+  localStorage.setItem('cutfruit_settings', JSON.stringify(s));
+}
+function applyTheme(){
+  if(optDark.checked){
+    document.documentElement.style.setProperty('--bg','#070708');
+    document.documentElement.style.setProperty('--card','#0b0b0c');
+  } else {
+    document.documentElement.style.setProperty('--bg','#0f0f10');
+    document.documentElement.style.setProperty('--card','#121214');
+  }
+}
+
+/* basic sound with WebAudio */
+const audioCtx = typeof AudioContext !== 'undefined' ? new AudioContext() : null;
+function beep(freq=600, time=0.06){
+  if(!audioCtx || !optSound.checked) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type='sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + time);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + time);
+}
+
+/* Game state */
+let fruits = [], particles = [], trail = [];
+let score = 0, coins = 0, timeLeft = 60, running=false, paused=false;
+let spawnHandle = null, timerHandle = null;
+const fruitEmojis = ["🍎","🍌","🍉","🍊","🍇","🥝","🍓","🍒"];
+
+/* spawn fruit: bottom -> launch up with vy negative */
+function spawn(){
+  const r = 20 + Math.random()*16;
+  const x = Math.random()*(canvas.clientWidth - r*2) + r;
+  const y = canvas.clientHeight + r + Math.random()*20;
+  const vy = -(6 + Math.random()*5); // upward launch (css px/frame scale)
+  const vx = (Math.random()*2 -1)*1.6;
+  const gravity = 0.28 + Math.random()*0.12;
+  const emoji = Math.random()<0.08 ? '⭐' : fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  fruits.push({x,y,vx,vy,gravity,r,emoji,angle:Math.random()*Math.PI*2,spin:(Math.random()*4-2)/20,cut:false,hit:false});
+}
+
+/* particles for juice */
+function createSplash(x,y,color){
+  for(let i=0;i<14;i++){
+    particles.push({
+      x,y,
+      vx:(Math.random()*4-2),
+      vy:(Math.random()*-4),
+      life:40 + Math.random()*20,
+      color: color || `hsl(${Math.random()*360}deg 80% 60%)`,
+      r:1 + Math.random()*2
+    });
+  }
+  if(optVib.checked && navigator.vibrate) navigator.vibrate(30);
+  beep(400,0.05);
+}
+
+/* pointer (swipe trail) logic */
+let isDown=false;
+function localPos(clientX,clientY){
+  const rect=canvas.getBoundingClientRect();
+  return {x:(clientX-rect.left), y:(clientY-rect.top)};
+}
+canvas.addEventListener('pointerdown', e => {
+  isDown=true;
+  const p=localPos(e.clientX,e.clientY);
+  trail.push({...p, t:Date.now()});
+});
+canvas.addEventListener('pointermove', e => {
+  if(!isDown) return;
+  const p=localPos(e.clientX,e.clientY);
+  trail.push({...p, t:Date.now()});
+  if(trail.length>24) trail.shift();
+});
+window.addEventListener('pointerup', ()=>{ isDown=false; trail=[]; });
+
+/* check if line segment intersects circle (fruit) */
+function distPointSegment(px,py,x1,y1,x2,y2){
+  const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+  const dot = A * C + B * D;
+  const lenSq = C*C + D*D;
+  let param = -1;
+  if(lenSq !== 0) param = dot / lenSq;
+  let xx, yy;
+  if(param < 0){ xx = x1; yy = y1; }
+  else if(param > 1){ xx = x2; yy = y2; }
+  else { xx = x1 + param * C; yy = y1 + param * D; }
+  const dx = px - xx, dy = py - yy;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+/* main update */
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last)/1000);
+  last = now;
+  if(running && !paused){
+    // spawn control is via setInterval; update physics here
+    // update fruits
+    for(let i=fruits.length-1;i>=0;i--){
+      const f = fruits[i];
+      if(f.cut) continue;
+      f.x += f.vx * (60*dt);
+      f.y += f.vy * (60*dt);
+      f.vy += f.gravity * (60*dt);
+      f.angle += f.spin;
+      // check swipe collision against trail segments
+      if(trail.length>1){
+        for(let s=1;s<trail.length;s++){
+          const a=trail[s-1], b=trail[s];
+          const d = distPointSegment(f.x,f.y,a.x,a.y,b.x,b.y);
+          if(d < f.r+2){ // cut detected
+            f.cut = true;
+            score += 1;
+            createSplash(f.x, f.y);
+            beep(800,0.04);
+            break;
+          }
+        }
+      }
+      // remove below screen
+      if(f.y - f.r > canvas.clientHeight + 40) f.cut = true;
+    }
+    // remove cut fruits and compute combo coins on pointerup or immediate grouping:
+    // We'll award coins immediately per cut; if multiple cuts in same frame treat as combo:
+    // Gather cuts this frame
+    let cutsThisFrame=0;
+    for(let i=fruits.length-1;i>=0;i--){
+      if(fruits[i].cut && !fruits[i].hit){
+        fruits[i].hit=true;
+        cutsThisFrame++;
+        // award later
+      }
+    }
+    if(cutsThisFrame>0){
+      if(cutsThisFrame>1) coins += cutsThisFrame*2;
+      else coins += 1;
+      updateHUD();
+    }
+
+    // update particles
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.x += p.vx * (60*dt);
+      p.y += p.vy * (60*dt);
+      p.vy += 0.12 * (60*dt);
+      p.life -= 1;
+      if(p.life <= 0) particles.splice(i,1);
+    }
+  }
+
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* render */
+function render(){
+  ctx.clearRect(0,0,canvas.width/DPR,canvas.height/DPR);
+  ctx.save(); ctx.scale(1,1);
+
+  // fruits
+  for(const f of fruits){
+    if(f.cut) continue;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.angle);
+    ctx.font = `${Math.max(18, f.r*1.6)}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline='middle';
+    ctx.fillText(f.emoji, 0, 0);
+    ctx.restore();
+  }
+
+  // particles
+  for(const p of particles){
+    ctx.beginPath();
+    ctx.fillStyle = p.color;
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // swipe trail
+  if(trail.length>1){
+    ctx.beginPath();
+    ctx.moveTo(trail[0].x, trail[0].y);
+    for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x, trail[i].y);
+    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(trail[0].x, trail[0].y);
+    for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x, trail[i].y);
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/* control functions */
+function startGame(){
+  // reset
+  fruits = []; particles = []; trail = [];
+  score = 0; coins = 0; timeLeft = 60;
+  updateHUD();
+  homeOverlay.style.display = 'none'; gameOverOverlay.style.display='none';
+  running = true; paused = false;
+  resize();
+
+  // spawn & timer
+  if(spawnHandle) clearInterval(spawnHandle);
+  spawnHandle = setInterval(()=>{ if(running && !paused) spawn(); }, 900);
+  if(timerHandle) clearInterval(timerHandle);
+  timerHandle = setInterval(()=>{ if(running && !paused){ timeLeft--; timeEl.textContent = timeLeft; if(timeLeft<=0) endGame(); }}, 1000);
+  // start audio context on first user gesture
+  if(audioCtx && audioCtx.state === 'suspended'){ audioCtx.resume(); }
+}
+
+function pauseToggle(){
+  paused = !paused;
+  pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
+}
+pauseBtn.addEventListener('click', pauseToggle);
+
+function usePower(){
+  if(coins < 10){ alert('Power cost 10 coins'); return; }
+  coins -= 10; updateHUD();
+  // cut all fruits
+  let ct = 0;
+  for(const f of fruits){
+    if(!f.cut){ f.cut = true; createSplash(f.x,f.y); score++; ct++; }
+  }
+  // small screen shake
+  frame.style.transform = 'translate(6px,4px)';
+  setTimeout(()=>frame.style.transform = '', 120);
+  updateHUD();
+}
+
+function restartGame(){
+  if(spawnHandle) clearInterval(spawnHandle);
+  if(timerHandle) clearInterval(timerHandle);
+  startGame();
+}
+restartBtn.addEventListener('click', restartGame);
+
+function endGame(){
+  running = false; paused = false;
+  if(spawnHandle) clearInterval(spawnHandle);
+  if(timerHandle) clearInterval(timerHandle);
+  finalScoreEl.textContent = score;
+  finalCoinsEl.textContent = coins;
+  gameOverOverlay.style.display = 'flex';
+}
+
+/* HUD update */
+function updateHUD(){
+  scoreEl.textContent = score;
+  coinsEl.textContent = coins;
+  timeEl.textContent = timeLeft;
+}
+
+/* Overlay / settings handlers */
+startBtn.addEventListener('click', ()=>startGame());
+updatesBtn.addEventListener('click', ()=>{ updatesOverlay.style.display='flex' });
+updatesOpen.addEventListener('click', ()=>{ updatesOverlay.style.display='flex' });
+closeUpdates.addEventListener('click', ()=>{ updatesOverlay.style.display='none' });
+
+settingsOpen.addEventListener('click', ()=>{ settingsOverlay.style.display='flex'; });
+closeSettings.addEventListener('click', ()=>{ settingsOverlay.style.display='none'; saveSettings(); });
+optDark.addEventListener('change', ()=>{ applyTheme(); saveSettings(); });
+optSound.addEventListener('change', ()=> saveSettings());
+optVib.addEventListener('change', ()=> saveSettings());
+optMusic.addEventListener('change', ()=> saveSettings());
+
+homeBtn.addEventListener('click', ()=>{
+  gameOverOverlay.style.display='none'; homeOverlay.style.display='flex';
+});
+playAgainBtn.addEventListener('click', ()=>{ gameOverOverlay.style.display='none'; startGame(); });
+
+/* load settings and start render loop */
+loadSettings();
+requestAnimationFrame(loop);
+
+/* small helpers: resume audio on user gesture */
+document.addEventListener('click', ()=>{ if(audioCtx && audioCtx.state=='suspended') audioCtx.resume(); }, {once:true});
+
+/* save settings on unload */
+window.addEventListener('beforeunload', ()=> saveSettings());
+</script>
+</body>
+</html><!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Cut Fruit — Lite</title>
+<style>
+  :root{
+    --bg:#0f0f10; --card:#121214; --muted:#bdbdbd; --accent:#ff6b6b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:Inter,system-ui,Arial,sans-serif;background:var(--bg);color:#fff}
+  .app{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:10px}
+  header{width:100%;max-width:980px;display:flex;align-items:center;gap:10px}
+  h1{font-size:20px;margin-left:6px}
+  .frame{width:100%;max-width:980px;height:calc(100vh - 140px);background:linear-gradient(180deg,#111,#1b1b1b);border-radius:14px;overflow:hidden;position:relative;border:1px solid rgba(255,255,255,0.04)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  .hud{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;z-index:20}
+  .pill{background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.06);font-weight:700;display:flex;gap:10px;align-items:center}
+  .controls{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:20}
+  .btn{background:transparent;border:2px solid rgba(255,255,255,0.12);padding:8px 12px;border-radius:10px;color:#fff;font-weight:700;cursor:pointer}
+  .btn:active{transform:scale(.98)}
+  /* overlays */
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.6));z-index:60}
+  .card{background:var(--card);padding:16px;border-radius:12px;width:92%;max-width:420px;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+  .card h2{margin-bottom:8px}
+  .list{padding-left:16px;line-height:1.6;color:var(--muted)}
+  .switch{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+  .switch input{transform:scale(1.2)}
+  small{color:var(--muted)}
+  /* small screens */
+  @media(max-width:420px){ h1{font-size:18px} .card{padding:12px} .pill{font-size:14px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <img src="" alt="" style="width:44px;height:44px;border-radius:10px;background:linear-gradient(45deg,#ff9a9e,#fecfef)"/>
+    <h1>🍉 Cut Fruit — Lite</h1>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn" id="updatesOpen">ℹ️</button>
+      <button class="btn" id="settingsOpen">⚙️</button>
+    </div>
+  </header>
+
+  <div class="frame" id="frame">
+    <canvas id="canvas"></canvas>
+
+    <div class="hud">
+      <div class="pill">⏳ <span id="time">60</span>s</div>
+      <div class="pill">⭐ <span id="score">0</span></div>
+      <div class="pill">💰 <span id="coins">0</span></div>
+      <div style="margin-left:8px"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="pauseBtn">⏸ Pause</button>
+      <button class="btn" id="powerBtn">⚡ Use Power</button>
+      <button class="btn" id="restartBtn">🔄 Restart</button>
+    </div>
+
+    <!-- Home overlay -->
+    <div class="overlay" id="homeOverlay" style="display:flex">
+      <div class="card" style="text-align:center">
+        <h2>🍉 Cut Fruit</h2>
+        <p style="color:var(--muted)">Swipe to cut emoji fruits • 60s • combo bonus • power-ups</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+          <button class="btn" id="startBtn">▶ Start</button>
+          <button class="btn" id="updatesBtn">ℹ Updates</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div class="overlay" id="gameOverOverlay">
+      <div class="card" style="text-align:center">
+        <h2>Game Over 😢</h2>
+        <p>⭐ Score: <strong id="finalScore">0</strong></p>
+        <p>💰 Coins: <strong id="finalCoins">0</strong></p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+          <button class="btn" id="homeBtn">🏠 Home</button>
+          <button class="btn" id="playAgainBtn">🔄 Play Again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Updates popup -->
+    <div class="overlay" id="updatesOverlay">
+      <div class="card">
+        <h2>📜 Updates</h2>
+        <ul class="list">
+          <li>🍎 Emoji fruits (🍎🍌🍉🍇...)</li>
+          <li>⬆️ Fruits launch up then fall (gravity)</li>
+          <li>✂️ Swipe cutting + juice particles</li>
+          <li>⭐ Combo bonus (2+ cuts → extra coins)</li>
+          <li>⚡ Power-up, Pause, Restart</li>
+          <li>⚙️ Settings: Dark, Sound, Vibration, Music</li>
+          <li>📱 Mobile-friendly & App-ready</li>
+        </ul>
+        <div style="text-align:center;margin-top:10px">
+          <button class="btn" id="closeUpdates">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings popup -->
+    <div class="overlay" id="settingsOverlay">
+      <div class="card">
+        <h2>⚙ Settings</h2>
+        <div class="switch"><span>🌙 Dark Mode</span><input id="optDark" type="checkbox"/></div>
+        <div class="switch"><span>🔊 Sound</span><input id="optSound" type="checkbox" checked/></div>
+        <div class="switch"><span>📳 Vibration</span><input id="optVib" type="checkbox"/></div>
+        <div class="switch"><span>🎵 Music</span><input id="optMusic" type="checkbox"/></div>
+        <small>Settings are saved locally</small>
+        <div style="text-align:center;margin-top:10px">
+          <button class="btn" id="closeSettings">Close</button>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- frame -->
+</div>
+
+<script>
+/* =========================
+   Lightweight Fruit Cut Game
+   Single-file, mobile friendly
+   ========================= */
+
+/* Canvas + DPR */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: true });
+const frame = document.getElementById('frame');
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+function resize() {
+  const rect = frame.getBoundingClientRect();
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  canvas.width = Math.round(rect.width * DPR);
+  canvas.height = Math.round(rect.height * DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+setTimeout(resize,60);
+
+/* Elements */
+const homeOverlay = document.getElementById('homeOverlay');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const updatesOverlay = document.getElementById('updatesOverlay');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const updatesOpen = document.getElementById('updatesOpen');
+const settingsOpen = document.getElementById('settingsOpen');
+
+const startBtn = document.getElementById('startBtn');
+const updatesBtn = document.getElementById('updatesBtn');
+const closeUpdates = document.getElementById('closeUpdates');
+const closeSettings = document.getElementById('closeSettings');
+
+const timeEl = document.getElementById('time');
+const scoreEl = document.getElementById('score');
+const coinsEl = document.getElementById('coins');
+const finalScoreEl = document.getElementById('finalScore');
+const finalCoinsEl = document.getElementById('finalCoins');
+
+const pauseBtn = document.getElementById('pauseBtn');
+const powerBtn = document.getElementById('powerBtn');
+const restartBtn = document.getElementById('restartBtn');
+const homeBtn = document.getElementById('homeBtn');
+const playAgainBtn = document.getElementById('playAgainBtn');
+
+/* Settings */
+const optDark = document.getElementById('optDark');
+const optSound = document.getElementById('optSound');
+const optVib = document.getElementById('optVib');
+const optMusic = document.getElementById('optMusic');
+
+function loadSettings(){
+  const s = JSON.parse(localStorage.getItem('cutfruit_settings')||'{}');
+  optDark.checked = !!s.dark;
+  optSound.checked = s.sound!==false;
+  optVib.checked = !!s.vib;
+  optMusic.checked = !!s.music;
+  applyTheme();
+}
+function saveSettings(){
+  const s = { dark:optDark.checked, sound:optSound.checked, vib:optVib.checked, music:optMusic.checked };
+  localStorage.setItem('cutfruit_settings', JSON.stringify(s));
+}
+function applyTheme(){
+  if(optDark.checked){
+    document.documentElement.style.setProperty('--bg','#070708');
+    document.documentElement.style.setProperty('--card','#0b0b0c');
+  } else {
+    document.documentElement.style.setProperty('--bg','#0f0f10');
+    document.documentElement.style.setProperty('--card','#121214');
+  }
+}
+
+/* basic sound with WebAudio */
+const audioCtx = typeof AudioContext !== 'undefined' ? new AudioContext() : null;
+function beep(freq=600, time=0.06){
+  if(!audioCtx || !optSound.checked) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type='sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + time);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + time);
+}
+
+/* Game state */
+let fruits = [], particles = [], trail = [];
+let score = 0, coins = 0, timeLeft = 60, running=false, paused=false;
+let spawnHandle = null, timerHandle = null;
+const fruitEmojis = ["🍎","🍌","🍉","🍊","🍇","🥝","🍓","🍒"];
+
+/* spawn fruit: bottom -> launch up with vy negative */
+function spawn(){
+  const r = 20 + Math.random()*16;
+  const x = Math.random()*(canvas.clientWidth - r*2) + r;
+  const y = canvas.clientHeight + r + Math.random()*20;
+  const vy = -(6 + Math.random()*5); // upward launch (css px/frame scale)
+  const vx = (Math.random()*2 -1)*1.6;
+  const gravity = 0.28 + Math.random()*0.12;
+  const emoji = Math.random()<0.08 ? '⭐' : fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  fruits.push({x,y,vx,vy,gravity,r,emoji,angle:Math.random()*Math.PI*2,spin:(Math.random()*4-2)/20,cut:false,hit:false});
+}
+
+/* particles for juice */
+function createSplash(x,y,color){
+  for(let i=0;i<14;i++){
+    particles.push({
+      x,y,
+      vx:(Math.random()*4-2),
+      vy:(Math.random()*-4),
+      life:40 + Math.random()*20,
+      color: color || `hsl(${Math.random()*360}deg 80% 60%)`,
+      r:1 + Math.random()*2
+    });
+  }
+  if(optVib.checked && navigator.vibrate) navigator.vibrate(30);
+  beep(400,0.05);
+}
+
+/* pointer (swipe trail) logic */
+let isDown=false;
+function localPos(clientX,clientY){
+  const rect=canvas.getBoundingClientRect();
+  return {x:(clientX-rect.left), y:(clientY-rect.top)};
+}
+canvas.addEventListener('pointerdown', e => {
+  isDown=true;
+  const p=localPos(e.clientX,e.clientY);
+  trail.push({...p, t:Date.now()});
+});
+canvas.addEventListener('pointermove', e => {
+  if(!isDown) return;
+  const p=localPos(e.clientX,e.clientY);
+  trail.push({...p, t:Date.now()});
+  if(trail.length>24) trail.shift();
+});
+window.addEventListener('pointerup', ()=>{ isDown=false; trail=[]; });
+
+/* check if line segment intersects circle (fruit) */
+function distPointSegment(px,py,x1,y1,x2,y2){
+  const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+  const dot = A * C + B * D;
+  const lenSq = C*C + D*D;
+  let param = -1;
+  if(lenSq !== 0) param = dot / lenSq;
+  let xx, yy;
+  if(param < 0){ xx = x1; yy = y1; }
+  else if(param > 1){ xx = x2; yy = y2; }
+  else { xx = x1 + param * C; yy = y1 + param * D; }
+  const dx = px - xx, dy = py - yy;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+/* main update */
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last)/1000);
+  last = now;
+  if(running && !paused){
+    // spawn control is via setInterval; update physics here
+    // update fruits
+    for(let i=fruits.length-1;i>=0;i--){
+      const f = fruits[i];
+      if(f.cut) continue;
+      f.x += f.vx * (60*dt);
+      f.y += f.vy * (60*dt);
+      f.vy += f.gravity * (60*dt);
+      f.angle += f.spin;
+      // check swipe collision against trail segments
+      if(trail.length>1){
+        for(let s=1;s<trail.length;s++){
+          const a=trail[s-1], b=trail[s];
+          const d = distPointSegment(f.x,f.y,a.x,a.y,b.x,b.y);
+          if(d < f.r+2){ // cut detected
+            f.cut = true;
+            score += 1;
+            createSplash(f.x, f.y);
+            beep(800,0.04);
+            break;
+          }
+        }
+      }
+      // remove below screen
+      if(f.y - f.r > canvas.clientHeight + 40) f.cut = true;
+    }
+    // remove cut fruits and compute combo coins on pointerup or immediate grouping:
+    // We'll award coins immediately per cut; if multiple cuts in same frame treat as combo:
+    // Gather cuts this frame
+    let cutsThisFrame=0;
+    for(let i=fruits.length-1;i>=0;i--){
+      if(fruits[i].cut && !fruits[i].hit){
+        fruits[i].hit=true;
+        cutsThisFrame++;
+        // award later
+      }
+    }
+    if(cutsThisFrame>0){
+      if(cutsThisFrame>1) coins += cutsThisFrame*2;
+      else coins += 1;
+      updateHUD();
+    }
+
+    // update particles
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.x += p.vx * (60*dt);
+      p.y += p.vy * (60*dt);
+      p.vy += 0.12 * (60*dt);
+      p.life -= 1;
+      if(p.life <= 0) particles.splice(i,1);
+    }
+  }
+
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* render */
+function render(){
+  ctx.clearRect(0,0,canvas.width/DPR,canvas.height/DPR);
+  ctx.save(); ctx.scale(1,1);
+
+  // fruits
+  for(const f of fruits){
+    if(f.cut) continue;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.angle);
+    ctx.font = `${Math.max(18, f.r*1.6)}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline='middle';
+    ctx.fillText(f.emoji, 0, 0);
+    ctx.restore();
+  }
+
+  // particles
+  for(const p of particles){
+    ctx.beginPath();
+    ctx.fillStyle = p.color;
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // swipe trail
+  if(trail.length>1){
+    ctx.beginPath();
+    ctx.moveTo(trail[0].x, trail[0].y);
+    for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x, trail[i].y);
+    ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(trail[0].x, trail[0].y);
+    for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x, trail[i].y);
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/* control functions */
+function startGame(){
+  // reset
+  fruits = []; particles = []; trail = [];
+  score = 0; coins = 0; timeLeft = 60;
+  updateHUD();
+  homeOverlay.style.display = 'none'; gameOverOverlay.style.display='none';
+  running = true; paused = false;
+  resize();
+
+  // spawn & timer
+  if(spawnHandle) clearInterval(spawnHandle);
+  spawnHandle = setInterval(()=>{ if(running && !paused) spawn(); }, 900);
+  if(timerHandle) clearInterval(timerHandle);
+  timerHandle = setInterval(()=>{ if(running && !paused){ timeLeft--; timeEl.textContent = timeLeft; if(timeLeft<=0) endGame(); }}, 1000);
+  // start audio context on first user gesture
+  if(audioCtx && audioCtx.state === 'suspended'){ audioCtx.resume(); }
+}
+
+function pauseToggle(){
+  paused = !paused;
+  pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
+}
+pauseBtn.addEventListener('click', pauseToggle);
+
+function usePower(){
+  if(coins < 10){ alert('Power cost 10 coins'); return; }
+  coins -= 10; updateHUD();
+  // cut all fruits
+  let ct = 0;
+  for(const f of fruits){
+    if(!f.cut){ f.cut = true; createSplash(f.x,f.y); score++; ct++; }
+  }
+  // small screen shake
+  frame.style.transform = 'translate(6px,4px)';
+  setTimeout(()=>frame.style.transform = '', 120);
+  updateHUD();
+}
+
+function restartGame(){
+  if(spawnHandle) clearInterval(spawnHandle);
+  if(timerHandle) clearInterval(timerHandle);
+  startGame();
+}
+restartBtn.addEventListener('click', restartGame);
+
+function endGame(){
+  running = false; paused = false;
+  if(spawnHandle) clearInterval(spawnHandle);
+  if(timerHandle) clearInterval(timerHandle);
+  finalScoreEl.textContent = score;
+  finalCoinsEl.textContent = coins;
+  gameOverOverlay.style.display = 'flex';
+}
+
+/* HUD update */
+function updateHUD(){
+  scoreEl.textContent = score;
+  coinsEl.textContent = coins;
+  timeEl.textContent = timeLeft;
+}
+
+/* Overlay / settings handlers */
+startBtn.addEventListener('click', ()=>startGame());
+updatesBtn.addEventListener('click', ()=>{ updatesOverlay.style.display='flex' });
+updatesOpen.addEventListener('click', ()=>{ updatesOverlay.style.display='flex' });
+closeUpdates.addEventListener('click', ()=>{ updatesOverlay.style.display='none' });
+
+settingsOpen.addEventListener('click', ()=>{ settingsOverlay.style.display='flex'; });
+closeSettings.addEventListener('click', ()=>{ settingsOverlay.style.display='none'; saveSettings(); });
+optDark.addEventListener('change', ()=>{ applyTheme(); saveSettings(); });
+optSound.addEventListener('change', ()=> saveSettings());
+optVib.addEventListener('change', ()=> saveSettings());
+optMusic.addEventListener('change', ()=> saveSettings());
+
+homeBtn.addEventListener('click', ()=>{
+  gameOverOverlay.style.display='none'; homeOverlay.style.display='flex';
+});
+playAgainBtn.addEventListener('click', ()=>{ gameOverOverlay.style.display='none'; startGame(); });
+
+/* load settings and start render loop */
+loadSettings();
+requestAnimationFrame(loop);
+
+/* small helpers: resume audio on user gesture */
+document.addEventListener('click', ()=>{ if(audioCtx && audioCtx.state=='suspended') audioCtx.resume(); }, {once:true});
+
+/* save settings on unload */
+window.addEventListener('beforeunload', ()=> saveSettings());
+</script>
+</body>
+</html>
