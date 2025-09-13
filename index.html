@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🍉 Fruit Cut Game — Arun Dhakad</title>
+<style>
+  /* --- Basic reset & layout --- */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#111;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans',Arial;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+
+  /* --- Home Screen (simple dark like earlier) --- */
+  #home{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;background:#111;text-align:center;z-index:40;
+  }
+  #home h1{font-size:28px}
+  #home p{color:#bbb;font-size:14px}
+  .home-btn{
+    padding:12px 26px;border-radius:12px;border:2px solid #fff;background:transparent;color:#fff;
+    font-weight:700;cursor:pointer;transition:transform .12s, background .12s;
+  }
+  .home-btn:active{transform:scale(.98)}
+  .home-footer{position:fixed;bottom:14px;width:100%;text-align:center;color:#888;font-size:13px}
+
+  /* --- HUD (top) --- */
+  #hud{
+    position:fixed;top:10px;left:50%;transform:translateX(-50%);
+    display:none;gap:18px;align-items:center;font-weight:700;
+    z-index:30;
+  }
+  .pill{background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.06)}
+  #powerBtn{
+    position:fixed;right:12px;bottom:14px;z-index:30;padding:10px 14px;border-radius:10px;border:none;background:#ff3160;color:#fff;font-weight:700;display:none;cursor:pointer;
+  }
+
+  /* --- Canvas --- */
+  #wrap{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+  canvas{display:block;background:#161616;border-radius:10px;touch-action:none}
+
+  /* --- Game Over screen --- */
+  #gameOver{
+    position:absolute;inset:0;background:rgba(0,0,0,0.85);z-index:45;display:none;
+    flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;
+  }
+  #gameOver .btn{padding:10px 18px;border-radius:10px;border:2px solid #fff;background:transparent;color:#fff;cursor:pointer}
+
+  /* small screens */
+  @media(max-width:420px){
+    #home h1{font-size:22px}
+    .home-btn{padding:10px 18px}
+    canvas{border-radius:6px}
+  }
+</style>
+</head>
+<body>
+  <!-- Home (simple dark) -->
+  <div id="home">
+    <h1>🍉 Fruit Cut Game</h1>
+    <button class="home-btn" id="startBtn">▶️ Start</button>
+    <p>Made by <strong>Arun Dhakad</strong></p>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="pill">⏳ <span id="time">60</span>s</div>
+    <div class="pill">⭐ <span id="score">0</span></div>
+    <div class="pill">💰 <span id="coins">0</span></div>
+  </div>
+
+  <!-- Canvas wrapper so canvas can be responsive & centered -->
+  <div id="wrap">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <button id="powerBtn">⚡ Power</button>
+
+  <!-- Game Over -->
+  <div id="gameOver">
+    <h2>Game Over 😢</h2>
+    <p>Score: <strong id="finalScore">0</strong></p>
+    <p>Coins: <strong id="finalCoins">0</strong></p>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn" onclick="restart()">🔄 Play Again</button>
+      <button class="btn" onclick="backToHome()">🏠 Home</button>
+    </div>
+  </div>
+
+<script>
+/* ---------- CONFIG ---------- */
+const FRUIT_SIZE = 44;           // emoji font size
+const SPAWN_MIN = 700, SPAWN_MAX = 1200; // spawn interval ms
+const GAME_TIME = 60;            // seconds
+const POWER_COST = 12;           // coins to use power
+
+/* ---------- DOM ---------- */
+const home = document.getElementById('home');
+const startBtn = document.getElementById('startBtn');
+const hud = document.getElementById('hud');
+const timeEl = document.getElementById('time');
+const scoreEl = document.getElementById('score');
+const coinsEl = document.getElementById('coins');
+const powerBtn = document.getElementById('powerBtn');
+const gameOverEl = document.getElementById('gameOver');
+const finalScoreEl = document.getElementById('finalScore');
+const finalCoinsEl = document.getElementById('finalCoins');
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('wrap');
+
+/* ---------- State ---------- */
+let fruits = [];
+let particles = []; // splash particles
+let pointerTrail = []; // recent pointer points for swipe checking
+let spawnTimer = null;
+let gameTimer = null;
+let gameRunning = false;
+let timeLeft = GAME_TIME;
+let score = 0;
+let coins = 0;
+
+/* fruit emoji and matching splash color */
+const FRUITS = [
+  {emoji:'🍎', color:'#e63946'},
+  {emoji:'🍌', color:'#ffd166'},
+  {emoji:'🍉', color:'#2ecc71'},
+  {emoji:'🍊', color:'#ff8c42'},
+  {emoji:'🍇', color:'#9b5de5'},
+  {emoji:'🥝', color:'#95d5b2'},
+  {emoji:'🍓', color:'#ff5c8a'},
+  {emoji:'🍒', color:'#ff3b3b'}
+];
+
+/* ---------- Resize canvas with device pixel ratio ---------- */
+function resizeCanvas(){
+  const pad = 12; // margin
+  // full viewport canvas but keep aspect comfortable
+  const W = window.innerWidth - pad*2;
+  const H = window.innerHeight - pad*2;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+/* ---------- Utilities ---------- */
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function now(){ return performance.now(); }
+
+/* distance point-segment (for swipe-line collision) */
+function distPointSegment(px,py,x1,y1,x2,y2){
+  const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+  const dot = A * C + B * D;
+  const lenSq = C*C + D*D;
+  let param = -1;
+  if(lenSq !== 0) param = dot / lenSq;
+  let xx, yy;
+  if(param < 0){ xx = x1; yy = y1; }
+  else if(param > 1){ xx = x2; yy = y2; }
+  else { xx = x1 + param * C; yy = y1 + param * D; }
+  const dx = px - xx, dy = py - yy;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+/* ---------- Game objects ---------- */
+class Fruit {
+  constructor(x,y,obj){
+    this.x = x;
+    this.y = y;
+    this.emoji = obj.emoji;
+    this.color = obj.color;
+    this.r = FRUIT_SIZE/2;
+    this.cut = false;
+    this.vx = (Math.random()-0.5) * 2;
+    this.vy = -(10 + Math.random()*6); // high upward speed so reaches top
+    this.gravity = 0.35;
+    this.angle = Math.random()*Math.PI*2;
+    this.spin = (Math.random()-0.5)*0.12;
+  }
+  update(dt){
+    if(this.cut) return;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vy += this.gravity * dt;
+    this.angle += this.spin * dt;
+  }
+  draw(ctx){
+    if(this.cut) return;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+    ctx.font = `${FRUIT_SIZE}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+  }
+  isOffScreen(h){
+    return this.y - this.r > h + 40;
+  }
+}
+
+class Particle {
+  constructor(x,y,color){
+    this.x = x; this.y = y;
+    this.vx = rand(-3,3); this.vy = rand(-5,-1);
+    this.life = 40 + Math.floor(Math.random()*30);
+    this.color = color;
+    this.r = rand(2,5);
+  }
+  update(){
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.15;
+    this.life--;
+  }
+  draw(ctx){
+    ctx.beginPath();
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = Math.max(0, this.life/60);
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---------- Spawn & Control ---------- */
+function spawnFruit(){
+  const x = rand(60, canvas.clientWidth - 60);
+  const y = canvas.clientHeight + 30;
+  const obj = FRUITS[Math.floor(Math.random()*FRUITS.length)];
+  fruits.push(new Fruit(x, y, obj));
+  // schedule next spawn between SPAWN_MIN and SPAWN_MAX
+  if(gameRunning) spawnTimer = setTimeout(spawnFruit, rand(SPAWN_MIN, SPAWN_MAX));
+}
+
+/* ---------- Input: pointer trail for swipe ---------- */
+let pointerDown = false;
+canvas.addEventListener('pointerdown', (e)=>{
+  pointerDown = true;
+  pointerTrail = [];
+  addPointer(e);
+});
+canvas.addEventListener('pointermove', (e)=>{
+  if(!pointerDown) return;
+  addPointer(e);
+  processTrailHit(); // continuous check while moving
+});
+window.addEventListener('pointerup', ()=>{ pointerDown = false; pointerTrail = []; });
+
+function addPointer(e){
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left);
+  const y = (e.clientY - rect.top);
+  pointerTrail.push({x,y,t:now()});
+  // keep short trail
+  if(pointerTrail.length > 20) pointerTrail.shift();
+}
+
+/* check collision between recent trail segments and fruits */
+function processTrailHit(){
+  if(pointerTrail.length < 2) return;
+  for(let i=1;i<pointerTrail.length;i++){
+    const a = pointerTrail[i-1], b = pointerTrail[i];
+    for(const f of fruits){
+      if(f.cut) continue;
+      const d = distPointSegment(f.x, f.y, a.x, a.y, b.x, b.y);
+      if(d < f.r + 6){
+        doCut(f);
+      }
+    }
+  }
+}
+
+/* also support tap / click */
+canvas.addEventListener('click', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  for(const f of fruits){
+    if(f.cut) continue;
+    const dx = f.x - x, dy = f.y - y;
+    if(Math.sqrt(dx*dx + dy*dy) < f.r + 6){
+      doCut(f);
+    }
+  }
+});
+
+/* perform cut: mark fruit, spawn particles, update score/coins */
+function doCut(f){
+  if(f.cut) return;
+  f.cut = true;
+  // spawn particles with fruit color
+  const color = f.color || '#fff';
+  for(let i=0;i<14;i++) particles.push(new Particle(f.x + rand(-6,6), f.y + rand(-6,6), color));
+  // score and coins
+  score++;
+  coins += 1;
+  updateHUD();
+}
+
+/* ---------- Power button ---------- */
+powerBtn.addEventListener('click', ()=>{
+  if(!gameRunning) return;
+  if(coins < POWER_COST){
+    // subtle feedback: shake
+    powerBtn.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:200});
+    return;
+  }
+  coins -= POWER_COST;
+  // cut all fruits
+  let count = 0;
+  for(const f of fruits){
+    if(!f.cut){ doCut(f); count++; }
+  }
+  updateHUD();
+  // short screen shake
+  document.body.animate([{transform:'translateX(0)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],{duration:160});
+});
+
+/* ---------- HUD ---------- */
+function updateHUD(){
+  scoreEl.textContent = score;
+  coinsEl.textContent = coins;
+}
+
+/* ---------- Game loop (physics & render) ---------- */
+let lastTime = now();
+function loop(){
+  if(!gameRunning) return;
+  const t = now();
+  const dt = Math.min(1, (t - lastTime) / (1000/60)); // scale factor
+  lastTime = t;
+
+  // update
+  for(const f of fruits) f.update(dt);
+  for(const p of particles) p.update();
+
+  // remove off-screen fruits & dead particles
+  fruits = fruits.filter(f => !f.isOffScreen(canvas.clientHeight) && !f.cut);
+  particles = particles.filter(p => p.life > 0);
+
+  // render
+  ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+
+  // draw fruits
+  for(const f of fruits) f.draw(ctx);
+
+  // draw particles
+  for(const p of particles) p.draw(ctx);
+
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Timer & control ---------- */
+function startGame(){
+  // reset state
+  fruits = []; particles = []; pointerTrail = [];
+  score = 0; coins = 0; timeLeft = GAME_TIME;
+  updateHUD();
+  timeEl.textContent = timeLeft;
+
+  // UI
+  home.style.display = 'none';
+  hud.style.display = 'flex';
+  powerBtn.style.display = 'block';
+  gameOverEl.style.display = 'none';
+  canvas.style.display = 'block';
+
+  // start
+  gameRunning = true;
+  resizeCanvas();
+  spawnFruit(); // spawn first immediately
+  lastTime = now();
+  loop();
+
+  // timer
+  if(gameTimer) clearInterval(gameTimer);
+  gameTimer = setInterval(()=>{
+    timeLeft--;
+    timeEl.textContent = timeLeft;
+    if(timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function endGame(){
+  gameRunning = false;
+  // clear spawn timers
+  if(spawnTimer) clearTimeout(spawnTimer);
+  if(gameTimer) clearInterval(gameTimer);
+
+  // show game over with final values
+  finalScoreEl.textContent = score;
+  finalCoinsEl.textContent = coins;
+  gameOverEl.style.display = 'flex';
+  hud.style.display = 'none';
+  powerBtn.style.display = 'none';
+  canvas.style.display = 'none';
+}
+
+function restart(){
+  startGame();
+}
+function backToHome(){
+  // stop and return to home
+  gameRunning = false;
+  if(spawnTimer) clearTimeout(spawnTimer);
+  if(gameTimer) clearInterval(gameTimer);
+  hud.style.display = 'none';
+  powerBtn.style.display = 'none';
+  gameOverEl.style.display = 'none';
+  canvas.style.display = 'none';
+  home.style.display = 'flex';
+}
+
+/* ---------- Init ---------- */
+startBtn.addEventListener('click', startGame);
+window.addEventListener('load', ()=>{
+  home.style.display = 'flex';
+  hud.style.display = 'none';
+  canvas.style.display = 'none';
+  powerBtn.style.display = 'none';
+  resizeCanvas();
+});
+</script>
+</body>
+</html><!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🍉 Fruit Cut Game — Arun Dhakad</title>
+<style>
+  /* --- Basic reset & layout --- */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#111;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans',Arial;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+
+  /* --- Home Screen (simple dark like earlier) --- */
+  #home{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;background:#111;text-align:center;z-index:40;
+  }
+  #home h1{font-size:28px}
+  #home p{color:#bbb;font-size:14px}
+  .home-btn{
+    padding:12px 26px;border-radius:12px;border:2px solid #fff;background:transparent;color:#fff;
+    font-weight:700;cursor:pointer;transition:transform .12s, background .12s;
+  }
+  .home-btn:active{transform:scale(.98)}
+  .home-footer{position:fixed;bottom:14px;width:100%;text-align:center;color:#888;font-size:13px}
+
+  /* --- HUD (top) --- */
+  #hud{
+    position:fixed;top:10px;left:50%;transform:translateX(-50%);
+    display:none;gap:18px;align-items:center;font-weight:700;
+    z-index:30;
+  }
+  .pill{background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.06)}
+  #powerBtn{
+    position:fixed;right:12px;bottom:14px;z-index:30;padding:10px 14px;border-radius:10px;border:none;background:#ff3160;color:#fff;font-weight:700;display:none;cursor:pointer;
+  }
+
+  /* --- Canvas --- */
+  #wrap{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+  canvas{display:block;background:#161616;border-radius:10px;touch-action:none}
+
+  /* --- Game Over screen --- */
+  #gameOver{
+    position:absolute;inset:0;background:rgba(0,0,0,0.85);z-index:45;display:none;
+    flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;
+  }
+  #gameOver .btn{padding:10px 18px;border-radius:10px;border:2px solid #fff;background:transparent;color:#fff;cursor:pointer}
+
+  /* small screens */
+  @media(max-width:420px){
+    #home h1{font-size:22px}
+    .home-btn{padding:10px 18px}
+    canvas{border-radius:6px}
+  }
+</style>
+</head>
+<body>
+  <!-- Home (simple dark) -->
+  <div id="home">
+    <h1>🍉 Fruit Cut Game</h1>
+    <button class="home-btn" id="startBtn">▶️ Start</button>
+    <p>Made by <strong>Arun Dhakad</strong></p>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="pill">⏳ <span id="time">60</span>s</div>
+    <div class="pill">⭐ <span id="score">0</span></div>
+    <div class="pill">💰 <span id="coins">0</span></div>
+  </div>
+
+  <!-- Canvas wrapper so canvas can be responsive & centered -->
+  <div id="wrap">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <button id="powerBtn">⚡ Power</button>
+
+  <!-- Game Over -->
+  <div id="gameOver">
+    <h2>Game Over 😢</h2>
+    <p>Score: <strong id="finalScore">0</strong></p>
+    <p>Coins: <strong id="finalCoins">0</strong></p>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn" onclick="restart()">🔄 Play Again</button>
+      <button class="btn" onclick="backToHome()">🏠 Home</button>
+    </div>
+  </div>
+
+<script>
+/* ---------- CONFIG ---------- */
+const FRUIT_SIZE = 44;           // emoji font size
+const SPAWN_MIN = 700, SPAWN_MAX = 1200; // spawn interval ms
+const GAME_TIME = 60;            // seconds
+const POWER_COST = 12;           // coins to use power
+
+/* ---------- DOM ---------- */
+const home = document.getElementById('home');
+const startBtn = document.getElementById('startBtn');
+const hud = document.getElementById('hud');
+const timeEl = document.getElementById('time');
+const scoreEl = document.getElementById('score');
+const coinsEl = document.getElementById('coins');
+const powerBtn = document.getElementById('powerBtn');
+const gameOverEl = document.getElementById('gameOver');
+const finalScoreEl = document.getElementById('finalScore');
+const finalCoinsEl = document.getElementById('finalCoins');
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('wrap');
+
+/* ---------- State ---------- */
+let fruits = [];
+let particles = []; // splash particles
+let pointerTrail = []; // recent pointer points for swipe checking
+let spawnTimer = null;
+let gameTimer = null;
+let gameRunning = false;
+let timeLeft = GAME_TIME;
+let score = 0;
+let coins = 0;
+
+/* fruit emoji and matching splash color */
+const FRUITS = [
+  {emoji:'🍎', color:'#e63946'},
+  {emoji:'🍌', color:'#ffd166'},
+  {emoji:'🍉', color:'#2ecc71'},
+  {emoji:'🍊', color:'#ff8c42'},
+  {emoji:'🍇', color:'#9b5de5'},
+  {emoji:'🥝', color:'#95d5b2'},
+  {emoji:'🍓', color:'#ff5c8a'},
+  {emoji:'🍒', color:'#ff3b3b'}
+];
+
+/* ---------- Resize canvas with device pixel ratio ---------- */
+function resizeCanvas(){
+  const pad = 12; // margin
+  // full viewport canvas but keep aspect comfortable
+  const W = window.innerWidth - pad*2;
+  const H = window.innerHeight - pad*2;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+/* ---------- Utilities ---------- */
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function now(){ return performance.now(); }
+
+/* distance point-segment (for swipe-line collision) */
+function distPointSegment(px,py,x1,y1,x2,y2){
+  const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+  const dot = A * C + B * D;
+  const lenSq = C*C + D*D;
+  let param = -1;
+  if(lenSq !== 0) param = dot / lenSq;
+  let xx, yy;
+  if(param < 0){ xx = x1; yy = y1; }
+  else if(param > 1){ xx = x2; yy = y2; }
+  else { xx = x1 + param * C; yy = y1 + param * D; }
+  const dx = px - xx, dy = py - yy;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+/* ---------- Game objects ---------- */
+class Fruit {
+  constructor(x,y,obj){
+    this.x = x;
+    this.y = y;
+    this.emoji = obj.emoji;
+    this.color = obj.color;
+    this.r = FRUIT_SIZE/2;
+    this.cut = false;
+    this.vx = (Math.random()-0.5) * 2;
+    this.vy = -(10 + Math.random()*6); // high upward speed so reaches top
+    this.gravity = 0.35;
+    this.angle = Math.random()*Math.PI*2;
+    this.spin = (Math.random()-0.5)*0.12;
+  }
+  update(dt){
+    if(this.cut) return;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vy += this.gravity * dt;
+    this.angle += this.spin * dt;
+  }
+  draw(ctx){
+    if(this.cut) return;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.angle);
+    ctx.font = `${FRUIT_SIZE}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+  }
+  isOffScreen(h){
+    return this.y - this.r > h + 40;
+  }
+}
+
+class Particle {
+  constructor(x,y,color){
+    this.x = x; this.y = y;
+    this.vx = rand(-3,3); this.vy = rand(-5,-1);
+    this.life = 40 + Math.floor(Math.random()*30);
+    this.color = color;
+    this.r = rand(2,5);
+  }
+  update(){
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.15;
+    this.life--;
+  }
+  draw(ctx){
+    ctx.beginPath();
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = Math.max(0, this.life/60);
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---------- Spawn & Control ---------- */
+function spawnFruit(){
+  const x = rand(60, canvas.clientWidth - 60);
+  const y = canvas.clientHeight + 30;
+  const obj = FRUITS[Math.floor(Math.random()*FRUITS.length)];
+  fruits.push(new Fruit(x, y, obj));
+  // schedule next spawn between SPAWN_MIN and SPAWN_MAX
+  if(gameRunning) spawnTimer = setTimeout(spawnFruit, rand(SPAWN_MIN, SPAWN_MAX));
+}
+
+/* ---------- Input: pointer trail for swipe ---------- */
+let pointerDown = false;
+canvas.addEventListener('pointerdown', (e)=>{
+  pointerDown = true;
+  pointerTrail = [];
+  addPointer(e);
+});
+canvas.addEventListener('pointermove', (e)=>{
+  if(!pointerDown) return;
+  addPointer(e);
+  processTrailHit(); // continuous check while moving
+});
+window.addEventListener('pointerup', ()=>{ pointerDown = false; pointerTrail = []; });
+
+function addPointer(e){
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left);
+  const y = (e.clientY - rect.top);
+  pointerTrail.push({x,y,t:now()});
+  // keep short trail
+  if(pointerTrail.length > 20) pointerTrail.shift();
+}
+
+/* check collision between recent trail segments and fruits */
+function processTrailHit(){
+  if(pointerTrail.length < 2) return;
+  for(let i=1;i<pointerTrail.length;i++){
+    const a = pointerTrail[i-1], b = pointerTrail[i];
+    for(const f of fruits){
+      if(f.cut) continue;
+      const d = distPointSegment(f.x, f.y, a.x, a.y, b.x, b.y);
+      if(d < f.r + 6){
+        doCut(f);
+      }
+    }
+  }
+}
+
+/* also support tap / click */
+canvas.addEventListener('click', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  for(const f of fruits){
+    if(f.cut) continue;
+    const dx = f.x - x, dy = f.y - y;
+    if(Math.sqrt(dx*dx + dy*dy) < f.r + 6){
+      doCut(f);
+    }
+  }
+});
+
+/* perform cut: mark fruit, spawn particles, update score/coins */
+function doCut(f){
+  if(f.cut) return;
+  f.cut = true;
+  // spawn particles with fruit color
+  const color = f.color || '#fff';
+  for(let i=0;i<14;i++) particles.push(new Particle(f.x + rand(-6,6), f.y + rand(-6,6), color));
+  // score and coins
+  score++;
+  coins += 1;
+  updateHUD();
+}
+
+/* ---------- Power button ---------- */
+powerBtn.addEventListener('click', ()=>{
+  if(!gameRunning) return;
+  if(coins < POWER_COST){
+    // subtle feedback: shake
+    powerBtn.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:200});
+    return;
+  }
+  coins -= POWER_COST;
+  // cut all fruits
+  let count = 0;
+  for(const f of fruits){
+    if(!f.cut){ doCut(f); count++; }
+  }
+  updateHUD();
+  // short screen shake
+  document.body.animate([{transform:'translateX(0)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],{duration:160});
+});
+
+/* ---------- HUD ---------- */
+function updateHUD(){
+  scoreEl.textContent = score;
+  coinsEl.textContent = coins;
+}
+
+/* ---------- Game loop (physics & render) ---------- */
+let lastTime = now();
+function loop(){
+  if(!gameRunning) return;
+  const t = now();
+  const dt = Math.min(1, (t - lastTime) / (1000/60)); // scale factor
+  lastTime = t;
+
+  // update
+  for(const f of fruits) f.update(dt);
+  for(const p of particles) p.update();
+
+  // remove off-screen fruits & dead particles
+  fruits = fruits.filter(f => !f.isOffScreen(canvas.clientHeight) && !f.cut);
+  particles = particles.filter(p => p.life > 0);
+
+  // render
+  ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+
+  // draw fruits
+  for(const f of fruits) f.draw(ctx);
+
+  // draw particles
+  for(const p of particles) p.draw(ctx);
+
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Timer & control ---------- */
+function startGame(){
+  // reset state
+  fruits = []; particles = []; pointerTrail = [];
+  score = 0; coins = 0; timeLeft = GAME_TIME;
+  updateHUD();
+  timeEl.textContent = timeLeft;
+
+  // UI
+  home.style.display = 'none';
+  hud.style.display = 'flex';
+  powerBtn.style.display = 'block';
+  gameOverEl.style.display = 'none';
+  canvas.style.display = 'block';
+
+  // start
+  gameRunning = true;
+  resizeCanvas();
+  spawnFruit(); // spawn first immediately
+  lastTime = now();
+  loop();
+
+  // timer
+  if(gameTimer) clearInterval(gameTimer);
+  gameTimer = setInterval(()=>{
+    timeLeft--;
+    timeEl.textContent = timeLeft;
+    if(timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function endGame(){
+  gameRunning = false;
+  // clear spawn timers
+  if(spawnTimer) clearTimeout(spawnTimer);
+  if(gameTimer) clearInterval(gameTimer);
+
+  // show game over with final values
+  finalScoreEl.textContent = score;
+  finalCoinsEl.textContent = coins;
+  gameOverEl.style.display = 'flex';
+  hud.style.display = 'none';
+  powerBtn.style.display = 'none';
+  canvas.style.display = 'none';
+}
+
+function restart(){
+  startGame();
+}
+function backToHome(){
+  // stop and return to home
+  gameRunning = false;
+  if(spawnTimer) clearTimeout(spawnTimer);
+  if(gameTimer) clearInterval(gameTimer);
+  hud.style.display = 'none';
+  powerBtn.style.display = 'none';
+  gameOverEl.style.display = 'none';
+  canvas.style.display = 'none';
+  home.style.display = 'flex';
+}
+
+/* ---------- Init ---------- */
+startBtn.addEventListener('click', startGame);
+window.addEventListener('load', ()=>{
+  home.style.display = 'flex';
+  hud.style.display = 'none';
+  canvas.style.display = 'none';
+  powerBtn.style.display = 'none';
+  resizeCanvas();
+});
+</script>
+</body>
+</html>
