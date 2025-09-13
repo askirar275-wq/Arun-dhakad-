@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fruit Cut 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#111;
+    overflow:hidden;
+    touch-action:none;
+  }
+  #homeScreen, #gameScreen {
+    position:absolute;
+    top:0;left:0;
+    width:100%;height:100%;
+    display:flex;justify-content:center;align-items:center;
+    flex-direction:column;
+  }
+  #homeScreen {
+    background:linear-gradient(135deg,#ff9a9e,#fad0c4);
+  }
+  #homeScreen h1 {
+    font-size:2.5rem;
+    color:#fff;
+    margin-bottom:20px;
+    text-shadow:2px 2px 4px #000;
+  }
+  button {
+    padding:12px 25px;
+    font-size:1.2rem;
+    border:2px solid #fff;
+    background:transparent;
+    color:#fff;
+    border-radius:12px;
+    cursor:pointer;
+    transition:0.3s;
+  }
+  button:hover {
+    background:#fff;
+    color:#000;
+    transform:scale(1.1);
+  }
+  #gameCanvas {
+    width:100%;
+    height:100%;
+    background:#000;
+    display:block;
+  }
+  #scoreBoard {
+    position:absolute;
+    top:10px;left:10px;
+    color:#fff;
+    font-size:1.5rem;
+  }
+</style>
+</head>
+<body>
+
+<div id="homeScreen">
+  <h1>🍉 Fruit Cut 🍌</h1>
+  <button onclick="startGame()">Start Game</button>
+  <p style="position:absolute;bottom:10px;left:10px;color:white;font-size:0.9rem;">
+    Made by Arun Dhakad
+  </p>
+</div>
+
+<div id="gameScreen" style="display:none;">
+  <canvas id="gameCanvas"></canvas>
+  <div id="scoreBoard">Score: 0</div>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let fruits = ["🍎","🍌","🍉","🍊","🍇","🍓"];
+let activeFruits = [];
+let particles = [];
+let score = 0;
+let isPlaying = false;
+let slicePath = [];
+
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize",resizeCanvas);
+
+function startGame(){
+  document.getElementById("homeScreen").style.display="none";
+  document.getElementById("gameScreen").style.display="block";
+  isPlaying = true;
+  score=0;
+  activeFruits=[];
+  gameLoop();
+  dropFruit();
+}
+
+function dropFruit(){
+  if(!isPlaying) return;
+  let fruit = {
+    emoji: fruits[Math.floor(Math.random()*fruits.length)],
+    x: Math.random()*canvas.width*0.8 + 50,
+    y: canvas.height+50,
+    size: 50,
+    speedY: -(8+Math.random()*5),
+    speedX: (Math.random()-0.5)*6,
+    gravity: 0.3,
+    rotation: 0,
+    rotationSpeed: (Math.random()-0.5)*0.2
+  };
+  activeFruits.push(fruit);
+  setTimeout(dropFruit, 1000+Math.random()*1000);
+}
+
+function gameLoop(){
+  if(!isPlaying) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Fruits draw
+  for(let i=activeFruits.length-1;i>=0;i--){
+    let f = activeFruits[i];
+    f.x += f.speedX;
+    f.y += f.speedY;
+    f.speedY += f.gravity;
+    f.rotation += f.rotationSpeed;
+
+    ctx.save();
+    ctx.translate(f.x,f.y);
+    ctx.rotate(f.rotation);
+    ctx.font = f.size+"px Arial";
+    ctx.fillText(f.emoji, -f.size/2, f.size/2);
+    ctx.restore();
+
+    if(f.y>canvas.height+100) activeFruits.splice(i,1);
+  }
+
+  // Slice line effect
+  ctx.strokeStyle="rgba(255,255,255,0.7)";
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  for(let i=0;i<slicePath.length;i++){
+    if(i===0) ctx.moveTo(slicePath[i].x,slicePath[i].y);
+    else ctx.lineTo(slicePath[i].x,slicePath[i].y);
+  }
+  ctx.stroke();
+
+  // particles effect
+  for(let i=particles.length-1;i>=0;i--){
+    let p=particles[i];
+    p.x+=p.vx;p.y+=p.vy;p.life--;
+    ctx.globalAlpha=p.life/20;
+    ctx.fillText(p.emoji,p.x,p.y);
+    ctx.globalAlpha=1;
+    if(p.life<=0) particles.splice(i,1);
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+function slice(x,y){
+  slicePath.push({x,y});
+  if(slicePath.length>15) slicePath.shift();
+
+  // check fruit cut
+  for(let i=activeFruits.length-1;i>=0;i--){
+    let f=activeFruits[i];
+    let dx=x-f.x,dy=y-f.y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.size){
+      score++;
+      document.getElementById("scoreBoard").innerText="Score: "+score;
+      activeFruits.splice(i,1);
+      for(let j=0;j<10;j++){
+        particles.push({
+          x:f.x,y:f.y,
+          vx:(Math.random()-0.5)*6,
+          vy:(Math.random()-0.5)*6,
+          life:20,
+          emoji:f.emoji
+        });
+      }
+    }
+  }
+}
+
+canvas.addEventListener("mousemove",e=>slice(e.clientX,e.clientY));
+canvas.addEventListener("touchmove",e=>{
+  let t=e.touches[0];
+  slice(t.clientX,t.clientY);
+});
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fruit Cut 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#111;
+    overflow:hidden;
+    touch-action:none;
+  }
+  #homeScreen, #gameScreen {
+    position:absolute;
+    top:0;left:0;
+    width:100%;height:100%;
+    display:flex;justify-content:center;align-items:center;
+    flex-direction:column;
+  }
+  #homeScreen {
+    background:linear-gradient(135deg,#ff9a9e,#fad0c4);
+  }
+  #homeScreen h1 {
+    font-size:2.5rem;
+    color:#fff;
+    margin-bottom:20px;
+    text-shadow:2px 2px 4px #000;
+  }
+  button {
+    padding:12px 25px;
+    font-size:1.2rem;
+    border:2px solid #fff;
+    background:transparent;
+    color:#fff;
+    border-radius:12px;
+    cursor:pointer;
+    transition:0.3s;
+  }
+  button:hover {
+    background:#fff;
+    color:#000;
+    transform:scale(1.1);
+  }
+  #gameCanvas {
+    width:100%;
+    height:100%;
+    background:#000;
+    display:block;
+  }
+  #scoreBoard {
+    position:absolute;
+    top:10px;left:10px;
+    color:#fff;
+    font-size:1.5rem;
+  }
+</style>
+</head>
+<body>
+
+<div id="homeScreen">
+  <h1>🍉 Fruit Cut 🍌</h1>
+  <button onclick="startGame()">Start Game</button>
+  <p style="position:absolute;bottom:10px;left:10px;color:white;font-size:0.9rem;">
+    Made by Arun Dhakad
+  </p>
+</div>
+
+<div id="gameScreen" style="display:none;">
+  <canvas id="gameCanvas"></canvas>
+  <div id="scoreBoard">Score: 0</div>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let fruits = ["🍎","🍌","🍉","🍊","🍇","🍓"];
+let activeFruits = [];
+let particles = [];
+let score = 0;
+let isPlaying = false;
+let slicePath = [];
+
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize",resizeCanvas);
+
+function startGame(){
+  document.getElementById("homeScreen").style.display="none";
+  document.getElementById("gameScreen").style.display="block";
+  isPlaying = true;
+  score=0;
+  activeFruits=[];
+  gameLoop();
+  dropFruit();
+}
+
+function dropFruit(){
+  if(!isPlaying) return;
+  let fruit = {
+    emoji: fruits[Math.floor(Math.random()*fruits.length)],
+    x: Math.random()*canvas.width*0.8 + 50,
+    y: canvas.height+50,
+    size: 50,
+    speedY: -(8+Math.random()*5),
+    speedX: (Math.random()-0.5)*6,
+    gravity: 0.3,
+    rotation: 0,
+    rotationSpeed: (Math.random()-0.5)*0.2
+  };
+  activeFruits.push(fruit);
+  setTimeout(dropFruit, 1000+Math.random()*1000);
+}
+
+function gameLoop(){
+  if(!isPlaying) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Fruits draw
+  for(let i=activeFruits.length-1;i>=0;i--){
+    let f = activeFruits[i];
+    f.x += f.speedX;
+    f.y += f.speedY;
+    f.speedY += f.gravity;
+    f.rotation += f.rotationSpeed;
+
+    ctx.save();
+    ctx.translate(f.x,f.y);
+    ctx.rotate(f.rotation);
+    ctx.font = f.size+"px Arial";
+    ctx.fillText(f.emoji, -f.size/2, f.size/2);
+    ctx.restore();
+
+    if(f.y>canvas.height+100) activeFruits.splice(i,1);
+  }
+
+  // Slice line effect
+  ctx.strokeStyle="rgba(255,255,255,0.7)";
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  for(let i=0;i<slicePath.length;i++){
+    if(i===0) ctx.moveTo(slicePath[i].x,slicePath[i].y);
+    else ctx.lineTo(slicePath[i].x,slicePath[i].y);
+  }
+  ctx.stroke();
+
+  // particles effect
+  for(let i=particles.length-1;i>=0;i--){
+    let p=particles[i];
+    p.x+=p.vx;p.y+=p.vy;p.life--;
+    ctx.globalAlpha=p.life/20;
+    ctx.fillText(p.emoji,p.x,p.y);
+    ctx.globalAlpha=1;
+    if(p.life<=0) particles.splice(i,1);
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+function slice(x,y){
+  slicePath.push({x,y});
+  if(slicePath.length>15) slicePath.shift();
+
+  // check fruit cut
+  for(let i=activeFruits.length-1;i>=0;i--){
+    let f=activeFruits[i];
+    let dx=x-f.x,dy=y-f.y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.size){
+      score++;
+      document.getElementById("scoreBoard").innerText="Score: "+score;
+      activeFruits.splice(i,1);
+      for(let j=0;j<10;j++){
+        particles.push({
+          x:f.x,y:f.y,
+          vx:(Math.random()-0.5)*6,
+          vy:(Math.random()-0.5)*6,
+          life:20,
+          emoji:f.emoji
+        });
+      }
+    }
+  }
+}
+
+canvas.addEventListener("mousemove",e=>slice(e.clientX,e.clientY));
+canvas.addEventListener("touchmove",e=>{
+  let t=e.touches[0];
+  slice(t.clientX,t.clientY);
+});
+</script>
+</body>
+</html>
