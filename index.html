@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fruit Ninja Game 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#222;
+    overflow:hidden;
+    user-select:none;
+  }
+  canvas {
+    display:block;
+    margin:0 auto;
+    background:#444;
+  }
+  #startScreen, #gameOverScreen {
+    position:absolute;
+    top:0;left:0;
+    width:100%;height:100%;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:#111;
+    color:#fff;
+    text-align:center;
+    z-index:10;
+  }
+  h1 {
+    font-size:2.5em;
+    margin-bottom:20px;
+  }
+  button {
+    padding:12px 24px;
+    margin-top:15px;
+    border:2px solid #fff;
+    border-radius:12px;
+    background:transparent;
+    color:#fff;
+    font-size:1.2em;
+    cursor:pointer;
+    transition:0.3s;
+  }
+  button:hover {
+    background:#fff;
+    color:#000;
+    transform:scale(1.1);
+  }
+  #scoreBoard {
+    position:absolute;
+    top:10px;left:10px;
+    color:#fff;
+    font-size:18px;
+    font-weight:bold;
+    z-index:5;
+  }
+  #timer {
+    position:absolute;
+    top:10px;right:10px;
+    color:#fff;
+    font-size:18px;
+    font-weight:bold;
+    z-index:5;
+  }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>🍉 Fruit Ninja Style 🍎</h1>
+  <button onclick="startGame()">Game Start</button>
+  <p style="margin-top:30px;font-size:14px;opacity:0.7;">Made by Arun Dhakad</p>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="scoreBoard">Score: 0 | Coins: 0</div>
+<div id="timer">60</div>
+
+<div id="gameOverScreen" style="display:none;">
+  <h1>Game Over</h1>
+  <p id="finalScore"></p>
+  <button onclick="restartGame()">Restart</button>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let fruits = [];
+let score = 0;
+let coins = 0;
+let isGameOver = false;
+let timer = 60;
+let interval;
+
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+// 🍎 फलों के इमोजी
+const fruitEmojis = ["🍎","🍌","🍇","🍉","🍊","🍓","🍍","🥭","🍑","🍒"];
+
+class Fruit {
+  constructor(x,y){
+    this.x = x;
+    this.y = y;
+    this.size = 40+Math.random()*20;
+    this.speedY = -(5+Math.random()*5);
+    this.gravity = 0.2;
+    this.rotation = 0;
+    this.rotationSpeed = (Math.random()-0.5)*0.1;
+    this.emoji = fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  }
+  draw(){
+    ctx.save();
+    ctx.translate(this.x,this.y);
+    ctx.rotate(this.rotation);
+    ctx.font = this.size+"px Arial";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(this.emoji,0,0);
+    ctx.restore();
+  }
+  update(){
+    this.y += this.speedY;
+    this.speedY += this.gravity;
+    this.rotation += this.rotationSpeed;
+  }
+}
+
+function spawnFruit(){
+  let x = Math.random()*(canvas.width-100)+50;
+  let y = canvas.height;
+  fruits.push(new Fruit(x,y));
+}
+
+function drawFruits(){
+  for(let i=0;i<fruits.length;i++){
+    let f = fruits[i];
+    f.update();
+    f.draw();
+    if(f.y > canvas.height+f.size) {
+      fruits.splice(i,1);
+      i--;
+    }
+  }
+}
+
+let mouse = {x:0,y:0,down:false};
+let trail = [];
+
+canvas.addEventListener("touchstart",e=>{
+  mouse.down = true;
+});
+canvas.addEventListener("touchmove",e=>{
+  let touch = e.touches[0];
+  mouse.x = touch.clientX;
+  mouse.y = touch.clientY;
+  trail.push({x:mouse.x,y:mouse.y,life:10});
+  cutCheck(mouse.x,mouse.y);
+});
+canvas.addEventListener("touchend",()=>{mouse.down=false;});
+
+canvas.addEventListener("mousedown",()=>{mouse.down=true;});
+canvas.addEventListener("mousemove",e=>{
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  if(mouse.down){
+    trail.push({x:mouse.x,y:mouse.y,life:10});
+    cutCheck(mouse.x,mouse.y);
+  }
+});
+canvas.addEventListener("mouseup",()=>{mouse.down=false;});
+
+function cutCheck(x,y){
+  for(let i=0;i<fruits.length;i++){
+    let f = fruits[i];
+    let dx = f.x-x;
+    let dy = f.y-y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.size/1.5){
+      score += 10;
+      coins += 1;
+      fruits.splice(i,1);
+      i--;
+    }
+  }
+}
+
+function drawTrail(){
+  for(let i=0;i<trail.length;i++){
+    let t = trail[i];
+    ctx.beginPath();
+    ctx.arc(t.x,t.y,8,0,Math.PI*2);
+    ctx.fillStyle="rgba(255,255,255,"+(t.life/10)+")";
+    ctx.fill();
+    t.life--;
+    if(t.life<=0){
+      trail.splice(i,1);
+      i--;
+    }
+  }
+}
+
+function gameLoop(){
+  if(isGameOver) return;
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  drawFruits();
+  drawTrail();
+  document.getElementById("scoreBoard").innerText = "Score: "+score+" | Coins: "+coins;
+  requestAnimationFrame(gameLoop);
+}
+
+function startGame(){
+  document.getElementById("startScreen").style.display="none";
+  score=0;coins=0;timer=60;fruits=[];
+  isGameOver=false;
+  interval = setInterval(()=>{
+    spawnFruit();
+  },800);
+  let timerInterval = setInterval(()=>{
+    timer--;
+    document.getElementById("timer").innerText = timer;
+    if(timer<=0){
+      clearInterval(timerInterval);
+      gameOver();
+    }
+  },1000);
+  gameLoop();
+}
+
+function gameOver(){
+  isGameOver=true;
+  clearInterval(interval);
+  document.getElementById("finalScore").innerText = "Score: "+score+" | Coins: "+coins;
+  document.getElementById("gameOverScreen").style.display="flex";
+}
+
+function restartGame(){
+  document.getElementById("gameOverScreen").style.display="none";
+  startGame();
+}
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fruit Ninja Game 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#222;
+    overflow:hidden;
+    user-select:none;
+  }
+  canvas {
+    display:block;
+    margin:0 auto;
+    background:#444;
+  }
+  #startScreen, #gameOverScreen {
+    position:absolute;
+    top:0;left:0;
+    width:100%;height:100%;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:#111;
+    color:#fff;
+    text-align:center;
+    z-index:10;
+  }
+  h1 {
+    font-size:2.5em;
+    margin-bottom:20px;
+  }
+  button {
+    padding:12px 24px;
+    margin-top:15px;
+    border:2px solid #fff;
+    border-radius:12px;
+    background:transparent;
+    color:#fff;
+    font-size:1.2em;
+    cursor:pointer;
+    transition:0.3s;
+  }
+  button:hover {
+    background:#fff;
+    color:#000;
+    transform:scale(1.1);
+  }
+  #scoreBoard {
+    position:absolute;
+    top:10px;left:10px;
+    color:#fff;
+    font-size:18px;
+    font-weight:bold;
+    z-index:5;
+  }
+  #timer {
+    position:absolute;
+    top:10px;right:10px;
+    color:#fff;
+    font-size:18px;
+    font-weight:bold;
+    z-index:5;
+  }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>🍉 Fruit Ninja Style 🍎</h1>
+  <button onclick="startGame()">Game Start</button>
+  <p style="margin-top:30px;font-size:14px;opacity:0.7;">Made by Arun Dhakad</p>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="scoreBoard">Score: 0 | Coins: 0</div>
+<div id="timer">60</div>
+
+<div id="gameOverScreen" style="display:none;">
+  <h1>Game Over</h1>
+  <p id="finalScore"></p>
+  <button onclick="restartGame()">Restart</button>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let fruits = [];
+let score = 0;
+let coins = 0;
+let isGameOver = false;
+let timer = 60;
+let interval;
+
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+
+// 🍎 फलों के इमोजी
+const fruitEmojis = ["🍎","🍌","🍇","🍉","🍊","🍓","🍍","🥭","🍑","🍒"];
+
+class Fruit {
+  constructor(x,y){
+    this.x = x;
+    this.y = y;
+    this.size = 40+Math.random()*20;
+    this.speedY = -(5+Math.random()*5);
+    this.gravity = 0.2;
+    this.rotation = 0;
+    this.rotationSpeed = (Math.random()-0.5)*0.1;
+    this.emoji = fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  }
+  draw(){
+    ctx.save();
+    ctx.translate(this.x,this.y);
+    ctx.rotate(this.rotation);
+    ctx.font = this.size+"px Arial";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(this.emoji,0,0);
+    ctx.restore();
+  }
+  update(){
+    this.y += this.speedY;
+    this.speedY += this.gravity;
+    this.rotation += this.rotationSpeed;
+  }
+}
+
+function spawnFruit(){
+  let x = Math.random()*(canvas.width-100)+50;
+  let y = canvas.height;
+  fruits.push(new Fruit(x,y));
+}
+
+function drawFruits(){
+  for(let i=0;i<fruits.length;i++){
+    let f = fruits[i];
+    f.update();
+    f.draw();
+    if(f.y > canvas.height+f.size) {
+      fruits.splice(i,1);
+      i--;
+    }
+  }
+}
+
+let mouse = {x:0,y:0,down:false};
+let trail = [];
+
+canvas.addEventListener("touchstart",e=>{
+  mouse.down = true;
+});
+canvas.addEventListener("touchmove",e=>{
+  let touch = e.touches[0];
+  mouse.x = touch.clientX;
+  mouse.y = touch.clientY;
+  trail.push({x:mouse.x,y:mouse.y,life:10});
+  cutCheck(mouse.x,mouse.y);
+});
+canvas.addEventListener("touchend",()=>{mouse.down=false;});
+
+canvas.addEventListener("mousedown",()=>{mouse.down=true;});
+canvas.addEventListener("mousemove",e=>{
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  if(mouse.down){
+    trail.push({x:mouse.x,y:mouse.y,life:10});
+    cutCheck(mouse.x,mouse.y);
+  }
+});
+canvas.addEventListener("mouseup",()=>{mouse.down=false;});
+
+function cutCheck(x,y){
+  for(let i=0;i<fruits.length;i++){
+    let f = fruits[i];
+    let dx = f.x-x;
+    let dy = f.y-y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.size/1.5){
+      score += 10;
+      coins += 1;
+      fruits.splice(i,1);
+      i--;
+    }
+  }
+}
+
+function drawTrail(){
+  for(let i=0;i<trail.length;i++){
+    let t = trail[i];
+    ctx.beginPath();
+    ctx.arc(t.x,t.y,8,0,Math.PI*2);
+    ctx.fillStyle="rgba(255,255,255,"+(t.life/10)+")";
+    ctx.fill();
+    t.life--;
+    if(t.life<=0){
+      trail.splice(i,1);
+      i--;
+    }
+  }
+}
+
+function gameLoop(){
+  if(isGameOver) return;
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  drawFruits();
+  drawTrail();
+  document.getElementById("scoreBoard").innerText = "Score: "+score+" | Coins: "+coins;
+  requestAnimationFrame(gameLoop);
+}
+
+function startGame(){
+  document.getElementById("startScreen").style.display="none";
+  score=0;coins=0;timer=60;fruits=[];
+  isGameOver=false;
+  interval = setInterval(()=>{
+    spawnFruit();
+  },800);
+  let timerInterval = setInterval(()=>{
+    timer--;
+    document.getElementById("timer").innerText = timer;
+    if(timer<=0){
+      clearInterval(timerInterval);
+      gameOver();
+    }
+  },1000);
+  gameLoop();
+}
+
+function gameOver(){
+  isGameOver=true;
+  clearInterval(interval);
+  document.getElementById("finalScore").innerText = "Score: "+score+" | Coins: "+coins;
+  document.getElementById("gameOverScreen").style.display="flex";
+}
+
+function restartGame(){
+  document.getElementById("gameOverScreen").style.display="none";
+  startGame();
+}
+</script>
+</body>
+</html>
