@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Cut Game 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#111;color:#fff;font-family:Arial, sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center;height:100vh;}
+  #home,#gameOver{display:flex;flex-direction:column;justify-content:center;align-items:center;flex:1;width:100%;}
+  button{padding:12px 25px;margin:10px;font-size:18px;font-weight:bold;border:2px solid #fff;border-radius:12px;background:none;color:#fff;cursor:pointer;transition:0.3s;}
+  button:hover{background:#fff;color:#111;transform:scale(1.1);}
+  #hud{width:100%;display:flex;justify-content:space-around;align-items:center;padding:10px;font-size:18px;font-weight:bold;}
+  canvas{flex:1;width:100%;height:100%;border:2px solid #fff;border-radius:10px;touch-action:none;}
+</style>
+</head>
+<body>
+
+<!-- Home Screen -->
+<div id="home">
+  <h1>🍉 Fruit Cut Game 🍌</h1>
+  <button onclick="startGame()">▶️ Start</button>
+</div>
+
+<!-- HUD -->
+<div id="hud" style="display:none;">
+  <div>⭐ Score: <span id="score">0</span></div>
+  <div>💰 Coins: <span id="coins">0</span></div>
+  <div>⏳ Time: <span id="time">60</span>s</div>
+</div>
+
+<!-- Game Canvas -->
+<canvas id="gameCanvas" style="display:none;"></canvas>
+
+<!-- Game Over -->
+<div id="gameOver" style="display:none;">
+  <h2>Game Over 😢</h2>
+  <p>⭐ Score: <span id="finalScore">0</span></p>
+  <p>💰 Coins: <span id="finalCoins">0</span></p>
+  <button onclick="goHome()">🏠 Home</button>
+</div>
+
+<script>
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+
+let fruits=[],score=0,coins=0,time=60,gameInterval,timerInterval,gameRunning=false;
+
+// Emoji list for fruits
+const fruitEmojis=["🍎","🍌","🍉","🍇","🥭","🍊","🍓","🍒"];
+
+// Auto resize canvas
+function resizeCanvas(){
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight*0.8;
+}
+resizeCanvas();
+window.addEventListener("resize",resizeCanvas);
+setInterval(resizeCanvas,500); // extra check (mobile rotation)
+
+// Fruit generator
+function spawnFruit(){
+  const r=25; 
+  const x=Math.random()*(canvas.width-r*2)+r;
+  const y=canvas.height+r;
+  const sy=-7-Math.random()*4;
+  const isPower=Math.random()<0.1; // 10% chance power fruit
+  const emoji=isPower?"⭐":fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  fruits.push({x,y,r,sy,isPower,emoji});
+}
+
+// Game Loop
+function gameLoop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for(let i=fruits.length-1;i>=0;i--){
+    let f=fruits[i];
+    f.y+=f.sy;
+    f.sy+=0.25; // gravity
+
+    ctx.font=`${f.r*2}px Arial`;
+    ctx.textAlign="center";
+    ctx.fillText(f.emoji,f.x,f.y);
+
+    if(f.y-f.r>canvas.height) fruits.splice(i,1);
+  }
+
+  if(gameRunning) requestAnimationFrame(gameLoop);
+}
+
+// Cutting Fruit (swipe / mouse)
+canvas.addEventListener("pointermove",function(e){
+  if(!gameRunning) return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+
+  for(let i=fruits.length-1;i>=0;i--){
+    let f=fruits[i];
+    let dx=mx-f.x,dy=my-f.y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.r){
+      if(f.isPower){
+        score+=5;coins+=3;
+        fruits=[];
+        screenShake();
+      }else{
+        score++;coins++;
+      }
+      updateHUD();
+      fruits.splice(i,1);
+    }
+  }
+});
+
+// Screen Shake effect
+function screenShake(){
+  let i=0;
+  let shake=setInterval(()=>{
+    canvas.style.transform=`translate(${(i%2?5:-5)}px,0)`;
+    i++;
+    if(i>5){clearInterval(shake);canvas.style.transform="";}
+  },50);
+}
+
+// HUD Update
+function updateHUD(){
+  document.getElementById("score").textContent=score;
+  document.getElementById("coins").textContent=coins;
+}
+
+// Start Game
+function startGame(){
+  document.getElementById("home").style.display="none";
+  document.getElementById("hud").style.display="flex";
+  canvas.style.display="block";
+
+  score=0;coins=0;time=60;fruits=[];
+  updateHUD();
+  document.getElementById("time").textContent=time;
+
+  gameRunning=true;
+  gameLoop();
+
+  gameInterval=setInterval(spawnFruit,1000);
+  timerInterval=setInterval(()=>{
+    time--;
+    document.getElementById("time").textContent=time;
+    if(time<=0) endGame();
+  },1000);
+}
+
+// End Game
+function endGame(){
+  gameRunning=false;
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+  canvas.style.display="none";
+  document.getElementById("hud").style.display="none";
+  document.getElementById("gameOver").style.display="flex";
+  document.getElementById("finalScore").textContent=score;
+  document.getElementById("finalCoins").textContent=coins;
+}
+
+// Back to Home
+function goHome(){
+  document.getElementById("gameOver").style.display="none";
+  document.getElementById("home").style.display="flex";
+}
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Cut Game 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#111;color:#fff;font-family:Arial, sans-serif;overflow:hidden;display:flex;flex-direction:column;align-items:center;height:100vh;}
+  #home,#gameOver{display:flex;flex-direction:column;justify-content:center;align-items:center;flex:1;width:100%;}
+  button{padding:12px 25px;margin:10px;font-size:18px;font-weight:bold;border:2px solid #fff;border-radius:12px;background:none;color:#fff;cursor:pointer;transition:0.3s;}
+  button:hover{background:#fff;color:#111;transform:scale(1.1);}
+  #hud{width:100%;display:flex;justify-content:space-around;align-items:center;padding:10px;font-size:18px;font-weight:bold;}
+  canvas{flex:1;width:100%;height:100%;border:2px solid #fff;border-radius:10px;touch-action:none;}
+</style>
+</head>
+<body>
+
+<!-- Home Screen -->
+<div id="home">
+  <h1>🍉 Fruit Cut Game 🍌</h1>
+  <button onclick="startGame()">▶️ Start</button>
+</div>
+
+<!-- HUD -->
+<div id="hud" style="display:none;">
+  <div>⭐ Score: <span id="score">0</span></div>
+  <div>💰 Coins: <span id="coins">0</span></div>
+  <div>⏳ Time: <span id="time">60</span>s</div>
+</div>
+
+<!-- Game Canvas -->
+<canvas id="gameCanvas" style="display:none;"></canvas>
+
+<!-- Game Over -->
+<div id="gameOver" style="display:none;">
+  <h2>Game Over 😢</h2>
+  <p>⭐ Score: <span id="finalScore">0</span></p>
+  <p>💰 Coins: <span id="finalCoins">0</span></p>
+  <button onclick="goHome()">🏠 Home</button>
+</div>
+
+<script>
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+
+let fruits=[],score=0,coins=0,time=60,gameInterval,timerInterval,gameRunning=false;
+
+// Emoji list for fruits
+const fruitEmojis=["🍎","🍌","🍉","🍇","🥭","🍊","🍓","🍒"];
+
+// Auto resize canvas
+function resizeCanvas(){
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight*0.8;
+}
+resizeCanvas();
+window.addEventListener("resize",resizeCanvas);
+setInterval(resizeCanvas,500); // extra check (mobile rotation)
+
+// Fruit generator
+function spawnFruit(){
+  const r=25; 
+  const x=Math.random()*(canvas.width-r*2)+r;
+  const y=canvas.height+r;
+  const sy=-7-Math.random()*4;
+  const isPower=Math.random()<0.1; // 10% chance power fruit
+  const emoji=isPower?"⭐":fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  fruits.push({x,y,r,sy,isPower,emoji});
+}
+
+// Game Loop
+function gameLoop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for(let i=fruits.length-1;i>=0;i--){
+    let f=fruits[i];
+    f.y+=f.sy;
+    f.sy+=0.25; // gravity
+
+    ctx.font=`${f.r*2}px Arial`;
+    ctx.textAlign="center";
+    ctx.fillText(f.emoji,f.x,f.y);
+
+    if(f.y-f.r>canvas.height) fruits.splice(i,1);
+  }
+
+  if(gameRunning) requestAnimationFrame(gameLoop);
+}
+
+// Cutting Fruit (swipe / mouse)
+canvas.addEventListener("pointermove",function(e){
+  if(!gameRunning) return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+
+  for(let i=fruits.length-1;i>=0;i--){
+    let f=fruits[i];
+    let dx=mx-f.x,dy=my-f.y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.r){
+      if(f.isPower){
+        score+=5;coins+=3;
+        fruits=[];
+        screenShake();
+      }else{
+        score++;coins++;
+      }
+      updateHUD();
+      fruits.splice(i,1);
+    }
+  }
+});
+
+// Screen Shake effect
+function screenShake(){
+  let i=0;
+  let shake=setInterval(()=>{
+    canvas.style.transform=`translate(${(i%2?5:-5)}px,0)`;
+    i++;
+    if(i>5){clearInterval(shake);canvas.style.transform="";}
+  },50);
+}
+
+// HUD Update
+function updateHUD(){
+  document.getElementById("score").textContent=score;
+  document.getElementById("coins").textContent=coins;
+}
+
+// Start Game
+function startGame(){
+  document.getElementById("home").style.display="none";
+  document.getElementById("hud").style.display="flex";
+  canvas.style.display="block";
+
+  score=0;coins=0;time=60;fruits=[];
+  updateHUD();
+  document.getElementById("time").textContent=time;
+
+  gameRunning=true;
+  gameLoop();
+
+  gameInterval=setInterval(spawnFruit,1000);
+  timerInterval=setInterval(()=>{
+    time--;
+    document.getElementById("time").textContent=time;
+    if(time<=0) endGame();
+  },1000);
+}
+
+// End Game
+function endGame(){
+  gameRunning=false;
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+  canvas.style.display="none";
+  document.getElementById("hud").style.display="none";
+  document.getElementById("gameOver").style.display="flex";
+  document.getElementById("finalScore").textContent=score;
+  document.getElementById("finalCoins").textContent=coins;
+}
+
+// Back to Home
+function goHome(){
+  document.getElementById("gameOver").style.display="none";
+  document.getElementById("home").style.display="flex";
+}
+</script>
+</body>
+</html>
