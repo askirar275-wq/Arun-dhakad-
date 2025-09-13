@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍉 Fruit Cut Game</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:sans-serif;
+    background:#111;color:#fff;
+    display:flex;justify-content:center;align-items:center;
+    height:100vh;overflow:hidden;
+  }
+  #home,#gameOver{
+    position:absolute;top:0;left:0;width:100%;height:100%;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    background:#111;z-index:2;
+  }
+  #hud{
+    position:absolute;top:10px;left:0;right:0;
+    display:flex;justify-content:space-around;align-items:center;z-index:3;
+    font-size:18px;
+  }
+  #powerBtn{
+    border:2px solid #fff;
+    background:#ff0066;color:#fff;
+    padding:5px 15px;
+    border-radius:10px;
+    font-size:16px;
+    cursor:pointer;
+    transition:0.2s;
+  }
+  #powerBtn:hover{transform:scale(1.1);}
+  canvas{background:#222;display:none;}
+  button{
+    background:none;border:2px solid #fff;color:#fff;
+    padding:10px 20px;margin:10px;border-radius:10px;
+    font-size:18px;cursor:pointer;transition:0.2s;
+  }
+  button:hover{transform:scale(1.1);}
+</style>
+</head>
+<body>
+<div id="home">
+  <h1>🍎 Fruit Cut Game 🍌</h1>
+  <button onclick="startGame()">▶️ Start</button>
+</div>
+
+<div id="hud">
+  <div>⏳ <span id="time">60</span></div>
+  <div>⭐ <span id="score">0</span></div>
+  <div>💰 <span id="coins">0</span></div>
+  <button id="powerBtn" onclick="usePower()">⚡ Power</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="gameOver">
+  <h1>Game Over 😢</h1>
+  <p>Score: <span id="finalScore"></span></p>
+  <p>Coins: <span id="finalCoins"></span></p>
+  <button onclick="goHome()">🏠 Home</button>
+</div>
+
+<script>
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+let fruits=[],score=0,coins=0,time=60,gameRunning=false;
+let gameInterval,timerInterval;
+
+// 🍏 Emoji Fruits
+const fruitEmojis=["🍎","🍌","🍉","🍊","🍇","🥝","🍓","🍒"];
+
+// Resize canvas responsive
+function resizeCanvas(){
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+}
+window.addEventListener("resize",resizeCanvas);
+resizeCanvas();
+
+// 🎮 Start Game
+function startGame(){
+  document.getElementById("home").style.display="none";
+  document.getElementById("gameOver").style.display="none";
+  document.getElementById("hud").style.display="flex";
+  canvas.style.display="block";
+
+  score=0;coins=0;time=60;fruits=[];
+  updateHUD();
+
+  gameRunning=true;
+  gameLoop();
+
+  gameInterval=setInterval(spawnFruit,1000);
+  timerInterval=setInterval(()=>{
+    time--;
+    document.getElementById("time").textContent=time;
+    if(time<=0) endGame();
+  },1000);
+}
+
+// 🍉 Fruit spawn
+function spawnFruit(){
+  const x=Math.random()*(canvas.width-50)+25;
+  const y=canvas.height+50;
+  const speed=Math.random()*3+2;
+  const emoji=fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  fruits.push({x,y,speed,emoji,cut:false,angle:0});
+}
+
+// 🔄 Game Loop
+function gameLoop(){
+  if(!gameRunning) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  fruits.forEach(f=>{
+    if(!f.cut){
+      f.y-=f.speed; // ऊपर की तरफ जाएं
+      f.angle+=0.05;
+      ctx.save();
+      ctx.translate(f.x,f.y);
+      ctx.rotate(f.angle);
+      ctx.font="40px serif";
+      ctx.fillText(f.emoji,-20,20);
+      ctx.restore();
+
+      if(f.y<50) f.cut=true; // ऊपर निकल जाए तो गायब
+    }
+  });
+
+  fruits=fruits.filter(f=>!f.cut);
+  requestAnimationFrame(gameLoop);
+}
+
+// ✂️ Fruit Cut (Tap/Swipe)
+canvas.addEventListener("click",e=>cutFruit(e.clientX,e.clientY));
+canvas.addEventListener("touchstart",e=>{
+  let t=e.touches[0];
+  cutFruit(t.clientX,t.clientY);
+});
+
+function cutFruit(x,y){
+  let cutCount=0;
+  fruits.forEach(f=>{
+    let dx=f.x-x,dy=f.y-y;
+    if(Math.sqrt(dx*dx+dy*dy)<40 && !f.cut){
+      f.cut=true;
+      score++;
+      cutCount++;
+    }
+  });
+
+  if(cutCount>0){
+    if(cutCount>1){
+      coins+=cutCount*2; // combo bonus
+    } else {
+      coins+=1;
+    }
+    updateHUD();
+  }
+}
+
+// ⚡ Power-up → सारे fruits काटो
+function usePower(){
+  let cutCount=0;
+  fruits.forEach(f=>{
+    if(!f.cut){
+      f.cut=true;
+      score++;
+      cutCount++;
+    }
+  });
+  if(cutCount>0){
+    coins+=cutCount; // normal coins for each
+    updateHUD();
+  }
+}
+
+// HUD Update
+function updateHUD(){
+  document.getElementById("score").textContent=score;
+  document.getElementById("coins").textContent=coins;
+}
+
+// ⏹ End Game
+function endGame(){
+  gameRunning=false;
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+
+  canvas.style.display="none";
+  document.getElementById("hud").style.display="none";
+  document.getElementById("gameOver").style.display="flex";
+
+  document.getElementById("finalScore").textContent=score;
+  document.getElementById("finalCoins").textContent=coins;
+}
+
+// 🏠 Back Home
+function goHome(){
+  document.getElementById("gameOver").style.display="none";
+  document.getElementById("hud").style.display="none";
+  canvas.style.display="none";
+  document.getElementById("home").style.display="flex";
+}
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍉 Fruit Cut Game</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:sans-serif;
+    background:#111;color:#fff;
+    display:flex;justify-content:center;align-items:center;
+    height:100vh;overflow:hidden;
+  }
+  #home,#gameOver{
+    position:absolute;top:0;left:0;width:100%;height:100%;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    background:#111;z-index:2;
+  }
+  #hud{
+    position:absolute;top:10px;left:0;right:0;
+    display:flex;justify-content:space-around;align-items:center;z-index:3;
+    font-size:18px;
+  }
+  #powerBtn{
+    border:2px solid #fff;
+    background:#ff0066;color:#fff;
+    padding:5px 15px;
+    border-radius:10px;
+    font-size:16px;
+    cursor:pointer;
+    transition:0.2s;
+  }
+  #powerBtn:hover{transform:scale(1.1);}
+  canvas{background:#222;display:none;}
+  button{
+    background:none;border:2px solid #fff;color:#fff;
+    padding:10px 20px;margin:10px;border-radius:10px;
+    font-size:18px;cursor:pointer;transition:0.2s;
+  }
+  button:hover{transform:scale(1.1);}
+</style>
+</head>
+<body>
+<div id="home">
+  <h1>🍎 Fruit Cut Game 🍌</h1>
+  <button onclick="startGame()">▶️ Start</button>
+</div>
+
+<div id="hud">
+  <div>⏳ <span id="time">60</span></div>
+  <div>⭐ <span id="score">0</span></div>
+  <div>💰 <span id="coins">0</span></div>
+  <button id="powerBtn" onclick="usePower()">⚡ Power</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="gameOver">
+  <h1>Game Over 😢</h1>
+  <p>Score: <span id="finalScore"></span></p>
+  <p>Coins: <span id="finalCoins"></span></p>
+  <button onclick="goHome()">🏠 Home</button>
+</div>
+
+<script>
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+let fruits=[],score=0,coins=0,time=60,gameRunning=false;
+let gameInterval,timerInterval;
+
+// 🍏 Emoji Fruits
+const fruitEmojis=["🍎","🍌","🍉","🍊","🍇","🥝","🍓","🍒"];
+
+// Resize canvas responsive
+function resizeCanvas(){
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+}
+window.addEventListener("resize",resizeCanvas);
+resizeCanvas();
+
+// 🎮 Start Game
+function startGame(){
+  document.getElementById("home").style.display="none";
+  document.getElementById("gameOver").style.display="none";
+  document.getElementById("hud").style.display="flex";
+  canvas.style.display="block";
+
+  score=0;coins=0;time=60;fruits=[];
+  updateHUD();
+
+  gameRunning=true;
+  gameLoop();
+
+  gameInterval=setInterval(spawnFruit,1000);
+  timerInterval=setInterval(()=>{
+    time--;
+    document.getElementById("time").textContent=time;
+    if(time<=0) endGame();
+  },1000);
+}
+
+// 🍉 Fruit spawn
+function spawnFruit(){
+  const x=Math.random()*(canvas.width-50)+25;
+  const y=canvas.height+50;
+  const speed=Math.random()*3+2;
+  const emoji=fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  fruits.push({x,y,speed,emoji,cut:false,angle:0});
+}
+
+// 🔄 Game Loop
+function gameLoop(){
+  if(!gameRunning) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  fruits.forEach(f=>{
+    if(!f.cut){
+      f.y-=f.speed; // ऊपर की तरफ जाएं
+      f.angle+=0.05;
+      ctx.save();
+      ctx.translate(f.x,f.y);
+      ctx.rotate(f.angle);
+      ctx.font="40px serif";
+      ctx.fillText(f.emoji,-20,20);
+      ctx.restore();
+
+      if(f.y<50) f.cut=true; // ऊपर निकल जाए तो गायब
+    }
+  });
+
+  fruits=fruits.filter(f=>!f.cut);
+  requestAnimationFrame(gameLoop);
+}
+
+// ✂️ Fruit Cut (Tap/Swipe)
+canvas.addEventListener("click",e=>cutFruit(e.clientX,e.clientY));
+canvas.addEventListener("touchstart",e=>{
+  let t=e.touches[0];
+  cutFruit(t.clientX,t.clientY);
+});
+
+function cutFruit(x,y){
+  let cutCount=0;
+  fruits.forEach(f=>{
+    let dx=f.x-x,dy=f.y-y;
+    if(Math.sqrt(dx*dx+dy*dy)<40 && !f.cut){
+      f.cut=true;
+      score++;
+      cutCount++;
+    }
+  });
+
+  if(cutCount>0){
+    if(cutCount>1){
+      coins+=cutCount*2; // combo bonus
+    } else {
+      coins+=1;
+    }
+    updateHUD();
+  }
+}
+
+// ⚡ Power-up → सारे fruits काटो
+function usePower(){
+  let cutCount=0;
+  fruits.forEach(f=>{
+    if(!f.cut){
+      f.cut=true;
+      score++;
+      cutCount++;
+    }
+  });
+  if(cutCount>0){
+    coins+=cutCount; // normal coins for each
+    updateHUD();
+  }
+}
+
+// HUD Update
+function updateHUD(){
+  document.getElementById("score").textContent=score;
+  document.getElementById("coins").textContent=coins;
+}
+
+// ⏹ End Game
+function endGame(){
+  gameRunning=false;
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+
+  canvas.style.display="none";
+  document.getElementById("hud").style.display="none";
+  document.getElementById("gameOver").style.display="flex";
+
+  document.getElementById("finalScore").textContent=score;
+  document.getElementById("finalCoins").textContent=coins;
+}
+
+// 🏠 Back Home
+function goHome(){
+  document.getElementById("gameOver").style.display="none";
+  document.getElementById("hud").style.display="none";
+  canvas.style.display="none";
+  document.getElementById("home").style.display="flex";
+}
+</script>
+</body>
+</html>
