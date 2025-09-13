@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>कट फ्रूट गेम</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    #gameContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      background-color: #111;
+    }
+
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 20px;
+      z-index: 10;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: 2px solid #ffcc00;
+      background: transparent;
+      color: #ffcc00;
+      cursor: pointer;
+      font-size: 18px;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    .btn:hover {
+      background-color: #ffcc00;
+      color: #000;
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+    }
+
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <div id="hud">
+      <button class="btn" id="btnHome">← Home</button>
+      <div>⭐ स्कोर: <span id="score">0</span></div>
+      <div>⏱️ टाइम: <span id="time">60s</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const timeEl = document.getElementById('time');
+    const btnHome = document.getElementById('btnHome');
+
+    let score = 0;
+    let timeLeft = 60; // सेकंड
+    let fruits = [];
+    const fruitSize = 60; // पिक्सल साइज़
+
+    // स्क्रीन के हिसाब से canvas फिट करो
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Fruit क्लास
+    class Fruit {
+      constructor(x, y, vy) {
+        this.x = x;
+        this.y = y;
+        this.vy = vy; // नीचे गिरने की speed
+        this.symbol = '🍍'; // फल
+        this.size = fruitSize;
+      }
+
+      update(deltaTime) {
+        this.y += this.vy * deltaTime;
+      }
+
+      draw() {
+        ctx.font = this.size + 'px serif';
+        ctx.fillText(this.symbol, this.x, this.y);
+      }
+
+      isOffScreen() {
+        return this.y > canvas.height + this.size;
+      }
+    }
+
+    // हमेशा स्क्रीन के अंदर ही फल spawn करना
+    function randomX() {
+      return Math.random() * (canvas.width - fruitSize);
+    }
+    function randomYStart() {
+      return -fruitSize; // ऊपर से शुरू होगा
+    }
+
+    function spawnFruit() {
+      const x = randomX();
+      const y = randomYStart();
+      const vy = 0.1 + Math.random() * 0.2; // गिरने की गति
+      fruits.push(new Fruit(x, y, vy));
+    }
+
+    let lastTime = performance.now();
+    function gameLoop(now) {
+      const deltaTime = now - lastTime;
+      lastTime = now;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // सारे फल update + draw
+      fruits.forEach((fruit, index) => {
+        fruit.update(deltaTime);
+        fruit.draw();
+        if (fruit.isOffScreen()) {
+          fruits.splice(index, 1);
+        }
+      });
+
+      // नए फल आते रहें
+      if (Math.random() < 0.02) {
+        spawnFruit();
+      }
+
+      scoreEl.textContent = score;
+      timeEl.textContent = Math.max(0, Math.floor(timeLeft)) + 's';
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // टाइमर
+    function startTimer() {
+      const timer = setInterval(() => {
+        timeLeft -= 1;
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          // गेम ओवर
+        }
+      }, 1000);
+    }
+
+    // होम बटन
+    btnHome.addEventListener('click', () => {
+      window.location.href = '/'; 
+    });
+
+    // गेम स्टार्ट
+    startTimer();
+    requestAnimationFrame(gameLoop);
+
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>कट फ्रूट गेम</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    #gameContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      background-color: #111;
+    }
+
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 20px;
+      z-index: 10;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: 2px solid #ffcc00;
+      background: transparent;
+      color: #ffcc00;
+      cursor: pointer;
+      font-size: 18px;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    .btn:hover {
+      background-color: #ffcc00;
+      color: #000;
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+    }
+
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <div id="hud">
+      <button class="btn" id="btnHome">← Home</button>
+      <div>⭐ स्कोर: <span id="score">0</span></div>
+      <div>⏱️ टाइम: <span id="time">60s</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const timeEl = document.getElementById('time');
+    const btnHome = document.getElementById('btnHome');
+
+    let score = 0;
+    let timeLeft = 60; // सेकंड
+    let fruits = [];
+    const fruitSize = 60; // पिक्सल साइज़
+
+    // स्क्रीन के हिसाब से canvas फिट करो
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Fruit क्लास
+    class Fruit {
+      constructor(x, y, vy) {
+        this.x = x;
+        this.y = y;
+        this.vy = vy; // नीचे गिरने की speed
+        this.symbol = '🍍'; // फल
+        this.size = fruitSize;
+      }
+
+      update(deltaTime) {
+        this.y += this.vy * deltaTime;
+      }
+
+      draw() {
+        ctx.font = this.size + 'px serif';
+        ctx.fillText(this.symbol, this.x, this.y);
+      }
+
+      isOffScreen() {
+        return this.y > canvas.height + this.size;
+      }
+    }
+
+    // हमेशा स्क्रीन के अंदर ही फल spawn करना
+    function randomX() {
+      return Math.random() * (canvas.width - fruitSize);
+    }
+    function randomYStart() {
+      return -fruitSize; // ऊपर से शुरू होगा
+    }
+
+    function spawnFruit() {
+      const x = randomX();
+      const y = randomYStart();
+      const vy = 0.1 + Math.random() * 0.2; // गिरने की गति
+      fruits.push(new Fruit(x, y, vy));
+    }
+
+    let lastTime = performance.now();
+    function gameLoop(now) {
+      const deltaTime = now - lastTime;
+      lastTime = now;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // सारे फल update + draw
+      fruits.forEach((fruit, index) => {
+        fruit.update(deltaTime);
+        fruit.draw();
+        if (fruit.isOffScreen()) {
+          fruits.splice(index, 1);
+        }
+      });
+
+      // नए फल आते रहें
+      if (Math.random() < 0.02) {
+        spawnFruit();
+      }
+
+      scoreEl.textContent = score;
+      timeEl.textContent = Math.max(0, Math.floor(timeLeft)) + 's';
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // टाइमर
+    function startTimer() {
+      const timer = setInterval(() => {
+        timeLeft -= 1;
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          // गेम ओवर
+        }
+      }, 1000);
+    }
+
+    // होम बटन
+    btnHome.addEventListener('click', () => {
+      window.location.href = '/'; 
+    });
+
+    // गेम स्टार्ट
+    startTimer();
+    requestAnimationFrame(gameLoop);
+
+  </script>
+</body>
+</html>
