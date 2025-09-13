@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Fruit Cut — Emoji Game</title>
+<style>
+  :root{
+    --bg1:#ffecd2; --bg2:#fcb69f;
+    --card:#111; --muted:rgba(255,255,255,0.08);
+    --accent: #00c2ff;
+  }
+  /* बेसिक reset */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans","Helvetica Neue",Arial;
+    background: linear-gradient(135deg,var(--bg1),var(--bg2));
+    display:flex;align-items:center;justify-content:center;padding:12px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* फ्रेम */
+  .frame{
+    width: min(430px, 96vw);
+    height: min(760px, 96vh);
+    background: linear-gradient(180deg,#1b1b1b,#0f0f0f);
+    border-radius:16px; overflow:hidden; position:relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    display:flex;flex-direction:column;align-items:center;
+  }
+
+  /* हेडर HUD */
+  .hud{
+    width:100%; padding:10px 14px; display:flex;justify-content:space-between;align-items:center;
+    color:#fff; gap:8px;
+  }
+  .score, .timer{
+    background: rgba(255,255,255,0.06);
+    padding:8px 12px;border-radius:10px;font-weight:700;
+    border:2px solid transparent;
+  }
+  /* outline style for buttons */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 16px;border-radius:12px;border:2px solid #fff;
+    background:transparent;color:#fff;font-weight:700;cursor:pointer;
+    transition: transform .18s ease, background .18s ease, box-shadow .18s;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .btn:active{ transform: translateY(2px) scale(.99); }
+  .btn.primary{
+    border-color: var(--accent);
+    box-shadow: 0 8px 26px rgba(0,194,255,0.12);
+  }
+
+  /* home screen */
+  .home{
+    width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;padding:22px;text-align:center;color:#fff;
+  }
+  .title{font-size:26px;font-weight:900;letter-spacing:0.6px}
+  .subtitle{font-size:13px;color:#ddd}
+
+  .levels{display:flex;gap:10px;margin-top:6px}
+  .levelBtn{
+    padding:8px 12px;border-radius:10px;border:2px solid rgba(255,255,255,0.12);
+    background:transparent;color:#fff;font-weight:800;cursor:pointer;
+  }
+  .levelBtn.active{border-color:var(--accent); box-shadow:0 8px 20px rgba(0,194,255,0.06)}
+
+  /* canvas area */
+  .gameArea{flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding:8px;}
+  canvas{
+    width:100%;height:100%;max-width:380px;max-height:640px;border-radius:10px;
+    background:linear-gradient(180deg,#0b0b0b,#111);
+    touch-action:none;
+    display:block;
+  }
+
+  /* gameover modal */
+  .modal{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    background:#fff;padding:18px;border-radius:12px;color:#111;display:none;min-width:260px;
+    box-shadow:0 20px 40px rgba(0,0,0,0.35);text-align:center;
+  }
+  .modal h3{margin-bottom:8px}
+  .small{font-size:13px;color:#666;margin-top:4px}
+
+  /* bottom controls */
+  .controls{width:100%;display:flex;gap:10px;justify-content:center;padding:10px;background:linear-gradient(0deg,rgba(255,255,255,0.02),transparent)}
+  .outline{border:2px solid rgba(255,255,255,0.12);padding:8px 12px;border-radius:10px;color:#fff;background:transparent}
+
+  /* responsive tweaks */
+  @media (max-width:420px){
+    .title{font-size:22px}
+  }
+</style>
+</head>
+<body>
+  <div class="frame" id="frame">
+    <!-- HUD (visible only during game) -->
+    <div class="hud" id="hud" style="display:none">
+      <div class="score" id="score">Score: 0</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="timer" id="timer">Time: 60</div>
+      </div>
+    </div>
+
+    <!-- HOME SCREEN -->
+    <div class="home" id="homeScreen">
+      <div class="title">🍉 फ्रूट कट</div>
+      <div class="subtitle">Emoji फलों का गेम — स्वाइप करके काटो, बॉम्ब से बचो</div>
+
+      <div style="display:flex;gap:12px;align-items:center;margin-top:10px">
+        <button class="btn primary" id="startBtn">▶ खेल शुरू करें</button>
+        <button class="btn" id="howBtn">ℹ कैसे खेलें</button>
+      </div>
+
+      <div style="margin-top:14px;color:#fff;font-weight:800">लेवल चुनें</div>
+      <div class="levels">
+        <button class="levelBtn active" data-level="easy">Easy</button>
+        <button class="levelBtn" data-level="medium">Medium</button>
+        <button class="levelBtn" data-level="hard">Hard</button>
+      </div>
+
+      <div style="margin-top:16px;color:#ddd;font-size:13px">Swipe line fade होती है — एक ही स्वाइप में multiple कटे तो combo मिलता है</div>
+    </div>
+
+    <!-- GAME AREA -->
+    <div class="gameArea" id="gameArea" style="display:none;">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- controls bottom -->
+    <div class="controls" id="controls" style="display:none">
+      <button class="outline btn" id="homeBtn">🏠 Home</button>
+      <button class="outline btn" id="restartBtn">🔄 Restart</button>
+    </div>
+
+    <!-- Game Over modal -->
+    <div class="modal" id="gameOverModal">
+      <h3 id="goTitle">Game Over</h3>
+      <div id="goScore">Score: 0</div>
+      <div class="small" id="goInfo">तुम्हारा combo और टाइम यहाँ दिखेगा</div>
+      <div style="margin-top:12px">
+        <button class="btn primary" id="playAgain">फिर से खेलो</button>
+        <button class="btn" id="goHome">होम</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ====== हिंदी में comments: गेम का पूरा लॉजिक ====== */
+
+/* --- सेटअप और स्केलिंग (devicePixelRatio) --- */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const frame = document.getElementById('frame');
+const homeScreen = document.getElementById('homeScreen');
+const gameArea = document.getElementById('gameArea');
+const hud = document.getElementById('hud');
+const controls = document.getElementById('controls');
+const scoreEl = document.getElementById('score');
+const timerEl = document.getElementById('timer');
+const gameOverModal = document.getElementById('gameOverModal');
+const goScore = document.getElementById('goScore');
+const goInfo = document.getElementById('goInfo');
+
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resizeCanvas(){
+  // CSS size already controlled by container; set internal pixels scaled by DPR
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * DPR);
+  canvas.height = Math.round(rect.height * DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0); // scale drawing to CSS pixels
+}
+window.addEventListener('resize', resizeCanvas);
+
+/* --- गेम स्टेट --- */
+let running = false;
+let fruits = [], bombs = [], juices = [], trails = [];
+let score = 0, timeLeft = 60;
+let spawnTimer = null, mainLoopId = null, gameTimer = null;
+let currentLevel = 'easy';
+let lastPointer = null; // last pointer pos during swipe
+let pointerDown = false;
+
+/* --- गेम पैरामीटर्स लेवल के हिसाब से --- */
+const LEVELS = {
+  easy:   { spawnRate: 1000, bombChance: 0.10, gravity: 0.26, fruitCount:1 },
+  medium: { spawnRate: 820,  bombChance: 0.16, gravity: 0.30, fruitCount:1 },
+  hard:   { spawnRate: 650,  bombChance: 0.24, gravity: 0.34, fruitCount:2 }
+};
+
+/* --- Emoji types --- */
+const FRUIT_TYPES = [
+  {emoji:'🍎', color:'255,60,60'},
+  {emoji:'🍌', color:'255,230,60'},
+  {emoji:'🍉', color:'255,110,160'},
+  {emoji:'🍊', color:'255,150,50'},
+  {emoji:'🍓', color:'255,50,100'}
+];
+
+/* helper: पॉइंट-सेगमेंट दूरी (collision reliable) */
+function pointSegmentDist(px,py,x1,y1,x2,y2){
+  const lx = x2-x1, ly = y2-y1;
+  const l2 = lx*lx + ly*ly;
+  if(l2 === 0) return Math.hypot(px-x1, py-y1);
+  let t = ((px - x1)*lx + (py - y1)*ly) / l2;
+  t = Math.max(0, Math.min(1, t));
+  const projx = x1 + t*lx;
+  const projy = y1 + t*ly;
+  return Math.hypot(px-projx, py-projy);
+}
+
+/* --- spawn functions: नीचे से ऊपर उछाल, फिर gravity से नीचे --- */
+function spawnFruit(){
+  const t = FRUIT_TYPES[Math.floor(Math.random()*FRUIT_TYPES.length)];
+  // target height as 80%-95% of canvas height (randomized) -> formula for initial velocity
+  const targetFactor = 0.75 + Math.random()*0.2; // 0.75 .. 0.95
+  const targetH = canvas.height / DPR * targetFactor;
+  const g = LEVELS[currentLevel].gravity;
+  const initialDy = -Math.sqrt(2 * g * targetH);
+
+  fruits.push({
+    x: Math.random()*(canvas.width/DPR - 80) + 40,
+    y: canvas.height / DPR + 20,
+    dx: (Math.random()-0.5)*3.5,
+    dy: initialDy,
+    r: 28,
+    emoji: t.emoji,
+    color: t.color,
+    active: true
+  });
+}
+
+function spawnBomb(){
+  const targetFactor = 0.75 + Math.random()*0.2;
+  const targetH = canvas.height / DPR * targetFactor;
+  const g = LEVELS[currentLevel].gravity;
+  const initialDy = -Math.sqrt(2 * g * targetH);
+
+  bombs.push({
+    x: Math.random()*(canvas.width/DPR - 80) + 40,
+    y: canvas.height / DPR + 20,
+    dx: (Math.random()-0.5)*3.5,
+    dy: initialDy,
+    r: 28,
+    emoji: '💣',
+    active: true
+  });
+}
+
+/* --- juice particles spawn --- */
+function spawnJuice(x,y,color){
+  for(let i=0;i<16;i++){
+    juices.push({
+      x,y,
+      vx:(Math.random()-0.5)*6,
+      vy:(Math.random()-0.5)*6,
+      life:1,
+      color
+    });
+  }
+}
+
+/* --- draw helpers --- */
+function clearBg(){
+  ctx.fillStyle = '#0b0b0b';
+  ctx.fillRect(0,0, canvas.width/DPR, canvas.height/DPR);
+}
+
+function drawFruits(){
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font = `${Math.round(48 * (canvas.width/DPR)/380)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  for(const f of fruits){
+    if(!f.active) continue;
+    ctx.fillText(f.emoji, f.x, f.y);
+  }
+}
+function drawBombs(){
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font = `${Math.round(48 * (canvas.width/DPR)/380)}px "Segoe UI Emoji", sans-serif`;
+  for(const b of bombs){
+    if(!b.active) continue;
+    ctx.fillText(b.emoji, b.x, b.y);
+  }
+}
+function drawJuice(){
+  for(let i=juices.length-1;i>=0;i--){
+    const p = juices[i];
+    ctx.fillStyle = `rgba(${p.color || '255,0,0'},${p.life})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+    ctx.fill();
+    p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= 0.03;
+    if(p.life <= 0) juices.splice(i,1);
+  }
+}
+function drawTrails(){
+  const now = performance.now();
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  for(let i=trails.length-1;i>=0;i--){
+    const s = trails[i];
+    const age = (now - s.t)/200; // 200ms fade
+    if(age >= 1){ trails.splice(i,1); continue; }
+    const a = 1 - age;
+    ctx.strokeStyle = `rgba(0,200,255,${a})`;
+    ctx.lineWidth = 6 * a;
+    ctx.beginPath();
+    ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke();
+  }
+}
+
+/* --- physics update --- */
+function updatePhysics(){
+  const g = LEVELS[currentLevel].gravity;
+  for(const f of fruits){
+    if(!f.active) continue;
+    f.x += f.dx; f.y += f.dy; f.dy += g;
+    f.dx *= 0.999;
+    if(f.y > canvas.height/DPR + 60) f.active = false;
+  }
+  for(const b of bombs){
+    if(!b.active) continue;
+    b.x += b.dx; b.y += b.dy; b.dy += g;
+    b.dx *= 0.999;
+    if(b.y > canvas.height/DPR + 60) b.active = false;
+  }
+}
+
+/* --- collision --- */
+function checkCollisions(){
+  if(trails.length === 0) return;
+  // track how many cut in this check (for combo)
+  const cutList = [];
+  for(const f of fruits){
+    if(!f.active) continue;
+    for(const s of trails){
+      const dist = pointSegmentDist(f.x, f.y, s.x1, s.y1, s.x2, s.y2);
+      if(dist < f.r * 0.9){
+        f.active = false; cutList.push(f); spawnJuice(f.x,f.y,f.color); break;
+      }
+    }
+  }
+  for(const b of bombs){
+    if(!b.active) continue;
+    for(const s of trails){
+      const dist = pointSegmentDist(b.x, b.y, s.x1, s.y1, s.x2, s.y2);
+      if(dist < b.r * 0.9){
+        b.active = false; gameOver(); return;
+      }
+    }
+  }
+  // combo scoring
+  if(cutList.length === 1) score += 1;
+  else if(cutList.length === 2) score += 3;
+  else if(cutList.length >= 3) score += 5;
+  if(cutList.length > 0) updateHUD();
+}
+
+/* --- HUD update --- */
+function updateHUD(){
+  scoreEl.textContent = `Score: ${score}`;
+}
+
+/* --- main render loop --- */
+function loop(now){
+  if(!running) return;
+  updatePhysics();
+  clearBg();
+  drawFruits();
+  drawBombs();
+  drawJuice();
+  drawTrails();
+  checkCollisions();
+  // cleanup arrays
+  fruits = fruits.filter(f => f.active);
+  bombs = bombs.filter(b => b.active);
+  mainLoopId = requestAnimationFrame(loop);
+}
+
+/* --- spawn controller --- */
+function startSpawning(){
+  stopSpawning();
+  const conf = LEVELS[currentLevel];
+  spawnTimer = setInterval(()=>{
+    // sometimes spawn 1 or 2 fruits depending on level
+    const count = conf.fruitCount;
+    for(let i=0;i<count;i++) spawnFruit();
+    if(Math.random() < conf.bombChance) spawnBomb();
+  }, conf.spawnRate);
+}
+function stopSpawning(){ if(spawnTimer) clearInterval(spawnTimer); spawnTimer = null; }
+
+/* --- timer --- */
+function startTimer(){
+  if(gameTimer) clearInterval(gameTimer);
+  timeLeft = 60; timerEl.textContent = `Time: ${timeLeft}`;
+  gameTimer = setInterval(()=>{
+    timeLeft--; timerEl.textContent = `Time: ${timeLeft}`;
+    if(timeLeft <= 0){ gameOver(); }
+  }, 1000);
+}
+function stopTimer(){ if(gameTimer) clearInterval(gameTimer); gameTimer = null; }
+
+/* --- game start / stop --- */
+function startGame(){
+  // reset
+  resizeCanvas();
+  running = true;
+  fruits = []; bombs = []; juices = []; trails = [];
+  score = 0; updateHUD();
+  gameOverModal.style.display = 'none';
+  homeScreen.style.display = 'none';
+  gameArea.style.display = 'flex';
+  hud.style.display = 'flex';
+  controls.style.display = 'flex';
+
+  // start spawning & loop & timer
+  startSpawning();
+  startTimer();
+  cancelAnimationFrame(mainLoopId);
+  mainLoopId = requestAnimationFrame(loop);
+}
+function gameOver(){
+  running = false;
+  stopSpawning(); stopTimer();
+  cancelAnimationFrame(mainLoopId);
+  // show modal
+  gameOverModal.style.display = 'block';
+  goScore.textContent = `Score: ${score}`;
+  goInfo.textContent = `Time left: ${timeLeft} сек`;
+}
+
+/* --- input handling (pointer unified for mouse/touch) --- */
+function getPos(e){
+  const r = canvas.getBoundingClientRect();
+  if(e.touches && e.touches[0]) return { x: (e.touches[0].clientX - r.left), y: (e.touches[0].clientY - r.top) };
+  return { x: (e.clientX - r.left), y: (e.clientY - r.top) };
+}
+canvas.addEventListener('pointerdown', (e)=>{
+  if(!running) return;
+  pointerDown = true;
+  const p = getPos(e);
+  lastPointer = p;
+});
+canvas.addEventListener('pointerup', (e)=>{
+  pointerDown = false;
+  lastPointer = null;
+});
+canvas.addEventListener('pointermove', (e)=>{
+  if(!pointerDown || !running) return;
+  const p = getPos(e);
+  // add trail segment with timestamp
+  trails.push({ x1: lastPointer.x, y1: lastPointer.y, x2: p.x, y2: p.y, t: performance.now() });
+  // keep trails size
+  if(trails.length > 60) trails.shift();
+  lastPointer = p;
+});
+
+/* --- UI buttons --- */
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  startGame();
+});
+document.getElementById('howBtn').addEventListener('click', ()=>{
+  alert("Swipe (finger se drag) karke fruits kaatna hai. 💣 bomb ko mat kaatna — cut karoge to game over. Ek swipe mein agar 2+ fruits kat-te hain to combo bonus milega.");
+});
+document.getElementById('homeBtn').addEventListener('click', ()=>{
+  // stop and go home
+  running = false; stopSpawning(); stopTimer(); cancelAnimationFrame(mainLoopId);
+  homeScreen.style.display = 'flex'; gameArea.style.display = 'none'; hud.style.display = 'none'; controls.style.display = 'none';
+  gameOverModal.style.display = 'none';
+});
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  // restart current level
+  running = false; stopSpawning(); stopTimer(); cancelAnimationFrame(mainLoopId);
+  startGame();
+});
+document.getElementById('playAgain').addEventListener('click', ()=>{
+  gameOverModal.style.display = 'none'; startGame();
+});
+document.getElementById('goHome').addEventListener('click', ()=>{
+  gameOverModal.style.display = 'none'; homeScreen.style.display = 'flex'; gameArea.style.display = 'none'; hud.style.display = 'none'; controls.style.display = 'none';
+});
+
+/* --- level buttons --- */
+document.querySelectorAll('.levelBtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.levelBtn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLevel = btn.dataset.level;
+  });
+});
+
+/* --- initialization --- */
+resizeCanvas();
+window.addEventListener('load', resizeCanvas);
+startGame(); // तुरंत शुरू करवाना हो तो use; वरना comment कर दो और user से start कराओ
+
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Fruit Cut — Emoji Game</title>
+<style>
+  :root{
+    --bg1:#ffecd2; --bg2:#fcb69f;
+    --card:#111; --muted:rgba(255,255,255,0.08);
+    --accent: #00c2ff;
+  }
+  /* बेसिक reset */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans","Helvetica Neue",Arial;
+    background: linear-gradient(135deg,var(--bg1),var(--bg2));
+    display:flex;align-items:center;justify-content:center;padding:12px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* फ्रेम */
+  .frame{
+    width: min(430px, 96vw);
+    height: min(760px, 96vh);
+    background: linear-gradient(180deg,#1b1b1b,#0f0f0f);
+    border-radius:16px; overflow:hidden; position:relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    display:flex;flex-direction:column;align-items:center;
+  }
+
+  /* हेडर HUD */
+  .hud{
+    width:100%; padding:10px 14px; display:flex;justify-content:space-between;align-items:center;
+    color:#fff; gap:8px;
+  }
+  .score, .timer{
+    background: rgba(255,255,255,0.06);
+    padding:8px 12px;border-radius:10px;font-weight:700;
+    border:2px solid transparent;
+  }
+  /* outline style for buttons */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:10px 16px;border-radius:12px;border:2px solid #fff;
+    background:transparent;color:#fff;font-weight:700;cursor:pointer;
+    transition: transform .18s ease, background .18s ease, box-shadow .18s;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .btn:active{ transform: translateY(2px) scale(.99); }
+  .btn.primary{
+    border-color: var(--accent);
+    box-shadow: 0 8px 26px rgba(0,194,255,0.12);
+  }
+
+  /* home screen */
+  .home{
+    width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;padding:22px;text-align:center;color:#fff;
+  }
+  .title{font-size:26px;font-weight:900;letter-spacing:0.6px}
+  .subtitle{font-size:13px;color:#ddd}
+
+  .levels{display:flex;gap:10px;margin-top:6px}
+  .levelBtn{
+    padding:8px 12px;border-radius:10px;border:2px solid rgba(255,255,255,0.12);
+    background:transparent;color:#fff;font-weight:800;cursor:pointer;
+  }
+  .levelBtn.active{border-color:var(--accent); box-shadow:0 8px 20px rgba(0,194,255,0.06)}
+
+  /* canvas area */
+  .gameArea{flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding:8px;}
+  canvas{
+    width:100%;height:100%;max-width:380px;max-height:640px;border-radius:10px;
+    background:linear-gradient(180deg,#0b0b0b,#111);
+    touch-action:none;
+    display:block;
+  }
+
+  /* gameover modal */
+  .modal{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    background:#fff;padding:18px;border-radius:12px;color:#111;display:none;min-width:260px;
+    box-shadow:0 20px 40px rgba(0,0,0,0.35);text-align:center;
+  }
+  .modal h3{margin-bottom:8px}
+  .small{font-size:13px;color:#666;margin-top:4px}
+
+  /* bottom controls */
+  .controls{width:100%;display:flex;gap:10px;justify-content:center;padding:10px;background:linear-gradient(0deg,rgba(255,255,255,0.02),transparent)}
+  .outline{border:2px solid rgba(255,255,255,0.12);padding:8px 12px;border-radius:10px;color:#fff;background:transparent}
+
+  /* responsive tweaks */
+  @media (max-width:420px){
+    .title{font-size:22px}
+  }
+</style>
+</head>
+<body>
+  <div class="frame" id="frame">
+    <!-- HUD (visible only during game) -->
+    <div class="hud" id="hud" style="display:none">
+      <div class="score" id="score">Score: 0</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="timer" id="timer">Time: 60</div>
+      </div>
+    </div>
+
+    <!-- HOME SCREEN -->
+    <div class="home" id="homeScreen">
+      <div class="title">🍉 फ्रूट कट</div>
+      <div class="subtitle">Emoji फलों का गेम — स्वाइप करके काटो, बॉम्ब से बचो</div>
+
+      <div style="display:flex;gap:12px;align-items:center;margin-top:10px">
+        <button class="btn primary" id="startBtn">▶ खेल शुरू करें</button>
+        <button class="btn" id="howBtn">ℹ कैसे खेलें</button>
+      </div>
+
+      <div style="margin-top:14px;color:#fff;font-weight:800">लेवल चुनें</div>
+      <div class="levels">
+        <button class="levelBtn active" data-level="easy">Easy</button>
+        <button class="levelBtn" data-level="medium">Medium</button>
+        <button class="levelBtn" data-level="hard">Hard</button>
+      </div>
+
+      <div style="margin-top:16px;color:#ddd;font-size:13px">Swipe line fade होती है — एक ही स्वाइप में multiple कटे तो combo मिलता है</div>
+    </div>
+
+    <!-- GAME AREA -->
+    <div class="gameArea" id="gameArea" style="display:none;">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- controls bottom -->
+    <div class="controls" id="controls" style="display:none">
+      <button class="outline btn" id="homeBtn">🏠 Home</button>
+      <button class="outline btn" id="restartBtn">🔄 Restart</button>
+    </div>
+
+    <!-- Game Over modal -->
+    <div class="modal" id="gameOverModal">
+      <h3 id="goTitle">Game Over</h3>
+      <div id="goScore">Score: 0</div>
+      <div class="small" id="goInfo">तुम्हारा combo और टाइम यहाँ दिखेगा</div>
+      <div style="margin-top:12px">
+        <button class="btn primary" id="playAgain">फिर से खेलो</button>
+        <button class="btn" id="goHome">होम</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ====== हिंदी में comments: गेम का पूरा लॉजिक ====== */
+
+/* --- सेटअप और स्केलिंग (devicePixelRatio) --- */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const frame = document.getElementById('frame');
+const homeScreen = document.getElementById('homeScreen');
+const gameArea = document.getElementById('gameArea');
+const hud = document.getElementById('hud');
+const controls = document.getElementById('controls');
+const scoreEl = document.getElementById('score');
+const timerEl = document.getElementById('timer');
+const gameOverModal = document.getElementById('gameOverModal');
+const goScore = document.getElementById('goScore');
+const goInfo = document.getElementById('goInfo');
+
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resizeCanvas(){
+  // CSS size already controlled by container; set internal pixels scaled by DPR
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * DPR);
+  canvas.height = Math.round(rect.height * DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0); // scale drawing to CSS pixels
+}
+window.addEventListener('resize', resizeCanvas);
+
+/* --- गेम स्टेट --- */
+let running = false;
+let fruits = [], bombs = [], juices = [], trails = [];
+let score = 0, timeLeft = 60;
+let spawnTimer = null, mainLoopId = null, gameTimer = null;
+let currentLevel = 'easy';
+let lastPointer = null; // last pointer pos during swipe
+let pointerDown = false;
+
+/* --- गेम पैरामीटर्स लेवल के हिसाब से --- */
+const LEVELS = {
+  easy:   { spawnRate: 1000, bombChance: 0.10, gravity: 0.26, fruitCount:1 },
+  medium: { spawnRate: 820,  bombChance: 0.16, gravity: 0.30, fruitCount:1 },
+  hard:   { spawnRate: 650,  bombChance: 0.24, gravity: 0.34, fruitCount:2 }
+};
+
+/* --- Emoji types --- */
+const FRUIT_TYPES = [
+  {emoji:'🍎', color:'255,60,60'},
+  {emoji:'🍌', color:'255,230,60'},
+  {emoji:'🍉', color:'255,110,160'},
+  {emoji:'🍊', color:'255,150,50'},
+  {emoji:'🍓', color:'255,50,100'}
+];
+
+/* helper: पॉइंट-सेगमेंट दूरी (collision reliable) */
+function pointSegmentDist(px,py,x1,y1,x2,y2){
+  const lx = x2-x1, ly = y2-y1;
+  const l2 = lx*lx + ly*ly;
+  if(l2 === 0) return Math.hypot(px-x1, py-y1);
+  let t = ((px - x1)*lx + (py - y1)*ly) / l2;
+  t = Math.max(0, Math.min(1, t));
+  const projx = x1 + t*lx;
+  const projy = y1 + t*ly;
+  return Math.hypot(px-projx, py-projy);
+}
+
+/* --- spawn functions: नीचे से ऊपर उछाल, फिर gravity से नीचे --- */
+function spawnFruit(){
+  const t = FRUIT_TYPES[Math.floor(Math.random()*FRUIT_TYPES.length)];
+  // target height as 80%-95% of canvas height (randomized) -> formula for initial velocity
+  const targetFactor = 0.75 + Math.random()*0.2; // 0.75 .. 0.95
+  const targetH = canvas.height / DPR * targetFactor;
+  const g = LEVELS[currentLevel].gravity;
+  const initialDy = -Math.sqrt(2 * g * targetH);
+
+  fruits.push({
+    x: Math.random()*(canvas.width/DPR - 80) + 40,
+    y: canvas.height / DPR + 20,
+    dx: (Math.random()-0.5)*3.5,
+    dy: initialDy,
+    r: 28,
+    emoji: t.emoji,
+    color: t.color,
+    active: true
+  });
+}
+
+function spawnBomb(){
+  const targetFactor = 0.75 + Math.random()*0.2;
+  const targetH = canvas.height / DPR * targetFactor;
+  const g = LEVELS[currentLevel].gravity;
+  const initialDy = -Math.sqrt(2 * g * targetH);
+
+  bombs.push({
+    x: Math.random()*(canvas.width/DPR - 80) + 40,
+    y: canvas.height / DPR + 20,
+    dx: (Math.random()-0.5)*3.5,
+    dy: initialDy,
+    r: 28,
+    emoji: '💣',
+    active: true
+  });
+}
+
+/* --- juice particles spawn --- */
+function spawnJuice(x,y,color){
+  for(let i=0;i<16;i++){
+    juices.push({
+      x,y,
+      vx:(Math.random()-0.5)*6,
+      vy:(Math.random()-0.5)*6,
+      life:1,
+      color
+    });
+  }
+}
+
+/* --- draw helpers --- */
+function clearBg(){
+  ctx.fillStyle = '#0b0b0b';
+  ctx.fillRect(0,0, canvas.width/DPR, canvas.height/DPR);
+}
+
+function drawFruits(){
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font = `${Math.round(48 * (canvas.width/DPR)/380)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  for(const f of fruits){
+    if(!f.active) continue;
+    ctx.fillText(f.emoji, f.x, f.y);
+  }
+}
+function drawBombs(){
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font = `${Math.round(48 * (canvas.width/DPR)/380)}px "Segoe UI Emoji", sans-serif`;
+  for(const b of bombs){
+    if(!b.active) continue;
+    ctx.fillText(b.emoji, b.x, b.y);
+  }
+}
+function drawJuice(){
+  for(let i=juices.length-1;i>=0;i--){
+    const p = juices[i];
+    ctx.fillStyle = `rgba(${p.color || '255,0,0'},${p.life})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+    ctx.fill();
+    p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= 0.03;
+    if(p.life <= 0) juices.splice(i,1);
+  }
+}
+function drawTrails(){
+  const now = performance.now();
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  for(let i=trails.length-1;i>=0;i--){
+    const s = trails[i];
+    const age = (now - s.t)/200; // 200ms fade
+    if(age >= 1){ trails.splice(i,1); continue; }
+    const a = 1 - age;
+    ctx.strokeStyle = `rgba(0,200,255,${a})`;
+    ctx.lineWidth = 6 * a;
+    ctx.beginPath();
+    ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke();
+  }
+}
+
+/* --- physics update --- */
+function updatePhysics(){
+  const g = LEVELS[currentLevel].gravity;
+  for(const f of fruits){
+    if(!f.active) continue;
+    f.x += f.dx; f.y += f.dy; f.dy += g;
+    f.dx *= 0.999;
+    if(f.y > canvas.height/DPR + 60) f.active = false;
+  }
+  for(const b of bombs){
+    if(!b.active) continue;
+    b.x += b.dx; b.y += b.dy; b.dy += g;
+    b.dx *= 0.999;
+    if(b.y > canvas.height/DPR + 60) b.active = false;
+  }
+}
+
+/* --- collision --- */
+function checkCollisions(){
+  if(trails.length === 0) return;
+  // track how many cut in this check (for combo)
+  const cutList = [];
+  for(const f of fruits){
+    if(!f.active) continue;
+    for(const s of trails){
+      const dist = pointSegmentDist(f.x, f.y, s.x1, s.y1, s.x2, s.y2);
+      if(dist < f.r * 0.9){
+        f.active = false; cutList.push(f); spawnJuice(f.x,f.y,f.color); break;
+      }
+    }
+  }
+  for(const b of bombs){
+    if(!b.active) continue;
+    for(const s of trails){
+      const dist = pointSegmentDist(b.x, b.y, s.x1, s.y1, s.x2, s.y2);
+      if(dist < b.r * 0.9){
+        b.active = false; gameOver(); return;
+      }
+    }
+  }
+  // combo scoring
+  if(cutList.length === 1) score += 1;
+  else if(cutList.length === 2) score += 3;
+  else if(cutList.length >= 3) score += 5;
+  if(cutList.length > 0) updateHUD();
+}
+
+/* --- HUD update --- */
+function updateHUD(){
+  scoreEl.textContent = `Score: ${score}`;
+}
+
+/* --- main render loop --- */
+function loop(now){
+  if(!running) return;
+  updatePhysics();
+  clearBg();
+  drawFruits();
+  drawBombs();
+  drawJuice();
+  drawTrails();
+  checkCollisions();
+  // cleanup arrays
+  fruits = fruits.filter(f => f.active);
+  bombs = bombs.filter(b => b.active);
+  mainLoopId = requestAnimationFrame(loop);
+}
+
+/* --- spawn controller --- */
+function startSpawning(){
+  stopSpawning();
+  const conf = LEVELS[currentLevel];
+  spawnTimer = setInterval(()=>{
+    // sometimes spawn 1 or 2 fruits depending on level
+    const count = conf.fruitCount;
+    for(let i=0;i<count;i++) spawnFruit();
+    if(Math.random() < conf.bombChance) spawnBomb();
+  }, conf.spawnRate);
+}
+function stopSpawning(){ if(spawnTimer) clearInterval(spawnTimer); spawnTimer = null; }
+
+/* --- timer --- */
+function startTimer(){
+  if(gameTimer) clearInterval(gameTimer);
+  timeLeft = 60; timerEl.textContent = `Time: ${timeLeft}`;
+  gameTimer = setInterval(()=>{
+    timeLeft--; timerEl.textContent = `Time: ${timeLeft}`;
+    if(timeLeft <= 0){ gameOver(); }
+  }, 1000);
+}
+function stopTimer(){ if(gameTimer) clearInterval(gameTimer); gameTimer = null; }
+
+/* --- game start / stop --- */
+function startGame(){
+  // reset
+  resizeCanvas();
+  running = true;
+  fruits = []; bombs = []; juices = []; trails = [];
+  score = 0; updateHUD();
+  gameOverModal.style.display = 'none';
+  homeScreen.style.display = 'none';
+  gameArea.style.display = 'flex';
+  hud.style.display = 'flex';
+  controls.style.display = 'flex';
+
+  // start spawning & loop & timer
+  startSpawning();
+  startTimer();
+  cancelAnimationFrame(mainLoopId);
+  mainLoopId = requestAnimationFrame(loop);
+}
+function gameOver(){
+  running = false;
+  stopSpawning(); stopTimer();
+  cancelAnimationFrame(mainLoopId);
+  // show modal
+  gameOverModal.style.display = 'block';
+  goScore.textContent = `Score: ${score}`;
+  goInfo.textContent = `Time left: ${timeLeft} сек`;
+}
+
+/* --- input handling (pointer unified for mouse/touch) --- */
+function getPos(e){
+  const r = canvas.getBoundingClientRect();
+  if(e.touches && e.touches[0]) return { x: (e.touches[0].clientX - r.left), y: (e.touches[0].clientY - r.top) };
+  return { x: (e.clientX - r.left), y: (e.clientY - r.top) };
+}
+canvas.addEventListener('pointerdown', (e)=>{
+  if(!running) return;
+  pointerDown = true;
+  const p = getPos(e);
+  lastPointer = p;
+});
+canvas.addEventListener('pointerup', (e)=>{
+  pointerDown = false;
+  lastPointer = null;
+});
+canvas.addEventListener('pointermove', (e)=>{
+  if(!pointerDown || !running) return;
+  const p = getPos(e);
+  // add trail segment with timestamp
+  trails.push({ x1: lastPointer.x, y1: lastPointer.y, x2: p.x, y2: p.y, t: performance.now() });
+  // keep trails size
+  if(trails.length > 60) trails.shift();
+  lastPointer = p;
+});
+
+/* --- UI buttons --- */
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  startGame();
+});
+document.getElementById('howBtn').addEventListener('click', ()=>{
+  alert("Swipe (finger se drag) karke fruits kaatna hai. 💣 bomb ko mat kaatna — cut karoge to game over. Ek swipe mein agar 2+ fruits kat-te hain to combo bonus milega.");
+});
+document.getElementById('homeBtn').addEventListener('click', ()=>{
+  // stop and go home
+  running = false; stopSpawning(); stopTimer(); cancelAnimationFrame(mainLoopId);
+  homeScreen.style.display = 'flex'; gameArea.style.display = 'none'; hud.style.display = 'none'; controls.style.display = 'none';
+  gameOverModal.style.display = 'none';
+});
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+  // restart current level
+  running = false; stopSpawning(); stopTimer(); cancelAnimationFrame(mainLoopId);
+  startGame();
+});
+document.getElementById('playAgain').addEventListener('click', ()=>{
+  gameOverModal.style.display = 'none'; startGame();
+});
+document.getElementById('goHome').addEventListener('click', ()=>{
+  gameOverModal.style.display = 'none'; homeScreen.style.display = 'flex'; gameArea.style.display = 'none'; hud.style.display = 'none'; controls.style.display = 'none';
+});
+
+/* --- level buttons --- */
+document.querySelectorAll('.levelBtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.levelBtn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLevel = btn.dataset.level;
+  });
+});
+
+/* --- initialization --- */
+resizeCanvas();
+window.addEventListener('load', resizeCanvas);
+startGame(); // तुरंत शुरू करवाना हो तो use; वरना comment कर दो और user से start कराओ
+
+</script>
+</body>
+</html>
