@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+<title>Fruit Ninja</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font-family:sans-serif}
+  .topbar{height:50px;display:flex;align-items:center;justify-content:center;background:#111;font-weight:bold;font-size:20px}
+  .wrap{height:calc(100% - 50px);display:flex;align-items:center;justify-content:center;}
+  .home{text-align:center}
+  .btn{
+    margin:10px;padding:12px 18px;border:2px solid #ffb703;border-radius:12px;
+    background:transparent;color:#fff;font-weight:bold;
+    cursor:pointer;transition:all .2s;
+  }
+  .btn:active{transform:scale(.95);background:rgba(255,183,3,.15)}
+  .game-wrap{display:none;width:100%;height:100%;position:relative;}
+  canvas{width:100%;height:100%;display:block;touch-action:none;background:#111}
+  .hud{position:absolute;top:8px;left:0;right:0;display:flex;justify-content:space-around;font-size:16px}
+  .back-btn{position:absolute;top:8px;left:8px}
+</style>
+</head>
+<body>
+  <div class="topbar">🍉 Cut Fruit</div>
+  <div class="wrap">
+    <!-- Home Screen -->
+    <div class="home" id="home">
+      <h2>🍉 Fruit Ninja 🍌</h2>
+      <p>🏆 High Score: <span id="high">0</span></p>
+      <button class="btn" id="startBtn">▶ Start Game</button><br>
+      <button class="btn" id="resetBtn">🔁 Reset High Score</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="game-wrap" id="gameWrap">
+      <canvas id="gameCanvas"></canvas>
+      <div class="hud">
+        <div>⭐ Score: <span id="score">0</span></div>
+        <div>⏱️ Time: <span id="time">60</span>s</div>
+      </div>
+      <button class="btn back-btn" id="homeBtn">⟵ Home</button>
+    </div>
+  </div>
+
+<script>
+const startBtn=document.getElementById('startBtn');
+const resetBtn=document.getElementById('resetBtn');
+const highEl=document.getElementById('high');
+const scoreEl=document.getElementById('score');
+const timeEl=document.getElementById('time');
+const home=document.getElementById('home');
+const gameWrap=document.getElementById('gameWrap');
+const homeBtn=document.getElementById('homeBtn');
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+
+let high=parseInt(localStorage.getItem('fn_high')||'0',10);
+highEl.textContent=high;
+
+let fruits=[],score=0,time=60,raf,timer,cutting=false,trails=[];
+
+// resize canvas हमेशा screen fit
+function resizeCanvas(){
+  canvas.width=gameWrap.clientWidth;
+  canvas.height=gameWrap.clientHeight;
+}
+window.addEventListener('resize',resizeCanvas);
+window.addEventListener('orientationchange',()=>setTimeout(resizeCanvas,200));
+
+// नया fruit (अब ऊपर तक सीमित रहेगा)
+function newFruit(){
+  const isBomb=Math.random()<0.15;
+  const minVy = -12;  // कम से कम jump
+  const maxVy = -18;  // ज्यादा से ज्यादा jump
+  return {
+    x:Math.random()*canvas.width,
+    y:canvas.height+40,
+    vx:(Math.random()-0.5)*5,
+    vy: minVy + Math.random() * (maxVy - minVy),
+    r:24,
+    emoji:isBomb?"💣":['🍉','🍌','🍇','🍓','🍍'][Math.floor(Math.random()*5)],
+    bomb:isBomb
+  };
+}
+
+function startGame(){
+  home.style.display='none';
+  gameWrap.style.display='block';
+  resizeCanvas();
+  fruits=[];
+  score=0;scoreEl.textContent=score;
+  time=60;timeEl.textContent=time;
+
+  for(let i=0;i<5;i++) fruits.push(newFruit());
+
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    time--;timeEl.textContent=time;
+    if(time<=0) gameOver();
+  },1000);
+  loop();
+}
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#111";ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  fruits.forEach((f,i)=>{
+    f.vy+=0.25; // gravity
+    f.x+=f.vx; f.y+=f.vy;
+    if(f.y>canvas.height+60) fruits[i]=newFruit();
+    ctx.font=f.r*2+"px serif";
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText(f.emoji,f.x,f.y);
+  });
+
+  // trails
+  ctx.strokeStyle="white";ctx.lineWidth=3;
+  ctx.beginPath();
+  trails.forEach((t,i)=>{ if(i===0) ctx.moveTo(t.x,t.y); else ctx.lineTo(t.x,t.y); });
+  ctx.stroke();
+  trails=trails.slice(-12);
+}
+
+function stopGame(){
+  cancelAnimationFrame(raf);
+  clearInterval(timer);
+  gameWrap.style.display='none';
+  home.style.display='block';
+}
+
+function gameOver(){
+  stopGame();
+  if(score>high){high=score;localStorage.setItem('fn_high',high);highEl.textContent=high;}
+  alert("⏹️ Game Over!\n⭐ Score: "+score);
+}
+
+// cut detection
+function cut(x,y){
+  fruits.forEach((f,i)=>{
+    const dx=x-f.x,dy=y-f.y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.r){
+      if(f.bomb){gameOver();}
+      else{ score+=10;scoreEl.textContent=score;fruits[i]=newFruit(); }
+    }
+  });
+}
+
+// touch/mouse
+function pointerDown(e){cutting=true;addTrail(e);}
+function pointerUp(){cutting=false;trails=[];}
+function pointerMove(e){if(cutting) addTrail(e);}
+function addTrail(e){
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  trails.push({x,y});
+  cut(x,y);
+}
+canvas.addEventListener('mousedown',pointerDown);
+canvas.addEventListener('mouseup',pointerUp);
+canvas.addEventListener('mousemove',pointerMove);
+canvas.addEventListener('touchstart',pointerDown);
+canvas.addEventListener('touchend',pointerUp);
+canvas.addEventListener('touchmove',pointerMove);
+
+// buttons
+startBtn.onclick=()=>startGame();
+homeBtn.onclick=()=>stopGame();
+resetBtn.onclick=()=>{localStorage.setItem('fn_high','0');high=0;highEl.textContent=high;};
+</script>
+</body>
+</html><!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+<title>Fruit Ninja</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font-family:sans-serif}
+  .topbar{height:50px;display:flex;align-items:center;justify-content:center;background:#111;font-weight:bold;font-size:20px}
+  .wrap{height:calc(100% - 50px);display:flex;align-items:center;justify-content:center;}
+  .home{text-align:center}
+  .btn{
+    margin:10px;padding:12px 18px;border:2px solid #ffb703;border-radius:12px;
+    background:transparent;color:#fff;font-weight:bold;
+    cursor:pointer;transition:all .2s;
+  }
+  .btn:active{transform:scale(.95);background:rgba(255,183,3,.15)}
+  .game-wrap{display:none;width:100%;height:100%;position:relative;}
+  canvas{width:100%;height:100%;display:block;touch-action:none;background:#111}
+  .hud{position:absolute;top:8px;left:0;right:0;display:flex;justify-content:space-around;font-size:16px}
+  .back-btn{position:absolute;top:8px;left:8px}
+</style>
+</head>
+<body>
+  <div class="topbar">🍉 Cut Fruit</div>
+  <div class="wrap">
+    <!-- Home Screen -->
+    <div class="home" id="home">
+      <h2>🍉 Fruit Ninja 🍌</h2>
+      <p>🏆 High Score: <span id="high">0</span></p>
+      <button class="btn" id="startBtn">▶ Start Game</button><br>
+      <button class="btn" id="resetBtn">🔁 Reset High Score</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="game-wrap" id="gameWrap">
+      <canvas id="gameCanvas"></canvas>
+      <div class="hud">
+        <div>⭐ Score: <span id="score">0</span></div>
+        <div>⏱️ Time: <span id="time">60</span>s</div>
+      </div>
+      <button class="btn back-btn" id="homeBtn">⟵ Home</button>
+    </div>
+  </div>
+
+<script>
+const startBtn=document.getElementById('startBtn');
+const resetBtn=document.getElementById('resetBtn');
+const highEl=document.getElementById('high');
+const scoreEl=document.getElementById('score');
+const timeEl=document.getElementById('time');
+const home=document.getElementById('home');
+const gameWrap=document.getElementById('gameWrap');
+const homeBtn=document.getElementById('homeBtn');
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+
+let high=parseInt(localStorage.getItem('fn_high')||'0',10);
+highEl.textContent=high;
+
+let fruits=[],score=0,time=60,raf,timer,cutting=false,trails=[];
+
+// resize canvas हमेशा screen fit
+function resizeCanvas(){
+  canvas.width=gameWrap.clientWidth;
+  canvas.height=gameWrap.clientHeight;
+}
+window.addEventListener('resize',resizeCanvas);
+window.addEventListener('orientationchange',()=>setTimeout(resizeCanvas,200));
+
+// नया fruit (अब ऊपर तक सीमित रहेगा)
+function newFruit(){
+  const isBomb=Math.random()<0.15;
+  const minVy = -12;  // कम से कम jump
+  const maxVy = -18;  // ज्यादा से ज्यादा jump
+  return {
+    x:Math.random()*canvas.width,
+    y:canvas.height+40,
+    vx:(Math.random()-0.5)*5,
+    vy: minVy + Math.random() * (maxVy - minVy),
+    r:24,
+    emoji:isBomb?"💣":['🍉','🍌','🍇','🍓','🍍'][Math.floor(Math.random()*5)],
+    bomb:isBomb
+  };
+}
+
+function startGame(){
+  home.style.display='none';
+  gameWrap.style.display='block';
+  resizeCanvas();
+  fruits=[];
+  score=0;scoreEl.textContent=score;
+  time=60;timeEl.textContent=time;
+
+  for(let i=0;i<5;i++) fruits.push(newFruit());
+
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    time--;timeEl.textContent=time;
+    if(time<=0) gameOver();
+  },1000);
+  loop();
+}
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#111";ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  fruits.forEach((f,i)=>{
+    f.vy+=0.25; // gravity
+    f.x+=f.vx; f.y+=f.vy;
+    if(f.y>canvas.height+60) fruits[i]=newFruit();
+    ctx.font=f.r*2+"px serif";
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.fillText(f.emoji,f.x,f.y);
+  });
+
+  // trails
+  ctx.strokeStyle="white";ctx.lineWidth=3;
+  ctx.beginPath();
+  trails.forEach((t,i)=>{ if(i===0) ctx.moveTo(t.x,t.y); else ctx.lineTo(t.x,t.y); });
+  ctx.stroke();
+  trails=trails.slice(-12);
+}
+
+function stopGame(){
+  cancelAnimationFrame(raf);
+  clearInterval(timer);
+  gameWrap.style.display='none';
+  home.style.display='block';
+}
+
+function gameOver(){
+  stopGame();
+  if(score>high){high=score;localStorage.setItem('fn_high',high);highEl.textContent=high;}
+  alert("⏹️ Game Over!\n⭐ Score: "+score);
+}
+
+// cut detection
+function cut(x,y){
+  fruits.forEach((f,i)=>{
+    const dx=x-f.x,dy=y-f.y;
+    if(Math.sqrt(dx*dx+dy*dy)<f.r){
+      if(f.bomb){gameOver();}
+      else{ score+=10;scoreEl.textContent=score;fruits[i]=newFruit(); }
+    }
+  });
+}
+
+// touch/mouse
+function pointerDown(e){cutting=true;addTrail(e);}
+function pointerUp(){cutting=false;trails=[];}
+function pointerMove(e){if(cutting) addTrail(e);}
+function addTrail(e){
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+  trails.push({x,y});
+  cut(x,y);
+}
+canvas.addEventListener('mousedown',pointerDown);
+canvas.addEventListener('mouseup',pointerUp);
+canvas.addEventListener('mousemove',pointerMove);
+canvas.addEventListener('touchstart',pointerDown);
+canvas.addEventListener('touchend',pointerUp);
+canvas.addEventListener('touchmove',pointerMove);
+
+// buttons
+startBtn.onclick=()=>startGame();
+homeBtn.onclick=()=>stopGame();
+resetBtn.onclick=()=>{localStorage.setItem('fn_high','0');high=0;highEl.textContent=high;};
+</script>
+</body>
+</html>
