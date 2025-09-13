@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Ninja 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg,#ff9a9e,#fad0c4);
+    overflow:hidden;
+  }
+  canvas {
+    display:block;
+    margin:auto;
+    background:#111;
+    border:3px solid #fff;
+    touch-action:none; /* mobile par scroll disable */
+  }
+  #overlay {
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,0,0,0.85);
+    color:#fff;
+    text-align:center;
+    padding:20px;
+  }
+  #overlay h1 {
+    font-size:2.5em;
+    margin-bottom:10px;
+    animation: glow 2s infinite alternate;
+  }
+  @keyframes glow {
+    from { text-shadow:0 0 10px #fff;}
+    to { text-shadow:0 0 20px #ff0;}
+  }
+  .btn {
+    padding:10px 20px;
+    margin:10px;
+    border:2px solid #fff;
+    background:transparent;
+    color:#fff;
+    font-size:1.2em;
+    border-radius:12px;
+    cursor:pointer;
+    transition:all 0.3s;
+  }
+  .btn:hover {background:#fff;color:#000;transform:scale(1.1);}
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="overlay">
+  <h1>🍉 Fruit Ninja 🍌</h1>
+  <div id="highScoreBox">🏆 High Score: 0</div>
+  <button class="btn" onclick="startGame()">▶️ Start Game</button>
+  <button class="btn" onclick="resetHighScore()">🔁 Reset High Score</button>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// ✅ canvas ko resize karne ka function
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize",resizeCanvas);
+
+let fruits = [];
+let slices = [];
+let score = 0;
+let highScore = localStorage.getItem("highScore") || 0;
+let gameRunning = false;
+let fruitSize = 50; // emoji size
+
+document.getElementById("highScoreBox").innerText = "🏆 High Score: " + highScore;
+
+const fruitEmojis = ["🍎","🍌","🍉","🥭","🍇","🍒"];
+const bombEmoji = "💣";
+
+// fruit class
+class Fruit {
+  constructor(x,y,emoji,isBomb=false){
+    this.x = x;
+    this.y = y;
+    this.emoji = emoji;
+    this.isBomb = isBomb;
+    this.speedY = -8 - Math.random()*5;
+    this.gravity = 0.3;
+  }
+  update(){
+    this.y += this.speedY;
+    this.speedY += this.gravity;
+    ctx.font = fruitSize+"px Arial";
+    ctx.fillText(this.emoji,this.x,this.y);
+  }
+}
+
+function spawnFruit(){
+  let x = Math.random()*(canvas.width-60)+20;
+  let isBomb = Math.random()<0.2;
+  let emoji = isBomb ? bombEmoji : fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  fruits.push(new Fruit(x,canvas.height,emoji,isBomb));
+}
+
+function animate(){
+  if(!gameRunning) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(Math.random()<0.03) spawnFruit();
+
+  fruits.forEach((fruit,index)=>{
+    fruit.update();
+    if(fruit.y>canvas.height+50){fruits.splice(index,1);}
+  });
+
+  // slice lines
+  slices.forEach((s,i)=>{
+    ctx.strokeStyle="rgba(255,255,255,"+s.alpha+")";
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(s.x1,s.y1);
+    ctx.lineTo(s.x2,s.y2);
+    ctx.stroke();
+    s.alpha-=0.05;
+    if(s.alpha<=0) slices.splice(i,1);
+  });
+
+  ctx.fillStyle="#fff";
+  ctx.font="20px Arial";
+  ctx.fillText("Score: "+score,10,30);
+
+  requestAnimationFrame(animate);
+}
+
+// swipe detection
+let isSwiping=false;
+let lastX=0,lastY=0;
+
+function handleSlice(x,y){
+  slices.push({x1:lastX,y1:lastY,x2:x,y2:y,alpha:1});
+  checkSlice(x,y);
+  lastX=x; lastY=y;
+}
+
+canvas.addEventListener("mousedown",e=>{
+  isSwiping=true; lastX=e.offsetX; lastY=e.offsetY;
+});
+canvas.addEventListener("mousemove",e=>{
+  if(isSwiping) handleSlice(e.offsetX,e.offsetY);
+});
+canvas.addEventListener("mouseup",()=>{isSwiping=false;});
+
+canvas.addEventListener("touchstart",e=>{
+  isSwiping=true;
+  const t=e.touches[0];
+  lastX=t.clientX-canvas.getBoundingClientRect().left;
+  lastY=t.clientY-canvas.getBoundingClientRect().top;
+});
+canvas.addEventListener("touchmove",e=>{
+  if(!isSwiping) return;
+  const t=e.touches[0];
+  const x=t.clientX-canvas.getBoundingClientRect().left;
+  const y=t.clientY-canvas.getBoundingClientRect().top;
+  handleSlice(x,y);
+});
+canvas.addEventListener("touchend",()=>{isSwiping=false;});
+
+function checkSlice(x,y){
+  fruits.forEach((fruit,index)=>{
+    if(x>fruit.x-20 && x<fruit.x+fruitSize && y>fruit.y-fruitSize && y<fruit.y){
+      if(fruit.isBomb){ endGame(); }
+      else { score++; fruits.splice(index,1); }
+    }
+  });
+}
+
+function startGame(){
+  document.getElementById("overlay").style.display="none";
+  fruits=[]; slices=[]; score=0;
+  gameRunning=true;
+  animate();
+}
+
+function endGame(){
+  gameRunning=false;
+  if(score>highScore){
+    highScore=score;
+    localStorage.setItem("highScore",highScore);
+  }
+  document.getElementById("highScoreBox").innerText="🏆 High Score: "+highScore;
+  document.getElementById("overlay").style.display="flex";
+}
+
+function resetHighScore(){
+  localStorage.setItem("highScore",0);
+  highScore=0;
+  document.getElementById("highScoreBox").innerText="🏆 High Score: 0";
+}
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Ninja 🍉</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg,#ff9a9e,#fad0c4);
+    overflow:hidden;
+  }
+  canvas {
+    display:block;
+    margin:auto;
+    background:#111;
+    border:3px solid #fff;
+    touch-action:none; /* mobile par scroll disable */
+  }
+  #overlay {
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:100%;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    background:rgba(0,0,0,0.85);
+    color:#fff;
+    text-align:center;
+    padding:20px;
+  }
+  #overlay h1 {
+    font-size:2.5em;
+    margin-bottom:10px;
+    animation: glow 2s infinite alternate;
+  }
+  @keyframes glow {
+    from { text-shadow:0 0 10px #fff;}
+    to { text-shadow:0 0 20px #ff0;}
+  }
+  .btn {
+    padding:10px 20px;
+    margin:10px;
+    border:2px solid #fff;
+    background:transparent;
+    color:#fff;
+    font-size:1.2em;
+    border-radius:12px;
+    cursor:pointer;
+    transition:all 0.3s;
+  }
+  .btn:hover {background:#fff;color:#000;transform:scale(1.1);}
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="overlay">
+  <h1>🍉 Fruit Ninja 🍌</h1>
+  <div id="highScoreBox">🏆 High Score: 0</div>
+  <button class="btn" onclick="startGame()">▶️ Start Game</button>
+  <button class="btn" onclick="resetHighScore()">🔁 Reset High Score</button>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// ✅ canvas ko resize karne ka function
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener("resize",resizeCanvas);
+
+let fruits = [];
+let slices = [];
+let score = 0;
+let highScore = localStorage.getItem("highScore") || 0;
+let gameRunning = false;
+let fruitSize = 50; // emoji size
+
+document.getElementById("highScoreBox").innerText = "🏆 High Score: " + highScore;
+
+const fruitEmojis = ["🍎","🍌","🍉","🥭","🍇","🍒"];
+const bombEmoji = "💣";
+
+// fruit class
+class Fruit {
+  constructor(x,y,emoji,isBomb=false){
+    this.x = x;
+    this.y = y;
+    this.emoji = emoji;
+    this.isBomb = isBomb;
+    this.speedY = -8 - Math.random()*5;
+    this.gravity = 0.3;
+  }
+  update(){
+    this.y += this.speedY;
+    this.speedY += this.gravity;
+    ctx.font = fruitSize+"px Arial";
+    ctx.fillText(this.emoji,this.x,this.y);
+  }
+}
+
+function spawnFruit(){
+  let x = Math.random()*(canvas.width-60)+20;
+  let isBomb = Math.random()<0.2;
+  let emoji = isBomb ? bombEmoji : fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)];
+  fruits.push(new Fruit(x,canvas.height,emoji,isBomb));
+}
+
+function animate(){
+  if(!gameRunning) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(Math.random()<0.03) spawnFruit();
+
+  fruits.forEach((fruit,index)=>{
+    fruit.update();
+    if(fruit.y>canvas.height+50){fruits.splice(index,1);}
+  });
+
+  // slice lines
+  slices.forEach((s,i)=>{
+    ctx.strokeStyle="rgba(255,255,255,"+s.alpha+")";
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(s.x1,s.y1);
+    ctx.lineTo(s.x2,s.y2);
+    ctx.stroke();
+    s.alpha-=0.05;
+    if(s.alpha<=0) slices.splice(i,1);
+  });
+
+  ctx.fillStyle="#fff";
+  ctx.font="20px Arial";
+  ctx.fillText("Score: "+score,10,30);
+
+  requestAnimationFrame(animate);
+}
+
+// swipe detection
+let isSwiping=false;
+let lastX=0,lastY=0;
+
+function handleSlice(x,y){
+  slices.push({x1:lastX,y1:lastY,x2:x,y2:y,alpha:1});
+  checkSlice(x,y);
+  lastX=x; lastY=y;
+}
+
+canvas.addEventListener("mousedown",e=>{
+  isSwiping=true; lastX=e.offsetX; lastY=e.offsetY;
+});
+canvas.addEventListener("mousemove",e=>{
+  if(isSwiping) handleSlice(e.offsetX,e.offsetY);
+});
+canvas.addEventListener("mouseup",()=>{isSwiping=false;});
+
+canvas.addEventListener("touchstart",e=>{
+  isSwiping=true;
+  const t=e.touches[0];
+  lastX=t.clientX-canvas.getBoundingClientRect().left;
+  lastY=t.clientY-canvas.getBoundingClientRect().top;
+});
+canvas.addEventListener("touchmove",e=>{
+  if(!isSwiping) return;
+  const t=e.touches[0];
+  const x=t.clientX-canvas.getBoundingClientRect().left;
+  const y=t.clientY-canvas.getBoundingClientRect().top;
+  handleSlice(x,y);
+});
+canvas.addEventListener("touchend",()=>{isSwiping=false;});
+
+function checkSlice(x,y){
+  fruits.forEach((fruit,index)=>{
+    if(x>fruit.x-20 && x<fruit.x+fruitSize && y>fruit.y-fruitSize && y<fruit.y){
+      if(fruit.isBomb){ endGame(); }
+      else { score++; fruits.splice(index,1); }
+    }
+  });
+}
+
+function startGame(){
+  document.getElementById("overlay").style.display="none";
+  fruits=[]; slices=[]; score=0;
+  gameRunning=true;
+  animate();
+}
+
+function endGame(){
+  gameRunning=false;
+  if(score>highScore){
+    highScore=score;
+    localStorage.setItem("highScore",highScore);
+  }
+  document.getElementById("highScoreBox").innerText="🏆 High Score: "+highScore;
+  document.getElementById("overlay").style.display="flex";
+}
+
+function resetHighScore(){
+  localStorage.setItem("highScore",0);
+  highScore=0;
+  document.getElementById("highScoreBox").innerText="🏆 High Score: 0";
+}
+</script>
+
+</body>
+</html>
