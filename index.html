@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Cut Game 🍉</title>
+  <style>
+    body {margin:0; overflow:hidden; background:#111; font-family:Arial, sans-serif;}
+    canvas {display:block; margin:0 auto; background:#000;}
+    #homeScreen {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      background:#111; color:#fff; display:flex; flex-direction:column;
+      justify-content:center; align-items:center; z-index:10;
+    }
+    h1 {font-size:2.5em; margin:0 0 20px; color:#0f0;}
+    button {
+      padding:15px 30px; font-size:1.2em; border:2px solid #0f0;
+      background:transparent; color:#0f0; border-radius:12px;
+      cursor:pointer; transition:0.3s; margin:10px;
+    }
+    button:hover {background:#0f0; color:#111; transform:scale(1.1);}
+    button:active {transform:scale(0.95);}
+    .credit {
+      position:absolute; left:10px; bottom:10px;
+      font-size:0.9em; color:#0f0;
+    }
+  </style>
+</head>
+<body>
+  <div id="homeScreen">
+    <h1>🍉 Fruit Cut 🍊</h1>
+    <button onclick="startGame()">Start Game</button>
+    <div class="credit">Made by Arun Dhakad</div>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let fruits = [];
+    let score = 0;
+    let isPlaying = false;
+
+    const fruitEmojis = ["🍎","🍊","🍉","🍌","🍓","🥝","🍍"];
+
+    function startGame(){
+      document.getElementById("homeScreen").style.display = "none";
+      isPlaying = true;
+      score = 0;
+      fruits = [];
+      loop();
+    }
+
+    function spawnFruit(){
+      const fruit = {
+        x: Math.random() * (canvas.width - 50) + 25,
+        y: canvas.height + 50,
+        size: 50,
+        emoji: fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)],
+        speedY: - (8 + Math.random()*5),
+        speedX: (Math.random() - 0.5) * 6,
+        cut:false
+      };
+      fruits.push(fruit);
+    }
+
+    function drawFruits(){
+      ctx.font = "40px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for(let f of fruits){
+        if(!f.cut) ctx.fillText(f.emoji, f.x, f.y);
+      }
+    }
+
+    function updateFruits(){
+      for(let f of fruits){
+        f.x += f.speedX;
+        f.y += f.speedY;
+        f.speedY += 0.25; // gravity
+      }
+      fruits = fruits.filter(f => f.y < canvas.height + 50);
+    }
+
+    function drawScore(){
+      ctx.fillStyle = "#0f0";
+      ctx.font = "24px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText("Score: " + score, 20, 40);
+    }
+
+    let lastSpawn = 0;
+    function loop(timestamp){
+      if(!isPlaying) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      if(timestamp - lastSpawn > 1000){
+        spawnFruit();
+        lastSpawn = timestamp;
+      }
+
+      updateFruits();
+      drawFruits();
+      drawScore();
+      requestAnimationFrame(loop);
+    }
+
+    function slash(x,y){
+      for(let f of fruits){
+        const dist = Math.hypot(f.x - x, f.y - y);
+        if(dist < f.size/2 && !f.cut){
+          f.cut = true;
+          score++;
+          drawSlashLine(f.x,f.y);
+        }
+      }
+    }
+
+    function drawSlashLine(x,y){
+      ctx.strokeStyle = "rgba(0,255,0,0.7)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x-20,y-20);
+      ctx.lineTo(x+20,y+20);
+      ctx.stroke();
+    }
+
+    canvas.addEventListener("touchstart", e=>{
+      let touch = e.touches[0];
+      slash(touch.clientX, touch.clientY);
+    });
+    canvas.addEventListener("mousemove", e=>{
+      if(e.buttons===1) slash(e.clientX, e.clientY);
+    });
+
+    window.addEventListener("resize", ()=>{
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Cut Game 🍉</title>
+  <style>
+    body {margin:0; overflow:hidden; background:#111; font-family:Arial, sans-serif;}
+    canvas {display:block; margin:0 auto; background:#000;}
+    #homeScreen {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      background:#111; color:#fff; display:flex; flex-direction:column;
+      justify-content:center; align-items:center; z-index:10;
+    }
+    h1 {font-size:2.5em; margin:0 0 20px; color:#0f0;}
+    button {
+      padding:15px 30px; font-size:1.2em; border:2px solid #0f0;
+      background:transparent; color:#0f0; border-radius:12px;
+      cursor:pointer; transition:0.3s; margin:10px;
+    }
+    button:hover {background:#0f0; color:#111; transform:scale(1.1);}
+    button:active {transform:scale(0.95);}
+    .credit {
+      position:absolute; left:10px; bottom:10px;
+      font-size:0.9em; color:#0f0;
+    }
+  </style>
+</head>
+<body>
+  <div id="homeScreen">
+    <h1>🍉 Fruit Cut 🍊</h1>
+    <button onclick="startGame()">Start Game</button>
+    <div class="credit">Made by Arun Dhakad</div>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let fruits = [];
+    let score = 0;
+    let isPlaying = false;
+
+    const fruitEmojis = ["🍎","🍊","🍉","🍌","🍓","🥝","🍍"];
+
+    function startGame(){
+      document.getElementById("homeScreen").style.display = "none";
+      isPlaying = true;
+      score = 0;
+      fruits = [];
+      loop();
+    }
+
+    function spawnFruit(){
+      const fruit = {
+        x: Math.random() * (canvas.width - 50) + 25,
+        y: canvas.height + 50,
+        size: 50,
+        emoji: fruitEmojis[Math.floor(Math.random()*fruitEmojis.length)],
+        speedY: - (8 + Math.random()*5),
+        speedX: (Math.random() - 0.5) * 6,
+        cut:false
+      };
+      fruits.push(fruit);
+    }
+
+    function drawFruits(){
+      ctx.font = "40px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for(let f of fruits){
+        if(!f.cut) ctx.fillText(f.emoji, f.x, f.y);
+      }
+    }
+
+    function updateFruits(){
+      for(let f of fruits){
+        f.x += f.speedX;
+        f.y += f.speedY;
+        f.speedY += 0.25; // gravity
+      }
+      fruits = fruits.filter(f => f.y < canvas.height + 50);
+    }
+
+    function drawScore(){
+      ctx.fillStyle = "#0f0";
+      ctx.font = "24px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText("Score: " + score, 20, 40);
+    }
+
+    let lastSpawn = 0;
+    function loop(timestamp){
+      if(!isPlaying) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      if(timestamp - lastSpawn > 1000){
+        spawnFruit();
+        lastSpawn = timestamp;
+      }
+
+      updateFruits();
+      drawFruits();
+      drawScore();
+      requestAnimationFrame(loop);
+    }
+
+    function slash(x,y){
+      for(let f of fruits){
+        const dist = Math.hypot(f.x - x, f.y - y);
+        if(dist < f.size/2 && !f.cut){
+          f.cut = true;
+          score++;
+          drawSlashLine(f.x,f.y);
+        }
+      }
+    }
+
+    function drawSlashLine(x,y){
+      ctx.strokeStyle = "rgba(0,255,0,0.7)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x-20,y-20);
+      ctx.lineTo(x+20,y+20);
+      ctx.stroke();
+    }
+
+    canvas.addEventListener("touchstart", e=>{
+      let touch = e.touches[0];
+      slash(touch.clientX, touch.clientY);
+    });
+    canvas.addEventListener("mousemove", e=>{
+      if(e.buttons===1) slash(e.clientX, e.clientY);
+    });
+
+    window.addEventListener("resize", ()=>{
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+</body>
+</html>
