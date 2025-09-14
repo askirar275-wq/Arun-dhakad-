@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>🍉 Fruit Cut 🍌</title>
+  <style>
+    * {margin:0;padding:0;box-sizing:border-box;}
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg,#000000,#1a1a1a);
+      height:100vh;
+      overflow:hidden;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      flex-direction:column;
+    }
+    h1 {
+      font-size:2.8rem;
+      color:#fffa;
+      margin-bottom:20px;
+      text-shadow:2px 2px 8px rgba(255,0,0,0.6);
+      animation: pulse 1.5s infinite alternate;
+    }
+    @keyframes pulse {
+      from { transform: scale(1);}
+      to { transform: scale(1.1);}
+    }
+    button {
+      padding:15px 35px;
+      font-size:1.3rem;
+      border:2px solid #fff;
+      background:rgba(255,255,255,0.15);
+      color:#fff;
+      border-radius:12px;
+      cursor:pointer;
+      transition:all 0.3s ease;
+      backdrop-filter: blur(6px);
+    }
+    button:hover {
+      background:#fff;
+      color:#ff4d6d;
+      transform:scale(1.1);
+    }
+    #footer {
+      position:absolute;
+      bottom:10px;
+      left:10px;
+      color:white;
+      font-size:0.9rem;
+      opacity:0.8;
+    }
+    canvas {
+      background: radial-gradient(circle at center,#000,#111);
+      display:block;
+      width:100vw;
+      height:100vh;
+    }
+    #gameOver {
+      position:absolute;
+      top:0;left:0;
+      width:100%;height:100%;
+      background:rgba(0,0,0,0.8);
+      color:white;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      font-size:2rem;
+      display:none;
+    }
+    #gameOver button {
+      margin-top:20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="home">
+    <h1>🍉 Fruit Cut 🍌</h1>
+    <button onclick="startGame()">Start Game</button>
+    <div id="footer">Made by Arun Dhakad</div>
+  </div>
+
+  <div id="gameOver">
+    <div>💥 Game Over! 💥</div>
+    <div id="finalScore"></div>
+    <button onclick="location.reload()">Restart</button>
+  </div>
+
+  <script>
+    let fruits = ["🍎","🍌","🍉","🍊","🍍","🥝","🍓","🥭","🍇"];
+    let canvas, ctx;
+    let gameFruits = [], splashes = [];
+    let score = 0, bestScore = localStorage.getItem("bestScore") || 0;
+    let slicing = false;
+    let lastX=0,lastY=0;
+    let gameOver = false;
+
+    class Fruit {
+      constructor(x,y,emoji,isBomb=false) {
+        this.x = x;
+        this.y = y;
+        this.emoji = emoji;
+        this.isBomb = isBomb;
+        this.speedY = -(15 + Math.random()*6);
+        this.speedX = 0;
+        this.size = 50;
+        this.alive = true;
+      }
+      update() {
+        this.y += this.speedY;
+        this.speedY += 0.35;
+        if (this.y > canvas.height+60) this.alive=false;
+      }
+      draw() {
+        ctx.font = this.size+"px Arial";
+        ctx.fillText(this.emoji,this.x,this.y);
+      }
+    }
+
+    class Splash {
+      constructor(x,y,color) {
+        this.x=x; this.y=y;
+        this.color=color;
+        this.life=1;
+        this.particles=[];
+        for (let i=0;i<10;i++){
+          this.particles.push({
+            x:x,y:y,
+            speedX:(Math.random()*4-2),
+            speedY:(Math.random()*-4),
+            size:4+Math.random()*3
+          });
+        }
+      }
+      update(){
+        this.life-=0.02;
+        this.particles.forEach(p=>{
+          p.x+=p.speedX;
+          p.y+=p.speedY;
+          p.speedY+=0.2;
+        });
+      }
+      draw(){
+        ctx.globalAlpha=this.life;
+        ctx.fillStyle=this.color;
+        this.particles.forEach(p=>{
+          ctx.beginPath();
+          ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+          ctx.fill();
+        });
+        ctx.globalAlpha=1;
+      }
+    }
+
+    function startGame() {
+      // ❌ पुराना home screen हटाओ
+      document.getElementById("home").remove();
+
+      // ✅ नया canvas बनाओ
+      canvas = document.createElement("canvas");
+      canvas.id = "gameCanvas";
+      document.body.appendChild(canvas);
+
+      ctx = canvas.getContext("2d");
+      resizeCanvas();
+
+      window.addEventListener("resize", resizeCanvas);
+      canvas.addEventListener("mousedown", ()=> slicing=true);
+      canvas.addEventListener("mouseup", ()=> slicing=false);
+      canvas.addEventListener("mousemove", e=> slice(e.offsetX,e.offsetY));
+      canvas.addEventListener("touchstart", ()=> slicing=true);
+      canvas.addEventListener("touchend", ()=> slicing=false);
+      canvas.addEventListener("touchmove", e=>{
+        let touch = e.touches[0];
+        let rect = canvas.getBoundingClientRect();
+        slice(touch.clientX-rect.left, touch.clientY-rect.top);
+      });
+
+      setInterval(()=> {
+        if (gameOver) return;
+        let x = Math.random()*(canvas.width-60)+30;
+        let y = canvas.height+30;
+
+        // 15% chance bomb
+        let isBomb = Math.random() < 0.15;
+        let emoji = isBomb ? "💣" : fruits[Math.floor(Math.random()*fruits.length)];
+
+        gameFruits.push(new Fruit(x,y,emoji,isBomb));
+      },800);
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function slice(x,y) {
+      if (gameOver) return;
+      if (slicing) {
+        ctx.strokeStyle="rgba(255,255,255,0.8)";
+        ctx.lineWidth=4;
+        ctx.beginPath();
+        ctx.moveTo(lastX,lastY);
+        ctx.lineTo(x,y);
+        ctx.stroke();
+        lastX=x; lastY=y;
+
+        gameFruits.forEach(f=>{
+          if (f.alive && Math.hypot(f.x-x, f.y-y) < 35) {
+            f.alive=false;
+            if (f.isBomb) {
+              endGame();
+            } else {
+              score++;
+              bestScore = Math.max(bestScore,score);
+              localStorage.setItem("bestScore",bestScore);
+              splashes.push(new Splash(f.x,f.y,"red"));
+            }
+          }
+        });
+      } else {
+        lastX=x; lastY=y;
+      }
+    }
+
+    function gameLoop() {
+      if (gameOver) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      gameFruits.forEach(f=> {f.update(); f.draw();});
+      gameFruits = gameFruits.filter(f=>f.alive);
+
+      splashes.forEach(s=> {s.update(); s.draw();});
+      splashes = splashes.filter(s=>s.life>0);
+
+      ctx.fillStyle="white";
+      ctx.font="26px Arial";
+      ctx.fillText("Score: "+score,20,40);
+      ctx.fillText("Best: "+bestScore,20,75);
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById("gameOver").style.display="flex";
+      document.getElementById("finalScore").innerText="Score: "+score+" | Best: "+bestScore;
+    }
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>🍉 Fruit Cut 🍌</title>
+  <style>
+    * {margin:0;padding:0;box-sizing:border-box;}
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg,#000000,#1a1a1a);
+      height:100vh;
+      overflow:hidden;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      flex-direction:column;
+    }
+    h1 {
+      font-size:2.8rem;
+      color:#fffa;
+      margin-bottom:20px;
+      text-shadow:2px 2px 8px rgba(255,0,0,0.6);
+      animation: pulse 1.5s infinite alternate;
+    }
+    @keyframes pulse {
+      from { transform: scale(1);}
+      to { transform: scale(1.1);}
+    }
+    button {
+      padding:15px 35px;
+      font-size:1.3rem;
+      border:2px solid #fff;
+      background:rgba(255,255,255,0.15);
+      color:#fff;
+      border-radius:12px;
+      cursor:pointer;
+      transition:all 0.3s ease;
+      backdrop-filter: blur(6px);
+    }
+    button:hover {
+      background:#fff;
+      color:#ff4d6d;
+      transform:scale(1.1);
+    }
+    #footer {
+      position:absolute;
+      bottom:10px;
+      left:10px;
+      color:white;
+      font-size:0.9rem;
+      opacity:0.8;
+    }
+    canvas {
+      background: radial-gradient(circle at center,#000,#111);
+      display:block;
+      width:100vw;
+      height:100vh;
+    }
+    #gameOver {
+      position:absolute;
+      top:0;left:0;
+      width:100%;height:100%;
+      background:rgba(0,0,0,0.8);
+      color:white;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      font-size:2rem;
+      display:none;
+    }
+    #gameOver button {
+      margin-top:20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="home">
+    <h1>🍉 Fruit Cut 🍌</h1>
+    <button onclick="startGame()">Start Game</button>
+    <div id="footer">Made by Arun Dhakad</div>
+  </div>
+
+  <div id="gameOver">
+    <div>💥 Game Over! 💥</div>
+    <div id="finalScore"></div>
+    <button onclick="location.reload()">Restart</button>
+  </div>
+
+  <script>
+    let fruits = ["🍎","🍌","🍉","🍊","🍍","🥝","🍓","🥭","🍇"];
+    let canvas, ctx;
+    let gameFruits = [], splashes = [];
+    let score = 0, bestScore = localStorage.getItem("bestScore") || 0;
+    let slicing = false;
+    let lastX=0,lastY=0;
+    let gameOver = false;
+
+    class Fruit {
+      constructor(x,y,emoji,isBomb=false) {
+        this.x = x;
+        this.y = y;
+        this.emoji = emoji;
+        this.isBomb = isBomb;
+        this.speedY = -(15 + Math.random()*6);
+        this.speedX = 0;
+        this.size = 50;
+        this.alive = true;
+      }
+      update() {
+        this.y += this.speedY;
+        this.speedY += 0.35;
+        if (this.y > canvas.height+60) this.alive=false;
+      }
+      draw() {
+        ctx.font = this.size+"px Arial";
+        ctx.fillText(this.emoji,this.x,this.y);
+      }
+    }
+
+    class Splash {
+      constructor(x,y,color) {
+        this.x=x; this.y=y;
+        this.color=color;
+        this.life=1;
+        this.particles=[];
+        for (let i=0;i<10;i++){
+          this.particles.push({
+            x:x,y:y,
+            speedX:(Math.random()*4-2),
+            speedY:(Math.random()*-4),
+            size:4+Math.random()*3
+          });
+        }
+      }
+      update(){
+        this.life-=0.02;
+        this.particles.forEach(p=>{
+          p.x+=p.speedX;
+          p.y+=p.speedY;
+          p.speedY+=0.2;
+        });
+      }
+      draw(){
+        ctx.globalAlpha=this.life;
+        ctx.fillStyle=this.color;
+        this.particles.forEach(p=>{
+          ctx.beginPath();
+          ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+          ctx.fill();
+        });
+        ctx.globalAlpha=1;
+      }
+    }
+
+    function startGame() {
+      // ❌ पुराना home screen हटाओ
+      document.getElementById("home").remove();
+
+      // ✅ नया canvas बनाओ
+      canvas = document.createElement("canvas");
+      canvas.id = "gameCanvas";
+      document.body.appendChild(canvas);
+
+      ctx = canvas.getContext("2d");
+      resizeCanvas();
+
+      window.addEventListener("resize", resizeCanvas);
+      canvas.addEventListener("mousedown", ()=> slicing=true);
+      canvas.addEventListener("mouseup", ()=> slicing=false);
+      canvas.addEventListener("mousemove", e=> slice(e.offsetX,e.offsetY));
+      canvas.addEventListener("touchstart", ()=> slicing=true);
+      canvas.addEventListener("touchend", ()=> slicing=false);
+      canvas.addEventListener("touchmove", e=>{
+        let touch = e.touches[0];
+        let rect = canvas.getBoundingClientRect();
+        slice(touch.clientX-rect.left, touch.clientY-rect.top);
+      });
+
+      setInterval(()=> {
+        if (gameOver) return;
+        let x = Math.random()*(canvas.width-60)+30;
+        let y = canvas.height+30;
+
+        // 15% chance bomb
+        let isBomb = Math.random() < 0.15;
+        let emoji = isBomb ? "💣" : fruits[Math.floor(Math.random()*fruits.length)];
+
+        gameFruits.push(new Fruit(x,y,emoji,isBomb));
+      },800);
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    function slice(x,y) {
+      if (gameOver) return;
+      if (slicing) {
+        ctx.strokeStyle="rgba(255,255,255,0.8)";
+        ctx.lineWidth=4;
+        ctx.beginPath();
+        ctx.moveTo(lastX,lastY);
+        ctx.lineTo(x,y);
+        ctx.stroke();
+        lastX=x; lastY=y;
+
+        gameFruits.forEach(f=>{
+          if (f.alive && Math.hypot(f.x-x, f.y-y) < 35) {
+            f.alive=false;
+            if (f.isBomb) {
+              endGame();
+            } else {
+              score++;
+              bestScore = Math.max(bestScore,score);
+              localStorage.setItem("bestScore",bestScore);
+              splashes.push(new Splash(f.x,f.y,"red"));
+            }
+          }
+        });
+      } else {
+        lastX=x; lastY=y;
+      }
+    }
+
+    function gameLoop() {
+      if (gameOver) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      gameFruits.forEach(f=> {f.update(); f.draw();});
+      gameFruits = gameFruits.filter(f=>f.alive);
+
+      splashes.forEach(s=> {s.update(); s.draw();});
+      splashes = splashes.filter(s=>s.life>0);
+
+      ctx.fillStyle="white";
+      ctx.font="26px Arial";
+      ctx.fillText("Score: "+score,20,40);
+      ctx.fillText("Best: "+bestScore,20,75);
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById("gameOver").style.display="flex";
+      document.getElementById("finalScore").innerText="Score: "+score+" | Best: "+bestScore;
+    }
+  </script>
+</body>
+</html>
