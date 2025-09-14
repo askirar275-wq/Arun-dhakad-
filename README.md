@@ -1,41 +1,51 @@
-# 🍉 Fruit Cut Game
+# 🍉 Fruit Cut / Tractor Game
 
-A simple **Fruit Cut Game** made with **HTML, CSS, and JavaScript**.  
-Cut the fruits to earn points, but be careful not to cut the bombs! 💣
+यह एक मज़ेदार और modern गेम है जिसे **Arun Dhakad** ने बनाया है।\
+इसमें Fruit Cut और Tractor game दोनों versions उपलब्ध हैं।
 
----
-
-## 🎮 How to Play
-1. Swipe or click on fruits to cut them.
-2. Each fruit gives you +1 score.
-3. Cutting a bomb ❌ will end the game.
-4. Try to make the **highest score** possible!
-
----
+------------------------------------------------------------------------
 
 ## 🚀 Features
-- Modern UI with animations
-- Scoreboard system
-- Restart button
-- Mobile friendly 🎯
 
----
+-   Mobile friendly और responsive interface\
+-   Modern UI और animated buttons\
+-   Realistic fruit/tractor gameplay\
+-   Easy to install and play
 
-## 📂 Files
-- `index.html` → Main game file
-- `README.md` → Project details
+------------------------------------------------------------------------
 
----
+## 🎮 How to Play
 
-## 🌐 Live Demo
-👉 [Click here to play](https://askirar275-wq.github.io/Arun-...)  
+1.  Repo को डाउनलोड करें या ZIP extract करें।\
+2.  Browser में `index.html` फाइल खोलें।\
+3.  Enjoy the game!
 
----
+------------------------------------------------------------------------
 
-## 📸 Screenshot
-(आप चाहो तो यहाँ अपने game का screenshot डाल सकते हो)
+## 📜 License
 
----
+इस प्रोजेक्ट का पूरा कॉपीराइट **Arun Dhakad** के पास है।\
+- गेम लेने से पहले **₹5000 एडवांस पेमेंट** करना अनिवार्य है।\
+- उसके बाद गेम से होने वाली कमाई का **25% प्रति माह** लाइसेंस फीस के रूप
+में देना होगा।\
+- केवल **personal और non-commercial use** के लिए शेयर/प्ले की अनुमति
+है।\
+- Commercial resale, relicense या किसी भी तरह का copyright claim करना
+सख़्त मना है।
 
-## ✨ Author
-Made by **Arun Dhakad** ❤️
+👉 पूरी जानकारी के लिए [LICENSE.md](LICENSE.md) देखें।
+
+------------------------------------------------------------------------
+
+## 💳 Payment Details
+
+-   **UPI ID:** `7477074916@ybl`\
+-   **Name:** Arun Dhakad
+
+📲 स्कैन करके पेमेंट करें:
+
+![Payment QR](qr.png)
+
+------------------------------------------------------------------------
+
+© 2025 All Rights Reserved --- Arun Dhakad
