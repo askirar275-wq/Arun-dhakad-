@@ -1,0 +1,1379 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>🍓 Fruit Cut — Pul Advanced (Knife + Shop)</title>
+<style>
+  :root{
+    --bg1:#0b2030; --bg2:#071026;
+    --panel:#0f2430;
+    --accent:#ff6b6b; --accent2:#ffd166;
+    --muted: rgba(255,255,255,0.7);
+    --outline: rgba(255,255,255,0.12);
+  }
+  *{box-sizing:border-box;font-family: "Noto Sans", Roboto, Arial, sans-serif;}
+  body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#fff;display:flex;align-items:center;justify-content:center;padding:12px;}
+  .card{
+    width:100%;max-width:420px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:18px;padding:12px;border:1px solid var(--outline);box-shadow:0 8px 30px rgba(2,6,23,0.6);
+  }
+
+  /* header HUD */
+  .hud{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .chip{background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:12px;border:1px solid var(--outline);font-weight:700;display:flex;gap:8px;align-items:center}
+  .chip small{font-weight:600;color:var(--muted);font-size:12px}
+
+  /* game area */
+  .game-area{position:relative;background:linear-gradient(180deg,#dff1fb 0%, #cfeefc 100%);height:62vh;min-height:380px;border-radius:14px;overflow:hidden;border:6px solid rgba(255,255,255,0.04)}
+  canvas{width:100%;height:100%;display:block;touch-action:none}
+
+  /* bottom controls */
+  .controls{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .btn{padding:10px 12px;border-radius:12px;background:transparent;border:2px solid rgba(255,255,255,0.12);color:#fff;font-weight:700;cursor:pointer;transition:transform .12s,background .12s,box-shadow .12s;outline:none}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#ff9f9f);border:none;color:#080808;box-shadow:0 6px 18px rgba(255,107,107,0.12)}
+  .btn.icon{padding:8px 10px;border-radius:10px}
+
+  /* overlays */
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;pointer-events:none}
+  .overlay .panel{pointer-events:auto;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:12px;border:1px solid var(--outline);width:90%;max-width:520px}
+
+  /* shop grid */
+  .shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:10px}
+  .skin-card{background:rgba(255,255,255,0.02);padding:8px;border-radius:10px;border:1px solid var(--outline);display:flex;flex-direction:column;align-items:center;gap:6px}
+
+  /* minor */
+  .small{font-size:13px;color:var(--muted)}
+  .center{display:flex;flex-direction:column;align-items:center;gap:8px}
+  @media (max-width:420px){ .card{padding:10px} .chip{font-size:13px} }
+</style>
+</head>
+<body>
+  <div class="card" role="application" aria-label="Fruit Cut Pul Advanced">
+    <div class="hud">
+      <div class="chip">Score: <span id="uiScore">0</span></div>
+      <div class="chip">Lives: <span id="uiLives">3</span></div>
+      <div class="chip">Coins: <span id="uiCoins">0</span> <small>🪙</small></div>
+    </div>
+
+    <div class="game-area" id="gameArea">
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- Home Overlay -->
+      <div class="overlay" id="homeOverlay" style="pointer-events:auto">
+        <div class="panel center">
+          <h2>🍓 Fruit Cut — Pul Advanced</h2>
+          <p class="small">Swipe से काटो — Knife चुनो Shop में — Golden fruit बोनस देता है।</p>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="playBtn" class="btn primary">Play</button>
+            <button id="shopBtn" class="btn">Shop</button>
+          </div>
+          <p class="small" style="margin-top:6px">Best: <strong id="bestScore">0</strong></p>
+        </div>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div class="overlay" id="pauseOverlay" style="display:none;pointer-events:auto">
+        <div class="panel center">
+          <h3>खेल रुका हुआ है</h3>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="resumeBtn" class="btn primary">Resume</button>
+            <button id="restartBtn" class="btn">Restart</button>
+            <button id="toHomeBtn" class="btn">Home</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Over Overlay -->
+      <div class="overlay" id="gameOverOverlay" style="display:none;pointer-events:auto">
+        <div class="panel center">
+          <h2>Game Over 💥</h2>
+          <p class="small">Score: <strong id="finalScore">0</strong></p>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="playAgainBtn" class="btn primary">Again</button>
+            <button id="goShopBtn" class="btn">Shop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shop Overlay -->
+      <div class="overlay" id="shopOverlay" style="display:none;pointer-events:auto;align-items:flex-start;padding-top:40px;">
+        <div class="panel" style="width:92%">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h3>Shop — Knives & Upgrades</h3>
+              <p class="small">Coins से Knife unlock करो — जिसे select करोगे वही Swipe cursor बनेगा।</p>
+            </div>
+            <div><button id="closeShopBtn" class="btn">Close</button></div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <div class="chip">Coins: <span id="shopCoins">0</span></div>
+            <div class="chip">Selected: <span id="selectedKnifeName">Default</span></div>
+          </div>
+
+          <div class="shop-grid" id="shopGrid"></div>
+
+          <div style="display:flex;justify-content:flex-end;margin-top:10px">
+            <button id="shopBackBtn" class="btn">Back</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="controls" style="margin-top:10px">
+      <button id="pauseBtn" class="btn icon">⏸</button>
+      <button id="muteBtn" class="btn icon">🔊</button>
+      <div style="flex:1"></div>
+      <div class="small" style="opacity:.9">Gravity: <span id="gravVal">0.30</span></div>
+      <input id="gravRange" type="range" min="0.20" max="0.50" step="0.01" value="0.30" style="width:110px;margin-left:8px">
+    </div>
+    <p class="small" style="margin-top:8px">Hindi UI — Local save enabled</p>
+  </div>
+
+<script>
+/* ------------------------------
+   Fruit Cut — Pul Advanced
+   Hindi comments + Shop + Knife
+   ------------------------------ */
+
+/* ==== Canvas Setup ==== */
+const canvas = document.getElementById('gameCanvas');
+const area = document.getElementById('gameArea');
+const ctx = canvas.getContext('2d');
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+function resizeCanvas(){
+  canvas.width = area.clientWidth * DPR;
+  canvas.height = area.clientHeight * DPR;
+  canvas.style.width = area.clientWidth + 'px';
+  canvas.style.height = area.clientHeight + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+/* ==== UI elements ==== */
+const uiScore = document.getElementById('uiScore');
+const uiLives = document.getElementById('uiLives');
+const uiCoins = document.getElementById('uiCoins');
+const uiBest = document.getElementById('bestScore');
+const uiShopCoins = document.getElementById('shopCoins');
+const selectedKnifeNameEl = document.getElementById('selectedKnifeName');
+
+const playBtn = document.getElementById('playBtn');
+const shopBtn = document.getElementById('shopBtn');
+const homeOverlay = document.getElementById('homeOverlay');
+const pauseOverlay = document.getElementById('pauseOverlay');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const playAgainBtn = document.getElementById('playAgainBtn');
+const goShopBtn = document.getElementById('goShopBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+const restartBtn = document.getElementById('restartBtn');
+const toHomeBtn = document.getElementById('toHomeBtn');
+const shopOverlay = document.getElementById('shopOverlay');
+const shopGrid = document.getElementById('shopGrid');
+const closeShopBtn = document.getElementById('closeShopBtn');
+const shopBackBtn = document.getElementById('shopBackBtn');
+
+const pauseBtn = document.getElementById('pauseBtn');
+const muteBtn = document.getElementById('muteBtn');
+const gravRange = document.getElementById('gravRange');
+const gravVal = document.getElementById('gravVal');
+
+/* ==== Game State ==== */
+let gameState = 'home'; // home, playing, paused, gameover
+let score = 0;
+let lives = 3;
+let coins = Number(localStorage.getItem('coins') || 0);
+let bestScore = Number(localStorage.getItem('bestScore') || 0);
+
+uiCoins.textContent = coins;
+uiBest.textContent = bestScore;
+
+/* ==== Physics & Entities ==== */
+let gravity = parseFloat(gravRange.value);
+gravVal.textContent = gravity.toFixed(2);
+
+const fruits = []; // active
+const particles = [];
+let lastSpawn = performance.now();
+let spawnInterval = 900; // ms initial
+let lastFrame = performance.now();
+
+/* ==== Knife Skins (Shop) ==== */
+const knifeSkins = [
+  { id:'default', name:'Default Knife', icon:'🔪', price:0, bought:true },
+  { id:'gold', name:'Golden Knife', icon:'🗡️', price:150, bought:false },
+  { id:'fire', name:'Fire Knife', icon:'🔥', price:350, bought:false },
+  { id:'ice', name:'Ice Knife', icon:'❄️', price:300, bought:false }
+];
+let selectedKnife = localStorage.getItem('selectedKnife') || 'default';
+knifeSkins.forEach(s=> {
+  if(localStorage.getItem('knife_'+s.id+'_bought')==='true') s.bought=true;
+  if(s.id === selectedKnife && !s.bought) selectedKnife='default';
+});
+selectedKnifeNameEl.textContent = knifeSkins.find(k=>k.id===selectedKnife).name;
+uiShopCoins.textContent = coins;
+
+/* ==== Sounds (placeholders) ==== */
+let muted = false;
+const SFX = {
+  cut: new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA='), // placeholder silent
+  bomb: new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA='),
+  coin: new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=')
+};
+
+/* ==== Fruit types ==== */
+const skins = {
+  default: ['🍓','🍊','🍉','🍌'],
+  tropical: ['🥭','🍍','🥥','🥝'],
+};
+const ALL_FRUITS = [...skins.default];
+const SPECIAL_GOLDEN_CHANCE = 0.08; // golden fruit chance
+const BOMB_CHANCE = 0.12;
+
+/* ==== Helper funcs ==== */
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function saveAll(){
+  localStorage.setItem('coins', coins);
+  localStorage.setItem('bestScore', bestScore);
+  localStorage.setItem('selectedKnife', selectedKnife);
+  knifeSkins.forEach(k=> localStorage.setItem('knife_'+k.id+'_bought', k.bought ? 'true' : 'false'));
+}
+
+/* ==== Fruit class ==== */
+class Fruit {
+  constructor(x,y,vx,vy,emoji,type='fruit'){
+    this.x = x; this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.emoji = emoji;
+    this.r = 28 + rand(-6,6);
+    this.rotation = rand(-0.6,0.6);
+    this.spin = rand(-0.03,0.03);
+    this.type = type; // 'fruit','bomb','gold'
+    this.spawn = performance.now();
+    this.cut = false;
+  }
+  update(dt){
+    // dt in ms
+    this.vy += gravity * dt * 0.04;
+    this.x += this.vx * dt * 0.04;
+    this.y += this.vy * dt * 0.04;
+    this.rotation += this.spin * dt * 0.0006;
+  }
+  draw(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.font = (this.r*1.6) + 'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(this.type === 'gold'){
+      // glowing
+      ctx.shadowColor = 'rgba(255,215,90,0.9)';
+      ctx.shadowBlur = 18;
+    } else {
+      ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 8;
+    }
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+  }
+}
+
+/* ==== Particles ==== */
+function spawnParticles(x,y,emoji,count=8){
+  for(let i=0;i<count;i++){
+    particles.push({
+      x:x+rand(-6,6), y:y+rand(-6,6),
+      vx: rand(-160,160), vy: rand(-200,-40),
+      life: rand(300,900), t:0, emoji, size:rand(8,18)
+    });
+  }
+}
+
+/* ==== Spawn logic ==== */
+function spawnRandom(){
+  const w = area.clientWidth;
+  const x = rand(40, w-40);
+  const y = area.clientHeight + 40;
+  // speed reduced for smooth movement
+  const speedUp = rand(-450, -300); // less extreme
+  const angle = rand(-0.6,0.6);
+  const vx = angle * 1.2 * Math.abs(speedUp) * 0.001;
+  const vy = speedUp * 0.001;
+  const isBomb = Math.random() < BOMB_CHANCE;
+  const isGold = !isBomb && Math.random() < SPECIAL_GOLDEN_CHANCE;
+  const emoji = isBomb ? '💣' : (isGold ? '👑' : ALL_FRUITS[Math.floor(Math.random()*ALL_FRUITS.length)]);
+  const type = isBomb ? 'bomb' : (isGold ? 'gold' : 'fruit');
+  fruits.push(new Fruit(x,y,vx*40,vy*40,emoji,type));
+}
+
+/* ==== Swipe / Knife drawing ==== */
+let isDrawing = false;
+let trail = []; // points {x,y,t}
+const trailMax = 20;
+let lastCutTime = 0;
+let combo = 0;
+
+function toLocal(e){
+  const rect = canvas.getBoundingClientRect();
+  if(e.touches && e.touches[0]) e = e.touches[0];
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+canvas.addEventListener('pointerdown', e => {
+  if(gameState !== 'playing') return;
+  isDrawing = true; trail = [];
+  const p = toLocal(e); trail.push({...p, t:performance.now()});
+  e.preventDefault();
+});
+canvas.addEventListener('pointermove', e => {
+  if(!isDrawing) return;
+  const p = toLocal(e);
+  const last = trail[trail.length-1];
+  if(!last || (p.x-last.x)**2 + (p.y-last.y)**2 > 16){
+    trail.push({...p, t:performance.now()});
+    if(trail.length > trailMax) trail.shift();
+  }
+});
+canvas.addEventListener('pointerup', e => {
+  if(!isDrawing) return;
+  isDrawing = false;
+  processTrailCut();
+  trail = [];
+});
+canvas.addEventListener('pointercancel', ()=>{ isDrawing=false; trail=[]; });
+
+/* Line-circle intersection */
+function lineIntersectsCircle(x1,y1,x2,y2, cx,cy,r){
+  const vx = x2-x1, vy = y2-y1;
+  const wx = cx-x1, wy = cy-y1;
+  const c1 = vx*wx + vy*wy;
+  if(c1 <= 0){ const dx=x1-cx, dy=y1-cy; return dx*dx+dy*dy <= r*r; }
+  const c2 = vx*vx + vy*vy;
+  if(c2 <= c1){ const dx=x2-cx, dy=y2-cy; return dx*dx+dy*dy <= r*r; }
+  const b = c1 / c2; const px = x1 + b*vx, py = y1 + b*vy;
+  const dx = px-cx, dy = py-cy;
+  return dx*dx + dy*dy <= r*r;
+}
+
+/* Process cutting by trail */
+function processTrailCut(){
+  if(trail.length < 2) return;
+  const now = performance.now();
+  let cuts = 0;
+  for(let j=fruits.length-1;j>=0;j--){
+    const f = fruits[j];
+    if(f.cut) continue;
+    for(let i=0;i<trail.length-1;i++){
+      const a = trail[i], b = trail[i+1];
+      if(lineIntersectsCircle(a.x,a.y,b.x,b.y,f.x,f.y,f.r)){
+        // cut
+        f.cut = true;
+        cuts++;
+        spawnParticles(f.x,f.y,f.emoji,10);
+        if(f.type === 'bomb'){
+          lives--; if(!muted) SFX.bomb.play().catch(()=>{});
+          if(lives <= 0) {
+            // game over
+            endGame();
+          }
+        } else if(f.type === 'gold'){
+          // golden bonus
+          const gained = 10;
+          score += gained * 3;
+          coins += 5;
+          if(!muted) SFX.coin.play().catch(()=>{});
+        } else {
+          // normal fruit
+          const dt = now - lastCutTime;
+          if(dt < 450) combo++; else combo = 1;
+          lastCutTime = now;
+          const base = 10;
+          const bonus = Math.floor(base * (combo-1) * 0.5);
+          score += base + bonus;
+          coins += 1 + Math.floor(combo/2);
+          if(!muted) SFX.cut.play().catch(()=>{});
+        }
+        // remove fruit visually after small delay
+        fruits.splice(j,1);
+        break;
+      }
+    }
+  }
+  if(cuts > 1){
+    // extra combo visual (we draw in render)
+  }
+  updateUI();
+  saveAll();
+}
+
+/* ==== Knife cursor drawing ==== */
+let pointer = {x: -100, y: -100};
+let showCursor = true;
+function drawKnife(ctx){
+  // draw knife skin at pointer
+  const k = knifeSkins.find(k=>k.id===selectedKnife) || knifeSkins[0];
+  ctx.save();
+  ctx.translate(pointer.x, pointer.y);
+  ctx.rotate(-0.3);
+  ctx.font = '28px serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // special styling for skins
+  if(k.id === 'gold') { ctx.shadowColor='rgba(255,200,60,0.9)'; ctx.shadowBlur = 14; }
+  else if(k.id === 'fire'){ ctx.shadowColor='rgba(255,80,20,0.9)'; ctx.shadowBlur = 14; }
+  else if(k.id === 'ice'){ ctx.shadowColor='rgba(160,220,255,0.9)'; ctx.shadowBlur = 14; }
+  else { ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur = 6; }
+  ctx.fillText(k.icon, 0, 0);
+  ctx.restore();
+}
+
+/* update UI */
+function updateUI(){
+  uiScore.textContent = score;
+  uiLives.textContent = lives;
+  uiCoins.textContent = coins;
+  uiShopCoins.textContent = coins;
+  uiBest.textContent = bestScore;
+  selectedKnifeNameEl.textContent = knifeSkins.find(k=>k.id===selectedKnife).name;
+}
+
+/* ==== Main Loop ==== */
+function gameLoop(t){
+  const now = t || performance.now();
+  const dt = Math.min(now - lastFrame, 40);
+  lastFrame = now;
+
+  if(gameState === 'playing'){
+    // spawn control
+    if(now - lastSpawn > spawnInterval){
+      spawnRandom();
+      lastSpawn = now;
+      spawnInterval = Math.max(600, spawnInterval - 2); // slight speed-up over time
+    }
+
+    // update fruits
+    for(let i=fruits.length-1;i>=0;i--){
+      const f = fruits[i];
+      f.update(dt);
+      // remove if fallen
+      if(f.y > area.clientHeight + 80){
+        // if missed fruit (not bomb) no life lost, but we remove
+        fruits.splice(i,1);
+      }
+    }
+
+    // update particles
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.t += dt;
+      p.vy += gravity * dt * 0.03;
+      p.x += p.vx * dt * 0.04;
+      p.y += p.vy * dt * 0.04;
+      if(p.t > p.life) particles.splice(i,1);
+    }
+
+    // update time, etc (no timer in this version, lives control)
+    // update UI
+    updateUI();
+  }
+
+  // draw
+  render();
+
+  requestAnimationFrame(gameLoop);
+}
+
+/* ==== Render ==== */
+function render(){
+  // clear
+  ctx.clearRect(0,0,area.clientWidth,area.clientHeight);
+  // subtle background pattern (fruits faint)
+  const g = ctx.createLinearGradient(0,0,0,area.clientHeight);
+  g.addColorStop(0,'#e9f8ff'); g.addColorStop(1,'#dff4fb');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,area.clientWidth,area.clientHeight);
+
+  // draw fruits
+  for(const f of fruits) f.draw(ctx);
+
+  // draw particles
+  for(const p of particles){
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.font = (p.size) + 'px serif';
+    ctx.fillText(p.emoji, 0, 0);
+    ctx.restore();
+  }
+
+  // draw swipe trail
+  if(trail.length > 0){
+    ctx.save();
+    ctx.lineWidth = 10;
+    ctx.lineJoin = ctx.lineCap = 'round';
+    const grd = ctx.createLinearGradient(0,0,area.clientWidth,0);
+    grd.addColorStop(0,'rgba(255,220,120,0.95)');
+    grd.addColorStop(1,'rgba(255,120,120,0.95)');
+    ctx.strokeStyle = grd;
+    ctx.beginPath();
+    for(let i=0;i<trail.length;i++){
+      const p = trail[i];
+      if(i===0) ctx.moveTo(p.x,p.y);
+      else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // draw knife cursor
+  if(showCursor && (gameState === 'playing' || gameState === 'paused')){
+    drawKnife(ctx);
+  }
+
+  // combo indicator
+  if(performance.now() - lastCutTime < 800 && combo > 1){
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - (performance.now() - lastCutTime)/800);
+    ctx.font = '20px sans-serif';
+    ctx.fillStyle = '#222';
+    ctx.fillText('Combo x' + combo, 20, 40);
+    ctx.restore();
+  }
+}
+
+/* ==== Input pointer tracking for cursor and cuts ==== */
+area.addEventListener('pointermove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const p = e;
+  pointer.x = p.clientX - rect.left;
+  pointer.y = p.clientY - rect.top;
+});
+area.addEventListener('pointerdown', ()=>{}); // handled on canvas
+
+/* ==== Game Controls ==== */
+function startGame(){
+  gameState = 'playing';
+  homeOverlay.style.display = 'none';
+  pauseOverlay.style.display = 'none';
+  gameOverOverlay.style.display = 'none';
+  fruits.length = 0; particles.length = 0;
+  score = 0; lives = 3;
+  spawnInterval = 900;
+  lastSpawn = performance.now();
+  lastFrame = performance.now();
+  updateUI();
+  saveAll();
+}
+function pauseGame(){
+  if(gameState !== 'playing') return;
+  gameState = 'paused';
+  pauseOverlay.style.display = 'flex';
+}
+function resumeGame(){
+  if(gameState !== 'paused') return;
+  gameState = 'playing';
+  pauseOverlay.style.display = 'none';
+  lastFrame = performance.now();
+}
+function endGame(){
+  gameState = 'gameover';
+  // show overlay
+  document.getElementById('finalScore').textContent = score;
+  gameOverOverlay.style.display = 'flex';
+  // best score update
+  if(score > bestScore) bestScore = score;
+  saveAll();
+  updateUI();
+}
+
+/* Buttons */
+playBtn.addEventListener('click', ()=> startGame());
+playAgainBtn.addEventListener('click', ()=> { gameOverOverlay.style.display='none'; startGame(); });
+goShopBtn.addEventListener('click', ()=> { gameOverOverlay.style.display='none'; openShop(); });
+shopBtn.addEventListener('click', ()=> openShop());
+closeShopBtn.addEventListener('click', ()=> { shopOverlay.style.display='none'; if(gameState==='home') homeOverlay.style.display='flex'; else if(gameState==='playing') pauseOverlay.style.display='none'; });
+shopBackBtn.addEventListener('click', ()=> { shopOverlay.style.display='none'; if(gameState==='home') homeOverlay.style.display='flex'; });
+
+resumeBtn.addEventListener('click', ()=> resumeGame());
+restartBtn.addEventListener('click', ()=> startGame());
+toHomeBtn.addEventListener('click', ()=> { gameState='home'; homeOverlay.style.display='flex'; pauseOverlay.style.display='none'; saveAll(); });
+
+pauseBtn.addEventListener('click', ()=> {
+  if(gameState === 'playing') { pauseGame(); } else if(gameState === 'paused') { resumeGame(); }
+});
+muteBtn.addEventListener('click', ()=> {
+  muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊';
+});
+gravRange.addEventListener('input', ()=>{ gravity = parseFloat(gravRange.value); gravVal.textContent = gravity.toFixed(2); });
+
+/* ==== Shop UI ==== */
+function updateShopGrid(){
+  shopGrid.innerHTML = '';
+  for(const k of knifeSkins){
+    const div = document.createElement('div');
+    div.className = 'skin-card';
+    div.innerHTML = `
+      <div style="font-size:30px">${k.icon}</div>
+      <div style="font-weight:700">${k.name}</div>
+      <div class="small">${k.price>0 ? k.price + ' 🪙' : 'Free'}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn selectBtn">${k.bought ? (k.id===selectedKnife ? 'Selected' : 'Select') : 'Buy'}</button>
+      </div>
+    `;
+    const btn = div.querySelector('.selectBtn');
+    btn.addEventListener('click', ()=>{
+      if(k.bought){
+        selectedKnife = k.id;
+        selectedKnifeNameEl.textContent = k.name;
+        updateShopGrid();
+        saveAll();
+      } else {
+        if(coins >= k.price){
+          coins -= k.price;
+          k.bought = true;
+          selectedKnife = k.id;
+          updateUI();
+          updateShopGrid();
+          saveAll();
+          alert('खरीद लिया: ' + k.name);
+        } else {
+          alert('Coins कम हैं — खेलकर कमाओ।');
+        }
+      }
+    });
+    shopGrid.appendChild(div);
+  }
+}
+
+/* ==== Start shop once ==== */
+updateShopGrid();
+
+/* ==== Spawn interval timer ==== */
+setInterval(()=>{
+  if(gameState === 'playing') {
+    // spawn sometimes multiple fruits for combo chance
+    if(Math.random() < 0.08) spawnRandom();
+    spawnRandom();
+  }
+}, 900);
+
+/* ==== Auto-save ==== */
+setInterval(()=> saveAll(), 4000);
+
+/* ==== Pointer-based simple cut fallback for clicks (for testing) ==== */
+area.addEventListener('click', (e)=>{
+  // translate to local and check cuts — helpful for desktop
+  if(gameState !== 'playing') return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  // simple small line
+  trail = [{x:x-5,y:y,t:performance.now()},{x:x+5,y:y,t:performance.now()}];
+  processTrailCut();
+  trail = [];
+});
+
+/* ==== Update loop start ==== */
+requestAnimationFrame(gameLoop);
+
+/* ==== initial overlays ==== */
+homeOverlay.style.display = 'flex';
+pauseOverlay.style.display = 'none';
+gameOverOverlay.style.display = 'none';
+
+/* ==== Final housekeeping ==== */
+updateUI();
+saveAll();
+
+</script>
+</body>
+</html><!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>🍓 Fruit Cut — Pul Advanced (Knife + Shop)</title>
+<style>
+  :root{
+    --bg1:#0b2030; --bg2:#071026;
+    --panel:#0f2430;
+    --accent:#ff6b6b; --accent2:#ffd166;
+    --muted: rgba(255,255,255,0.7);
+    --outline: rgba(255,255,255,0.12);
+  }
+  *{box-sizing:border-box;font-family: "Noto Sans", Roboto, Arial, sans-serif;}
+  body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#fff;display:flex;align-items:center;justify-content:center;padding:12px;}
+  .card{
+    width:100%;max-width:420px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:18px;padding:12px;border:1px solid var(--outline);box-shadow:0 8px 30px rgba(2,6,23,0.6);
+  }
+
+  /* header HUD */
+  .hud{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .chip{background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:12px;border:1px solid var(--outline);font-weight:700;display:flex;gap:8px;align-items:center}
+  .chip small{font-weight:600;color:var(--muted);font-size:12px}
+
+  /* game area */
+  .game-area{position:relative;background:linear-gradient(180deg,#dff1fb 0%, #cfeefc 100%);height:62vh;min-height:380px;border-radius:14px;overflow:hidden;border:6px solid rgba(255,255,255,0.04)}
+  canvas{width:100%;height:100%;display:block;touch-action:none}
+
+  /* bottom controls */
+  .controls{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .btn{padding:10px 12px;border-radius:12px;background:transparent;border:2px solid rgba(255,255,255,0.12);color:#fff;font-weight:700;cursor:pointer;transition:transform .12s,background .12s,box-shadow .12s;outline:none}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#ff9f9f);border:none;color:#080808;box-shadow:0 6px 18px rgba(255,107,107,0.12)}
+  .btn.icon{padding:8px 10px;border-radius:10px}
+
+  /* overlays */
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;pointer-events:none}
+  .overlay .panel{pointer-events:auto;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:12px;border:1px solid var(--outline);width:90%;max-width:520px}
+
+  /* shop grid */
+  .shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:10px}
+  .skin-card{background:rgba(255,255,255,0.02);padding:8px;border-radius:10px;border:1px solid var(--outline);display:flex;flex-direction:column;align-items:center;gap:6px}
+
+  /* minor */
+  .small{font-size:13px;color:var(--muted)}
+  .center{display:flex;flex-direction:column;align-items:center;gap:8px}
+  @media (max-width:420px){ .card{padding:10px} .chip{font-size:13px} }
+</style>
+</head>
+<body>
+  <div class="card" role="application" aria-label="Fruit Cut Pul Advanced">
+    <div class="hud">
+      <div class="chip">Score: <span id="uiScore">0</span></div>
+      <div class="chip">Lives: <span id="uiLives">3</span></div>
+      <div class="chip">Coins: <span id="uiCoins">0</span> <small>🪙</small></div>
+    </div>
+
+    <div class="game-area" id="gameArea">
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- Home Overlay -->
+      <div class="overlay" id="homeOverlay" style="pointer-events:auto">
+        <div class="panel center">
+          <h2>🍓 Fruit Cut — Pul Advanced</h2>
+          <p class="small">Swipe से काटो — Knife चुनो Shop में — Golden fruit बोनस देता है।</p>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="playBtn" class="btn primary">Play</button>
+            <button id="shopBtn" class="btn">Shop</button>
+          </div>
+          <p class="small" style="margin-top:6px">Best: <strong id="bestScore">0</strong></p>
+        </div>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div class="overlay" id="pauseOverlay" style="display:none;pointer-events:auto">
+        <div class="panel center">
+          <h3>खेल रुका हुआ है</h3>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="resumeBtn" class="btn primary">Resume</button>
+            <button id="restartBtn" class="btn">Restart</button>
+            <button id="toHomeBtn" class="btn">Home</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Over Overlay -->
+      <div class="overlay" id="gameOverOverlay" style="display:none;pointer-events:auto">
+        <div class="panel center">
+          <h2>Game Over 💥</h2>
+          <p class="small">Score: <strong id="finalScore">0</strong></p>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="playAgainBtn" class="btn primary">Again</button>
+            <button id="goShopBtn" class="btn">Shop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shop Overlay -->
+      <div class="overlay" id="shopOverlay" style="display:none;pointer-events:auto;align-items:flex-start;padding-top:40px;">
+        <div class="panel" style="width:92%">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h3>Shop — Knives & Upgrades</h3>
+              <p class="small">Coins से Knife unlock करो — जिसे select करोगे वही Swipe cursor बनेगा।</p>
+            </div>
+            <div><button id="closeShopBtn" class="btn">Close</button></div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <div class="chip">Coins: <span id="shopCoins">0</span></div>
+            <div class="chip">Selected: <span id="selectedKnifeName">Default</span></div>
+          </div>
+
+          <div class="shop-grid" id="shopGrid"></div>
+
+          <div style="display:flex;justify-content:flex-end;margin-top:10px">
+            <button id="shopBackBtn" class="btn">Back</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="controls" style="margin-top:10px">
+      <button id="pauseBtn" class="btn icon">⏸</button>
+      <button id="muteBtn" class="btn icon">🔊</button>
+      <div style="flex:1"></div>
+      <div class="small" style="opacity:.9">Gravity: <span id="gravVal">0.30</span></div>
+      <input id="gravRange" type="range" min="0.20" max="0.50" step="0.01" value="0.30" style="width:110px;margin-left:8px">
+    </div>
+    <p class="small" style="margin-top:8px">Hindi UI — Local save enabled</p>
+  </div>
+
+<script>
+/* ------------------------------
+   Fruit Cut — Pul Advanced
+   Hindi comments + Shop + Knife
+   ------------------------------ */
+
+/* ==== Canvas Setup ==== */
+const canvas = document.getElementById('gameCanvas');
+const area = document.getElementById('gameArea');
+const ctx = canvas.getContext('2d');
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+function resizeCanvas(){
+  canvas.width = area.clientWidth * DPR;
+  canvas.height = area.clientHeight * DPR;
+  canvas.style.width = area.clientWidth + 'px';
+  canvas.style.height = area.clientHeight + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+/* ==== UI elements ==== */
+const uiScore = document.getElementById('uiScore');
+const uiLives = document.getElementById('uiLives');
+const uiCoins = document.getElementById('uiCoins');
+const uiBest = document.getElementById('bestScore');
+const uiShopCoins = document.getElementById('shopCoins');
+const selectedKnifeNameEl = document.getElementById('selectedKnifeName');
+
+const playBtn = document.getElementById('playBtn');
+const shopBtn = document.getElementById('shopBtn');
+const homeOverlay = document.getElementById('homeOverlay');
+const pauseOverlay = document.getElementById('pauseOverlay');
+const gameOverOverlay = document.getElementById('gameOverOverlay');
+const playAgainBtn = document.getElementById('playAgainBtn');
+const goShopBtn = document.getElementById('goShopBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+const restartBtn = document.getElementById('restartBtn');
+const toHomeBtn = document.getElementById('toHomeBtn');
+const shopOverlay = document.getElementById('shopOverlay');
+const shopGrid = document.getElementById('shopGrid');
+const closeShopBtn = document.getElementById('closeShopBtn');
+const shopBackBtn = document.getElementById('shopBackBtn');
+
+const pauseBtn = document.getElementById('pauseBtn');
+const muteBtn = document.getElementById('muteBtn');
+const gravRange = document.getElementById('gravRange');
+const gravVal = document.getElementById('gravVal');
+
+/* ==== Game State ==== */
+let gameState = 'home'; // home, playing, paused, gameover
+let score = 0;
+let lives = 3;
+let coins = Number(localStorage.getItem('coins') || 0);
+let bestScore = Number(localStorage.getItem('bestScore') || 0);
+
+uiCoins.textContent = coins;
+uiBest.textContent = bestScore;
+
+/* ==== Physics & Entities ==== */
+let gravity = parseFloat(gravRange.value);
+gravVal.textContent = gravity.toFixed(2);
+
+const fruits = []; // active
+const particles = [];
+let lastSpawn = performance.now();
+let spawnInterval = 900; // ms initial
+let lastFrame = performance.now();
+
+/* ==== Knife Skins (Shop) ==== */
+const knifeSkins = [
+  { id:'default', name:'Default Knife', icon:'🔪', price:0, bought:true },
+  { id:'gold', name:'Golden Knife', icon:'🗡️', price:150, bought:false },
+  { id:'fire', name:'Fire Knife', icon:'🔥', price:350, bought:false },
+  { id:'ice', name:'Ice Knife', icon:'❄️', price:300, bought:false }
+];
+let selectedKnife = localStorage.getItem('selectedKnife') || 'default';
+knifeSkins.forEach(s=> {
+  if(localStorage.getItem('knife_'+s.id+'_bought')==='true') s.bought=true;
+  if(s.id === selectedKnife && !s.bought) selectedKnife='default';
+});
+selectedKnifeNameEl.textContent = knifeSkins.find(k=>k.id===selectedKnife).name;
+uiShopCoins.textContent = coins;
+
+/* ==== Sounds (placeholders) ==== */
+let muted = false;
+const SFX = {
+  cut: new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA='), // placeholder silent
+  bomb: new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA='),
+  coin: new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=')
+};
+
+/* ==== Fruit types ==== */
+const skins = {
+  default: ['🍓','🍊','🍉','🍌'],
+  tropical: ['🥭','🍍','🥥','🥝'],
+};
+const ALL_FRUITS = [...skins.default];
+const SPECIAL_GOLDEN_CHANCE = 0.08; // golden fruit chance
+const BOMB_CHANCE = 0.12;
+
+/* ==== Helper funcs ==== */
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function saveAll(){
+  localStorage.setItem('coins', coins);
+  localStorage.setItem('bestScore', bestScore);
+  localStorage.setItem('selectedKnife', selectedKnife);
+  knifeSkins.forEach(k=> localStorage.setItem('knife_'+k.id+'_bought', k.bought ? 'true' : 'false'));
+}
+
+/* ==== Fruit class ==== */
+class Fruit {
+  constructor(x,y,vx,vy,emoji,type='fruit'){
+    this.x = x; this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.emoji = emoji;
+    this.r = 28 + rand(-6,6);
+    this.rotation = rand(-0.6,0.6);
+    this.spin = rand(-0.03,0.03);
+    this.type = type; // 'fruit','bomb','gold'
+    this.spawn = performance.now();
+    this.cut = false;
+  }
+  update(dt){
+    // dt in ms
+    this.vy += gravity * dt * 0.04;
+    this.x += this.vx * dt * 0.04;
+    this.y += this.vy * dt * 0.04;
+    this.rotation += this.spin * dt * 0.0006;
+  }
+  draw(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.font = (this.r*1.6) + 'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(this.type === 'gold'){
+      // glowing
+      ctx.shadowColor = 'rgba(255,215,90,0.9)';
+      ctx.shadowBlur = 18;
+    } else {
+      ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 8;
+    }
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+  }
+}
+
+/* ==== Particles ==== */
+function spawnParticles(x,y,emoji,count=8){
+  for(let i=0;i<count;i++){
+    particles.push({
+      x:x+rand(-6,6), y:y+rand(-6,6),
+      vx: rand(-160,160), vy: rand(-200,-40),
+      life: rand(300,900), t:0, emoji, size:rand(8,18)
+    });
+  }
+}
+
+/* ==== Spawn logic ==== */
+function spawnRandom(){
+  const w = area.clientWidth;
+  const x = rand(40, w-40);
+  const y = area.clientHeight + 40;
+  // speed reduced for smooth movement
+  const speedUp = rand(-450, -300); // less extreme
+  const angle = rand(-0.6,0.6);
+  const vx = angle * 1.2 * Math.abs(speedUp) * 0.001;
+  const vy = speedUp * 0.001;
+  const isBomb = Math.random() < BOMB_CHANCE;
+  const isGold = !isBomb && Math.random() < SPECIAL_GOLDEN_CHANCE;
+  const emoji = isBomb ? '💣' : (isGold ? '👑' : ALL_FRUITS[Math.floor(Math.random()*ALL_FRUITS.length)]);
+  const type = isBomb ? 'bomb' : (isGold ? 'gold' : 'fruit');
+  fruits.push(new Fruit(x,y,vx*40,vy*40,emoji,type));
+}
+
+/* ==== Swipe / Knife drawing ==== */
+let isDrawing = false;
+let trail = []; // points {x,y,t}
+const trailMax = 20;
+let lastCutTime = 0;
+let combo = 0;
+
+function toLocal(e){
+  const rect = canvas.getBoundingClientRect();
+  if(e.touches && e.touches[0]) e = e.touches[0];
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+canvas.addEventListener('pointerdown', e => {
+  if(gameState !== 'playing') return;
+  isDrawing = true; trail = [];
+  const p = toLocal(e); trail.push({...p, t:performance.now()});
+  e.preventDefault();
+});
+canvas.addEventListener('pointermove', e => {
+  if(!isDrawing) return;
+  const p = toLocal(e);
+  const last = trail[trail.length-1];
+  if(!last || (p.x-last.x)**2 + (p.y-last.y)**2 > 16){
+    trail.push({...p, t:performance.now()});
+    if(trail.length > trailMax) trail.shift();
+  }
+});
+canvas.addEventListener('pointerup', e => {
+  if(!isDrawing) return;
+  isDrawing = false;
+  processTrailCut();
+  trail = [];
+});
+canvas.addEventListener('pointercancel', ()=>{ isDrawing=false; trail=[]; });
+
+/* Line-circle intersection */
+function lineIntersectsCircle(x1,y1,x2,y2, cx,cy,r){
+  const vx = x2-x1, vy = y2-y1;
+  const wx = cx-x1, wy = cy-y1;
+  const c1 = vx*wx + vy*wy;
+  if(c1 <= 0){ const dx=x1-cx, dy=y1-cy; return dx*dx+dy*dy <= r*r; }
+  const c2 = vx*vx + vy*vy;
+  if(c2 <= c1){ const dx=x2-cx, dy=y2-cy; return dx*dx+dy*dy <= r*r; }
+  const b = c1 / c2; const px = x1 + b*vx, py = y1 + b*vy;
+  const dx = px-cx, dy = py-cy;
+  return dx*dx + dy*dy <= r*r;
+}
+
+/* Process cutting by trail */
+function processTrailCut(){
+  if(trail.length < 2) return;
+  const now = performance.now();
+  let cuts = 0;
+  for(let j=fruits.length-1;j>=0;j--){
+    const f = fruits[j];
+    if(f.cut) continue;
+    for(let i=0;i<trail.length-1;i++){
+      const a = trail[i], b = trail[i+1];
+      if(lineIntersectsCircle(a.x,a.y,b.x,b.y,f.x,f.y,f.r)){
+        // cut
+        f.cut = true;
+        cuts++;
+        spawnParticles(f.x,f.y,f.emoji,10);
+        if(f.type === 'bomb'){
+          lives--; if(!muted) SFX.bomb.play().catch(()=>{});
+          if(lives <= 0) {
+            // game over
+            endGame();
+          }
+        } else if(f.type === 'gold'){
+          // golden bonus
+          const gained = 10;
+          score += gained * 3;
+          coins += 5;
+          if(!muted) SFX.coin.play().catch(()=>{});
+        } else {
+          // normal fruit
+          const dt = now - lastCutTime;
+          if(dt < 450) combo++; else combo = 1;
+          lastCutTime = now;
+          const base = 10;
+          const bonus = Math.floor(base * (combo-1) * 0.5);
+          score += base + bonus;
+          coins += 1 + Math.floor(combo/2);
+          if(!muted) SFX.cut.play().catch(()=>{});
+        }
+        // remove fruit visually after small delay
+        fruits.splice(j,1);
+        break;
+      }
+    }
+  }
+  if(cuts > 1){
+    // extra combo visual (we draw in render)
+  }
+  updateUI();
+  saveAll();
+}
+
+/* ==== Knife cursor drawing ==== */
+let pointer = {x: -100, y: -100};
+let showCursor = true;
+function drawKnife(ctx){
+  // draw knife skin at pointer
+  const k = knifeSkins.find(k=>k.id===selectedKnife) || knifeSkins[0];
+  ctx.save();
+  ctx.translate(pointer.x, pointer.y);
+  ctx.rotate(-0.3);
+  ctx.font = '28px serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // special styling for skins
+  if(k.id === 'gold') { ctx.shadowColor='rgba(255,200,60,0.9)'; ctx.shadowBlur = 14; }
+  else if(k.id === 'fire'){ ctx.shadowColor='rgba(255,80,20,0.9)'; ctx.shadowBlur = 14; }
+  else if(k.id === 'ice'){ ctx.shadowColor='rgba(160,220,255,0.9)'; ctx.shadowBlur = 14; }
+  else { ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur = 6; }
+  ctx.fillText(k.icon, 0, 0);
+  ctx.restore();
+}
+
+/* update UI */
+function updateUI(){
+  uiScore.textContent = score;
+  uiLives.textContent = lives;
+  uiCoins.textContent = coins;
+  uiShopCoins.textContent = coins;
+  uiBest.textContent = bestScore;
+  selectedKnifeNameEl.textContent = knifeSkins.find(k=>k.id===selectedKnife).name;
+}
+
+/* ==== Main Loop ==== */
+function gameLoop(t){
+  const now = t || performance.now();
+  const dt = Math.min(now - lastFrame, 40);
+  lastFrame = now;
+
+  if(gameState === 'playing'){
+    // spawn control
+    if(now - lastSpawn > spawnInterval){
+      spawnRandom();
+      lastSpawn = now;
+      spawnInterval = Math.max(600, spawnInterval - 2); // slight speed-up over time
+    }
+
+    // update fruits
+    for(let i=fruits.length-1;i>=0;i--){
+      const f = fruits[i];
+      f.update(dt);
+      // remove if fallen
+      if(f.y > area.clientHeight + 80){
+        // if missed fruit (not bomb) no life lost, but we remove
+        fruits.splice(i,1);
+      }
+    }
+
+    // update particles
+    for(let i=particles.length-1;i>=0;i--){
+      const p = particles[i];
+      p.t += dt;
+      p.vy += gravity * dt * 0.03;
+      p.x += p.vx * dt * 0.04;
+      p.y += p.vy * dt * 0.04;
+      if(p.t > p.life) particles.splice(i,1);
+    }
+
+    // update time, etc (no timer in this version, lives control)
+    // update UI
+    updateUI();
+  }
+
+  // draw
+  render();
+
+  requestAnimationFrame(gameLoop);
+}
+
+/* ==== Render ==== */
+function render(){
+  // clear
+  ctx.clearRect(0,0,area.clientWidth,area.clientHeight);
+  // subtle background pattern (fruits faint)
+  const g = ctx.createLinearGradient(0,0,0,area.clientHeight);
+  g.addColorStop(0,'#e9f8ff'); g.addColorStop(1,'#dff4fb');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,area.clientWidth,area.clientHeight);
+
+  // draw fruits
+  for(const f of fruits) f.draw(ctx);
+
+  // draw particles
+  for(const p of particles){
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.font = (p.size) + 'px serif';
+    ctx.fillText(p.emoji, 0, 0);
+    ctx.restore();
+  }
+
+  // draw swipe trail
+  if(trail.length > 0){
+    ctx.save();
+    ctx.lineWidth = 10;
+    ctx.lineJoin = ctx.lineCap = 'round';
+    const grd = ctx.createLinearGradient(0,0,area.clientWidth,0);
+    grd.addColorStop(0,'rgba(255,220,120,0.95)');
+    grd.addColorStop(1,'rgba(255,120,120,0.95)');
+    ctx.strokeStyle = grd;
+    ctx.beginPath();
+    for(let i=0;i<trail.length;i++){
+      const p = trail[i];
+      if(i===0) ctx.moveTo(p.x,p.y);
+      else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // draw knife cursor
+  if(showCursor && (gameState === 'playing' || gameState === 'paused')){
+    drawKnife(ctx);
+  }
+
+  // combo indicator
+  if(performance.now() - lastCutTime < 800 && combo > 1){
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - (performance.now() - lastCutTime)/800);
+    ctx.font = '20px sans-serif';
+    ctx.fillStyle = '#222';
+    ctx.fillText('Combo x' + combo, 20, 40);
+    ctx.restore();
+  }
+}
+
+/* ==== Input pointer tracking for cursor and cuts ==== */
+area.addEventListener('pointermove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const p = e;
+  pointer.x = p.clientX - rect.left;
+  pointer.y = p.clientY - rect.top;
+});
+area.addEventListener('pointerdown', ()=>{}); // handled on canvas
+
+/* ==== Game Controls ==== */
+function startGame(){
+  gameState = 'playing';
+  homeOverlay.style.display = 'none';
+  pauseOverlay.style.display = 'none';
+  gameOverOverlay.style.display = 'none';
+  fruits.length = 0; particles.length = 0;
+  score = 0; lives = 3;
+  spawnInterval = 900;
+  lastSpawn = performance.now();
+  lastFrame = performance.now();
+  updateUI();
+  saveAll();
+}
+function pauseGame(){
+  if(gameState !== 'playing') return;
+  gameState = 'paused';
+  pauseOverlay.style.display = 'flex';
+}
+function resumeGame(){
+  if(gameState !== 'paused') return;
+  gameState = 'playing';
+  pauseOverlay.style.display = 'none';
+  lastFrame = performance.now();
+}
+function endGame(){
+  gameState = 'gameover';
+  // show overlay
+  document.getElementById('finalScore').textContent = score;
+  gameOverOverlay.style.display = 'flex';
+  // best score update
+  if(score > bestScore) bestScore = score;
+  saveAll();
+  updateUI();
+}
+
+/* Buttons */
+playBtn.addEventListener('click', ()=> startGame());
+playAgainBtn.addEventListener('click', ()=> { gameOverOverlay.style.display='none'; startGame(); });
+goShopBtn.addEventListener('click', ()=> { gameOverOverlay.style.display='none'; openShop(); });
+shopBtn.addEventListener('click', ()=> openShop());
+closeShopBtn.addEventListener('click', ()=> { shopOverlay.style.display='none'; if(gameState==='home') homeOverlay.style.display='flex'; else if(gameState==='playing') pauseOverlay.style.display='none'; });
+shopBackBtn.addEventListener('click', ()=> { shopOverlay.style.display='none'; if(gameState==='home') homeOverlay.style.display='flex'; });
+
+resumeBtn.addEventListener('click', ()=> resumeGame());
+restartBtn.addEventListener('click', ()=> startGame());
+toHomeBtn.addEventListener('click', ()=> { gameState='home'; homeOverlay.style.display='flex'; pauseOverlay.style.display='none'; saveAll(); });
+
+pauseBtn.addEventListener('click', ()=> {
+  if(gameState === 'playing') { pauseGame(); } else if(gameState === 'paused') { resumeGame(); }
+});
+muteBtn.addEventListener('click', ()=> {
+  muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊';
+});
+gravRange.addEventListener('input', ()=>{ gravity = parseFloat(gravRange.value); gravVal.textContent = gravity.toFixed(2); });
+
+/* ==== Shop UI ==== */
+function updateShopGrid(){
+  shopGrid.innerHTML = '';
+  for(const k of knifeSkins){
+    const div = document.createElement('div');
+    div.className = 'skin-card';
+    div.innerHTML = `
+      <div style="font-size:30px">${k.icon}</div>
+      <div style="font-weight:700">${k.name}</div>
+      <div class="small">${k.price>0 ? k.price + ' 🪙' : 'Free'}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn selectBtn">${k.bought ? (k.id===selectedKnife ? 'Selected' : 'Select') : 'Buy'}</button>
+      </div>
+    `;
+    const btn = div.querySelector('.selectBtn');
+    btn.addEventListener('click', ()=>{
+      if(k.bought){
+        selectedKnife = k.id;
+        selectedKnifeNameEl.textContent = k.name;
+        updateShopGrid();
+        saveAll();
+      } else {
+        if(coins >= k.price){
+          coins -= k.price;
+          k.bought = true;
+          selectedKnife = k.id;
+          updateUI();
+          updateShopGrid();
+          saveAll();
+          alert('खरीद लिया: ' + k.name);
+        } else {
+          alert('Coins कम हैं — खेलकर कमाओ।');
+        }
+      }
+    });
+    shopGrid.appendChild(div);
+  }
+}
+
+/* ==== Start shop once ==== */
+updateShopGrid();
+
+/* ==== Spawn interval timer ==== */
+setInterval(()=>{
+  if(gameState === 'playing') {
+    // spawn sometimes multiple fruits for combo chance
+    if(Math.random() < 0.08) spawnRandom();
+    spawnRandom();
+  }
+}, 900);
+
+/* ==== Auto-save ==== */
+setInterval(()=> saveAll(), 4000);
+
+/* ==== Pointer-based simple cut fallback for clicks (for testing) ==== */
+area.addEventListener('click', (e)=>{
+  // translate to local and check cuts — helpful for desktop
+  if(gameState !== 'playing') return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  // simple small line
+  trail = [{x:x-5,y:y,t:performance.now()},{x:x+5,y:y,t:performance.now()}];
+  processTrailCut();
+  trail = [];
+});
+
+/* ==== Update loop start ==== */
+requestAnimationFrame(gameLoop);
+
+/* ==== initial overlays ==== */
+homeOverlay.style.display = 'flex';
+pauseOverlay.style.display = 'none';
+gameOverOverlay.style.display = 'none';
+
+/* ==== Final housekeeping ==== */
+updateUI();
+saveAll();
+
+</script>
+</body>
+</html>
