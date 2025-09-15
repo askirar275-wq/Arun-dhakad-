@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>🍓 Fruit Pro — Fury (Final Update)</title>
+<style>
+:root{
+  --bg1:#041026; --bg2:#052a3a;
+  --panel: rgba(255,255,255,0.03);
+  --outline: rgba(255,255,255,0.10);
+  --accent:#ff6b6b; --accent2:#ffbf59;
+  --glass: rgba(255,255,255,0.03);
+  --font: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+  --btn-outline: rgba(255,255,255,0.10);
+  --btn-hover: rgba(255,255,255,0.06);
+  --ui-pad: 12px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:var(--font);-webkit-font-smoothing:antialiased;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#eaf6ff}
+.app{height:100vh;display:flex;align-items:stretch;justify-content:center}
+.stage{position:relative;width:100vw;height:100vh;overflow:hidden}
+canvas{display:block;width:100%;height:100%;touch-action:none;background:
+  radial-gradient(900px 360px at 8% 18%, rgba(255,255,255,0.02), transparent), linear-gradient(180deg,#041026 0%, #052a3a 100%)}
+
+/* top UI */
+.ui-top{position:absolute;left:12px;top:12px;z-index:70;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{padding:8px 10px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);font-weight:800;font-size:13px}
+.right-top{position:absolute;right:12px;top:12px;display:flex;gap:8px;z-index:70;align-items:center}
+
+/* overlay / cards */
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:80}
+.card{pointer-events:auto;min-width:300px;border-radius:14px;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid var(--outline);text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.6);max-width:92vw}
+.header-title{font-size:20px;font-weight:900;margin-bottom:4px}
+.small{font-size:13px;opacity:0.86}
+.center-emoji{font-size:36px}
+
+/* buttons - outlined, animated, mobile friendly */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 16px;border-radius:12px;cursor:pointer;user-select:none;background:transparent;border:2px solid var(--btn-outline);transition:transform .12s ease,box-shadow .12s ease,background .12s;border-color .12s;box-shadow:0 8px 24px rgba(0,0,0,0.45);font-weight:800;font-size:14px}
+.btn:active{transform:translateY(3px) scale(.995)}
+.btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#071026;font-weight:900}
+.btn.ghost{background:transparent;color:#eaf6ff}
+.btn.outline{background:transparent;border:2px solid rgba(255,255,255,0.08)}
+.btn:focus{outline:none;box-shadow:0 6px 18px rgba(0,0,0,0.45),0 0 0 6px rgba(255,183,121,0.04)}
+.btn:hover{background:var(--btn-hover)}
+.btn-anim{position:relative;overflow:hidden}
+.btn-anim::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02);opacity:0;transform:scale(0.96);transition:opacity .18s, transform .18s}
+.btn-anim:active::after{opacity:1;transform:scale(1)}
+
+/* toast & combo */
+.toast{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);padding:10px 14px;border-radius:12px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.06);display:none;z-index:90}
+.combo-popup{position:absolute;left:50%;top:12%;transform:translateX(-50%);font-weight:900;color:#ffd86b;font-size:28px;text-shadow:0 8px 22px rgba(0,0,0,0.6);pointer-events:none;display:none;z-index:90}
+
+/* shop grid */
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px}
+.shop-item{padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);text-align:left}
+.item-locked{opacity:0.5}
+.item-title{font-weight:800;margin-bottom:6px;font-size:14px}
+
+/* small screens adjustments */
+@media (max-width:600px){
+  .card{padding:14px;border-radius:12px}
+  .btn{padding:10px 12px;font-size:13px;border-radius:10px}
+  .header-title{font-size:18px}
+  .combo-popup{font-size:22px}
+  .chip{padding:6px 8px;font-size:12px}
+}
+
+/* score fx elements (in DOM) */
+#fxRoot .score-fx{position:absolute;left:0;top:0;color:#fff;font-weight:900;pointer-events:none;transform:translate(-50%,-50%);text-shadow:0 6px 18px rgba(0,0,0,0.6)}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="stage" id="stage">
+    <canvas id="canvas" aria-label="Fruit Pro canvas"></canvas>
+
+    <!-- top UI -->
+    <div class="ui-top" id="uiTop" aria-hidden="false" style="z-index:70">
+      <div class="chip">Score: <span id="uiScore">0</span></div>
+      <div class="chip">Lives: <span id="uiLives">3</span></div>
+      <div class="chip">Level: <span id="uiLevel">1</span></div>
+      <div class="chip">Coins: <span id="uiCoins">0</span></div>
+    </div>
+
+    <div class="right-top" id="rightTop" style="z-index:70">
+      <button class="btn outline btn-anim" id="pauseBtn" aria-pressed="false">Pause</button>
+      <button class="btn outline btn-anim" id="homeBtnTop">Menu</button>
+    </div>
+
+    <!-- floating fx root -->
+    <div id="fxRoot" style="position:absolute;inset:0;pointer-events:none;z-index:75"></div>
+
+    <div class="combo-popup" id="comboPopup"></div>
+    <div class="toast" id="toast"></div>
+
+    <!-- overlay for home / gameover / settings -->
+    <div class="overlay" id="overlayRoot" aria-hidden="false"></div>
+  </div>
+</div>
+
+<script>
+/* FINAL UPDATE - Fruit Pro — Fury
+   - Cut system improved: glow trail, slice -> 2 halves, combo scoring
+   - Shop integrated: blades (trail color), themes, extra life
+   - Coins earned on fruit cut
+   - All main comments हिन्दी में
+*/
+
+/* ---------- canvas setup ---------- */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: true });
+const stage = document.getElementById('stage');
+const overlayRoot = document.getElementById('overlayRoot');
+const fxRoot = document.getElementById('fxRoot');
+const toastEl = document.getElementById('toast');
+const comboPopup = document.getElementById('comboPopup');
+const pauseBtn = document.getElementById('pauseBtn');
+const homeBtnTop = document.getElementById('homeBtnTop');
+
+function fitCanvas(){
+  const rect = stage.getBoundingClientRect();
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  canvas.width = Math.max(720, Math.floor(rect.width * dpr));
+  canvas.height = Math.max(540, Math.floor(rect.height * dpr));
+}
+window.addEventListener('resize', ()=>{ fitCanvas(); render(); });
+fitCanvas();
+
+/* ---------- utilities ---------- */
+const rand = (a,b)=> a + Math.random()*(b-a);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
+
+/* ---------- game config ---------- */
+const DIFF = {
+  easy:   { vyMin:-1.6, vyMax:-3.0, spawnMs:1500, maxEnt:12 },
+  medium: { vyMin:-2.8, vyMax:-5.0, spawnMs:1000, maxEnt:18 },
+  hard:   { vyMin:-4.6, vyMax:-8.0, spawnMs:650,  maxEnt:28 }
+};
+let difficulty = 'medium';
+let spawnMultiplier = 1.0;
+let soundOn = true;
+
+/* ---------- persistent save ---------- */
+const SAVE_KEY = 'fruit_pro_final_v2';
+let Save = { high:0, coins:0, achievements:{}, shop:{}, equipped:{ blade:'neon', theme:'default' } };
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(raw){ Save = JSON.parse(raw); }
+    else {
+      Save = { high:0, coins:0, achievements:{}, shop:{neon:true}, equipped:{ blade:'neon', theme:'default' } };
+    }
+  }catch(e){
+    Save = { high:0, coins:0, achievements:{}, shop:{neon:true}, equipped:{ blade:'neon', theme:'default' } };
+  }
+}
+function saveAll(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(Save)); }catch(e){} }
+
+/* ---------- UI helpers ---------- */
+function showToast(msg, ms=1200){
+  toastEl.textContent = msg; toastEl.style.display = 'block';
+  if(window._toastTimer) clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>{ toastEl.style.display = 'none'; window._toastTimer = null; }, ms);
+}
+
+/* ---------- entities (fruit, piece, bomb) ---------- */
+class Entity {
+  constructor({x,y,vx,vy,r,type,emoji,color,score,meta}){
+    this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+    this.r = r; this.type = type; this.emoji = emoji; this.color = color; this.score = score||0;
+    this.ang = Math.random()*Math.PI*2; this.spin = (Math.random()-0.5)*0.4;
+    this.hit = false; this.meta = meta||{}; this.life = 4000; this.bounces = 0;
+  }
+  update(dt, slow=1){
+    const gravity = 0.025 * (1/slow) * (1 + Math.max(0, game.level - 1)*0.03);
+    this.vy += gravity * (dt/16);
+    this.x += this.vx * (dt/16); this.y += this.vy * (dt/16);
+    this.ang += this.spin * (dt/16);
+    const floorY = canvas.height - 6;
+    if((this.type === 'piece' || this.type==='bomb') && this.y + this.r > floorY){
+      this.y = floorY - this.r;
+      if(Math.abs(this.vy) > 1.4 && this.bounces < 3){
+        this.vy = -Math.abs(this.vy) * 0.52; this.vx *= 0.84; this.bounces++;
+      } else { this.vy = 0; this.vx *= 0.96; }
+    }
+    const minX = this.r + 6, maxX = canvas.width - this.r - 6;
+    if(this.x < minX){ this.x = minX; this.vx = Math.abs(this.vx)*0.6; }
+    if(this.x > maxX){ this.x = maxX; this.vx = -Math.abs(this.vx)*0.6; }
+    if(this.type === 'piece') this.life -= dt;
+  }
+  render(ctx, dpr){
+    ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.ang);
+    if(this.type === 'bomb'){
+      ctx.beginPath(); ctx.fillStyle = '#111'; ctx.arc(0,0,this.r,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.strokeStyle = '#ffcc4d'; ctx.lineWidth = Math.max(1, dpr*1.2);
+      ctx.moveTo(-this.r*0.2, -this.r*0.85); ctx.lineTo(this.r*0.5, -this.r*1.45); ctx.stroke();
+    } else {
+      ctx.font = `${this.r}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(this.emoji, 0, 0);
+      if(this.meta && this.meta.special === 'gold'){
+        ctx.beginPath(); ctx.strokeStyle = 'rgba(255,220,90,0.12)'; ctx.lineWidth = Math.max(6,dpr*1.8);
+        ctx.arc(0,0,this.r*1.05,0,Math.PI*2); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+}
+
+/* ---------- spawn rules ---------- */
+const FRUITS = [
+  {emoji:'🍎', color:'#ff6b6b', score:10},
+  {emoji:'🍊', color:'#ff9b3d', score:10},
+  {emoji:'🍉', color:'#ff4d6d', score:12},
+  {emoji:'🍌', color:'#fff27a', score:9},
+  {emoji:'🍇', color:'#b58cff', score:12},
+  {emoji:'🥭', color:'#ffd07a', score:11},
+  {emoji:'🍐', color:'#c6f08f', score:10},
+  {emoji:'🍓', color:'#ff4d8a', score:13}
+];
+
+function spawnEntity(){
+  const diff = DIFF[difficulty];
+  if(entities.length >= Math.round(diff.maxEnt * spawnMultiplier)) return;
+  const w = canvas.width, h = canvas.height;
+  const x = rand(w*0.15, w*0.85);
+  const y = h + rand(30, 120);
+  const vy = diff.vyMin + Math.random()*(diff.vyMax - diff.vyMin);
+  const vx = (Math.random()-0.5) * Math.max(0.6, Math.abs(vy)*0.18);
+  const r = Math.round(rand(36, 52) * (window.devicePixelRatio || 1));
+  const sroll = Math.random();
+  if(sroll < 0.10){ // bomb chance ~10%
+    entities.push(new Entity({x,y,vx,vy,r,type:'bomb',emoji:'💣',color:'#222',score:0}));
+  } else if(sroll > 0.995){
+    const f = pick(FRUITS);
+    entities.push(new Entity({x,y,vx,vy,r,type:'fruit',emoji:f.emoji,color:f.color,score:(f.score*6), meta:{special:'gold'}}));
+  } else if(sroll > 0.985){
+    const f = pick(FRUITS);
+    entities.push(new Entity({x,y,vx,vy,r,type:'fruit',emoji:f.emoji,color:f.color,score:(f.score*2), meta:{special:'slow'}}));
+  } else {
+    const f = pick(FRUITS);
+    entities.push(new Entity({x,y,vx,vy,r,type:'fruit',emoji:f.emoji,color:f.color,score:f.score}));
+  }
+}
+
+/* ---------- juice particles ---------- */
+function spawnJuice(x,y,color,count=26,spread=6){
+  for(let i=0;i<count;i++){
+    particles.push({
+      x,y,
+      vx: rand(-spread, spread),
+      vy: rand(-8, -1),
+      life: rand(500,1200),
+      t:0,
+      size: rand(1.6, 3.6),
+      color
+    });
+  }
+}
+
+/* ---------- splitting into halves (improved) ---------- */
+function splitToPieces(f){
+  const px = f.x, py = f.y;
+  const baseR = Math.max(16, Math.round(f.r * 0.56));
+  const left = new Entity({
+    x: px - 10, y: py,
+    vx: f.vx - rand(2.0,3.6),
+    vy: f.vy * 0.22 + rand(1.6,3.8),
+    r: baseR, type:'piece', emoji:f.emoji, color:f.color, score: Math.round((f.score||10)/2)
+  });
+  const right = new Entity({
+    x: px + 10, y: py,
+    vx: f.vx + rand(2.0,3.6),
+    vy: f.vy * 0.22 + rand(1.6,3.6),
+    r: baseR, type:'piece', emoji:f.emoji, color:f.color, score: Math.round((f.score||10)/2)
+  });
+  left.spin *= 1.8; right.spin *= 1.8;
+  entities.push(left, right);
+}
+
+/* ---------- slice detection helpers ---------- */
+function pointSegDist(px,py,x1,y1,x2,y2){
+  const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+  const dot = A*C + B*D; const len_sq = C*C + D*D;
+  let param = -1; if(len_sq !== 0) param = dot / len_sq;
+  let xx, yy;
+  if(param < 0){ xx = x1; yy = y1; } else if(param > 1){ xx = x2; yy = y2; } else { xx = x1 + param*C; yy = y1 + param*D; }
+  return Math.hypot(px-xx, py-yy);
+}
+
+/* ---------- input & trail (glow blade) ---------- */
+let pointerDown = false;
+const maxPath = 48;
+function pushPointer(x,y){ game.path.push({x,y,t:Date.now()}); if(game.path.length > maxPath) game.path.shift(); }
+function clearPath(){ game.path.length = 0; }
+function getCanvasPos(e){
+  const r = canvas.getBoundingClientRect();
+  const clientX = (e.touches ? e.touches[0].clientX : e.clientX);
+  const clientY = (e.touches ? e.touches[0].clientY : e.clientY);
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  return { x: (clientX - r.left) * dpr * (canvas.width / r.width), y: (clientY - r.top) * dpr * (canvas.height / r.height) };
+}
+canvas.addEventListener('pointerdown', (ev)=>{ ev.preventDefault(); pointerDown = true; resumeAudioOnInteraction(); const p = getCanvasPos(ev); pushPointer(p.x,p.y); });
+canvas.addEventListener('pointermove', (ev)=>{ if(!pointerDown) return; const p = getCanvasPos(ev); pushPointer(p.x,p.y); });
+canvas.addEventListener('pointerup', (ev)=>{ if(!pointerDown) return; pointerDown=false; const hits = processStroke(); if(hits === 1) playPop(840,0.06); clearPath(); });
+canvas.addEventListener('pointercancel', ()=>{ pointerDown=false; clearPath(); });
+canvas.addEventListener('contextmenu', e=>e.preventDefault());
+
+/* ---------- trail rendering ---------- */
+function renderTrail(ctx, path){
+  if(path.length < 2) return;
+  // Blade color depends on equipped blade
+  const blade = Save.equipped && Save.equipped.blade ? Save.equipped.blade : 'neon';
+  let mainColor = 'rgba(160,255,255,0.18)';
+  if(blade === 'fire') mainColor = 'rgba(255,120,60,0.18)';
+  else if(blade === 'ice') mainColor = 'rgba(160,200,255,0.18)';
+  else if(blade === 'neon') mainColor = 'rgba(160,255,220,0.18)';
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // soft stroke
+  ctx.strokeStyle = mainColor; ctx.lineWidth = Math.max(8, (window.devicePixelRatio||1)*3);
+  ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
+  for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x, path[i].y);
+  ctx.stroke();
+  // inner glow
+  ctx.globalCompositeOperation = 'lighter';
+  if(blade === 'fire') ctx.strokeStyle = 'rgba(255,150,60,0.22)';
+  else if(blade === 'ice') ctx.strokeStyle = 'rgba(160,220,255,0.22)';
+  else ctx.strokeStyle = 'rgba(200,255,220,0.22)';
+  ctx.lineWidth = Math.max(12, (window.devicePixelRatio||1)*6);
+  ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
+  for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x, path[i].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ---------- stroke processing (cut detection & combo) ---------- */
+function processStroke(){
+  const pts = game.path;
+  if(pts.length < 2) return 0;
+  let totalHits = 0;
+  const hitEntities = [];
+  // iterate line segments
+  for(let s=0;s<pts.length-1;s++){
+    const a = pts[s], b = pts[s+1];
+    for(let i = entities.length - 1; i >= 0; i--){
+      const e = entities[i];
+      if(e.hit) continue;
+      const d = pointSegDist(e.x, e.y, a.x,a.y, b.x,b.y);
+      if(d < e.r * 0.92){
+        // mark hit once
+        e.hit = true;
+        if(e.type === 'bomb'){
+          game.lives -= 1;
+          spawnJuice(e.x, e.y, '#ff6b6b', 36, 10);
+          playBombExplode();
+          showFloating('💥', e.x, e.y, '#ffb3b3', 26);
+          vibrate(160);
+          entities.splice(i,1);
+          if(game.lives <= 0){ setTimeout(()=> gameOver(), 150); }
+        } else if(e.type === 'fruit'){
+          totalHits++;
+          hitEntities.push(e);
+          // base reward
+          if(e.meta && e.meta.special === 'gold'){
+            game.score += Math.round(e.score || 60);
+            Save.coins = (Save.coins||0) + 8;
+            spawnJuice(e.x, e.y, '#ffd86b', 46, 14);
+            showFloating('💰 +' + (Math.round(e.score||60)), e.x, e.y, '#ffd86b', 18);
+            playPop(1600, 0.12);
+            Save.achievements.gotGolden = (Save.achievements.gotGolden||0) + 1;
+          } else if(e.meta && e.meta.special === 'slow'){
+            game.score += Math.round(e.score || 20);
+            Save.coins = (Save.coins||0) + 3;
+            spawnJuice(e.x, e.y, '#a8d6ff', 36, 12);
+            showFloating('⏳ Slow!', e.x, e.y, '#a8d6ff', 16);
+            startSlowMo(1700);
+            playPop(1100, 0.12);
+            Save.achievements.gotSlow = (Save.achievements.gotSlow||0)+1;
+          } else {
+            game.score += e.score || 10;
+            Save.coins = (Save.coins||0) + 2;
+            spawnJuice(e.x, e.y, e.color || '#fff', 28, 8);
+            playSwish();
+          }
+          // split into halves
+          splitToPieces(e);
+          entities.splice(i,1);
+        } else if(e.type === 'piece'){
+          game.score += 3;
+          Save.coins = (Save.coins||0) + 1;
+          spawnJuice(e.x, e.y, e.color||'#fff', 8,4);
+          playPop(900, 0.06);
+          entities.splice(i,1);
+        }
+      }
+    }
+  }
+  // combo bonus when multiple fruits cut in single swipe
+  if(totalHits > 1){
+    const comboBonus = Math.round((totalHits-1) * 12);
+    game.score += comboBonus;
+    Save.coins = (Save.coins||0) + totalHits * 2;
+    showCombo(totalHits, comboBonus);
+    Save.achievements.comboCount = (Save.achievements.comboCount||0) + 1;
+  }
+  // achievement checks & save
+  if(game.score >= 100 && !Save.achievements.score100){ Save.achievements.score100 = true; showToast('Achievement: 100 points!'); }
+  if(Save.achievements.comboCount >= 5 && !Save.achievements.combo5){ Save.achievements.combo5 = true; showToast('Achievement: 5 combos!'); }
+  saveAll();
+  // update coins UI immediately
+  document.getElementById('uiCoins').textContent = Save.coins || 0;
+  return totalHits;
+}
+
+/* ---------- floating text ---------- */
+function showFloating(text,x,y,color='#fff',size=18){
+  const el = document.createElement('div'); el.className = 'score-fx';
+  el.style.left = (x / canvas.width * 100) + '%'; el.style.top = (y / canvas.height * 100) + '%';
+  el.style.color = color; el.style.fontSize = `${size}px`; el.textContent = text;
+  fxRoot.appendChild(el);
+  const dur = 900;
+  el.animate([{ transform:'translate(-50%,-50%) translateY(0px) scale(1)', opacity:1 }, { transform:'translate(-50%,-50%) translateY(-44px) scale(1.04)', opacity:0 }], { duration: dur, easing: 'cubic-bezier(.2,.8,.2,1)'});
+  setTimeout(()=> el.remove(), dur+40);
+}
+
+/* ---------- combo popup ---------- */
+function showCombo(n, bonus){
+  comboPopup.textContent = '🔥 x' + n + ' Combo! +' + bonus;
+  comboPopup.style.display = 'block';
+  comboPopup.animate([{ transform:'translateX(-50%) scale(1)', opacity:1 }, { transform:'translateX(-50%) scale(1.14)', opacity:0 }], { duration:1000, easing:'cubic-bezier(.2,.8,.2,1)'});
+  setTimeout(()=> comboPopup.style.display = 'none', 1000);
+  playPop(1200 + n*80, 0.12);
+}
+
+/* ---------- slow motion ---------- */
+let slowUntil = 0;
+function startSlowMo(ms=1600){ slowUntil = Date.now() + ms; }
+
+/* ---------- audio (WebAudio SFX) ---------- */
+let audioCtx = null;
+function ensureAudio(){ if(!audioCtx){ try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ audioCtx = null; } } }
+function playSwish(){ if(!soundOn) return; ensureAudio(); if(!audioCtx) return; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='sawtooth'; o.frequency.value = 900 + Math.random()*600; o.connect(g); g.connect(audioCtx.destination); const now = audioCtx.currentTime; g.gain.value=0.0001; g.gain.linearRampToValueAtTime(0.12, now+0.005); g.gain.exponentialRampToValueAtTime(0.0001, now+0.09); o.start(now); o.stop(now+0.11); }
+function playPop(freq=520, dur=0.1){ if(!soundOn) return; ensureAudio(); if(!audioCtx) return; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='triangle'; o.frequency.value=freq; o.connect(g); g.connect(audioCtx.destination); const now=audioCtx.currentTime; g.gain.value=0.0001; g.gain.linearRampToValueAtTime(0.14, now+0.006); g.gain.exponentialRampToValueAtTime(0.0001, now+dur); o.start(now); o.stop(now+dur+0.02); }
+function playBombExplode(){ if(!soundOn) return; ensureAudio(); if(!audioCtx) return; const b=audioCtx.createOscillator(); const gb=audioCtx.createGain(); b.type='sine'; b.frequency.value=140; b.connect(gb); gb.connect(audioCtx.destination); const now=audioCtx.currentTime; gb.gain.value=0.0001; gb.gain.linearRampToValueAtTime(0.18, now+0.012); gb.gain.exponentialRampToValueAtTime(0.0001, now+0.6); b.start(now); b.stop(now+0.64); }
+
+/* ---------- vibration helper ---------- */
+function vibrate(ms){ if(navigator.vibrate) try{ navigator.vibrate(ms); }catch(e){} }
+
+/* ---------- input handling already above ---------- */
+
+/* ---------- game variables ---------- */
+let entities = [];
+let particles = [];
+let game = { running:false, score:0, lives:3, level:1, lastSpawn:0, lastFrame: performance.now(), path:[] };
+let raf = null;
+
+/* ---------- render ---------- */
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  // draw background theme
+  if(Save.equipped && Save.equipped.theme === 'dusk'){
+    // slight overlay for dusk
+    ctx.fillStyle = 'rgba(8,18,40,0.12)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  } else if(Save.equipped && Save.equipped.theme === 'sunset'){
+    ctx.fillStyle = 'rgba(40,12,16,0.06)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+
+  // entities
+  for(const e of entities) e.render(ctx, dpr);
+  // particles
+  for(const p of particles){
+    ctx.beginPath(); ctx.globalAlpha = Math.max(0, 1 - p.t / p.life);
+    ctx.fillStyle = p.color || '#fff'; ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+  }
+  // swipe trail (glow)
+  renderTrail(ctx, game.path);
+}
+
+/* ---------- main loop ---------- */
+function loop(now){
+  const dt = Math.min(40, now - game.lastFrame);
+  game.lastFrame = now;
+  const slowFactor = (Date.now() < slowUntil) ? 0.52 : 1.0;
+
+  if(game.running){
+    // spawn logic
+    const spawnMsBase = DIFF[difficulty].spawnMs;
+    const spawnMs = spawnMsBase / spawnMultiplier;
+    if(now - game.lastSpawn >= spawnMs){
+      spawnEntity(); game.lastSpawn = now;
+      if(game.score > 120 && Math.random() < Math.min(0.18, game.score/2400)) spawnEntity();
+    }
+
+    for(let i = entities.length - 1; i >= 0; i--){
+      const e = entities[i];
+      e.update(dt, slowFactor);
+      if(e.type === 'piece' && e.life <= 0){ entities.splice(i,1); continue; }
+      if(e.y > canvas.height + 160){
+        if(e.type === 'fruit'){ game.lives -= 1; playPop(240,0.08); if(game.lives <= 0){ setTimeout(()=> gameOver(), 60); } }
+        entities.splice(i,1);
+      }
+    }
+
+    // particles
+    for(let i = particles.length - 1; i >= 0; i--){
+      const p = particles[i];
+      p.t += dt; p.x += p.vx * (dt/16); p.y += p.vy * (dt/16); p.vy += 0.12 * (dt/16);
+      if(p.t > p.life) particles.splice(i,1);
+    }
+
+    // level progression
+    const newLevel = Math.floor(game.score / 80) + 1;
+    if(newLevel !== game.level){ game.level = newLevel; showToast('Level ' + game.level, 900); spawnMultiplier = 1 + (game.level-1)*0.08; }
+    // update UI
+    document.getElementById('uiScore').textContent = game.score;
+    document.getElementById('uiLives').textContent = game.lives;
+    document.getElementById('uiLevel').textContent = game.level;
+    document.getElementById('uiCoins').textContent = Save.coins || 0;
+  }
+
+  render();
+  raf = requestAnimationFrame(loop);
+}
+
+/* ---------- start/reset/gameover ---------- */
+function startGame(){
+  resumeAudioOnInteraction();
+  overlayRoot.innerHTML = ''; overlayRoot.style.pointerEvents = 'none';
+  entities.length = 0; particles.length = 0;
+  game.running = true; game.score = 0; game.lives = 3; game.level = 1;
+  game.path = []; game.lastFrame = performance.now(); game.lastSpawn = performance.now() - 150;
+  spawnMultiplier = 1.0;
+  pauseBtn.textContent = 'Pause'; pauseBtn.setAttribute('aria-pressed','false');
+  if(!raf) raf = requestAnimationFrame(loop);
+  showToast('Game started - ' + difficulty.toUpperCase());
+}
+function resetGame(){
+  game.running = false; entities.length = 0; particles.length = 0;
+  game.score = 0; game.lives = 3; game.level = 1;
+  document.getElementById('uiScore').textContent = 0;
+  showHomeOverlay();
+}
+function gameOver(){
+  game.running = false;
+  Save.coins = (Save.coins || 0) + Math.max(0, Math.round(game.score*0.12));
+  if(game.score > Save.high){ Save.high = game.score; showToast('New Highscore! ' + Save.high, 1400); }
+  saveAll();
+  overlayRoot.innerHTML = '';
+  overlayRoot.style.pointerEvents = 'auto';
+  const card = document.createElement('div'); card.className='card';
+  card.innerHTML = `<div class="header-title">Game Over</div>
+    <div style="font-weight:900;font-size:20px">${game.score} pts</div>
+    <div style="height:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap">
+      <button class="btn primary btn-anim" id="tryBtn">Play Again</button>
+      <button class="btn btn-anim" id="homeBtn">Home</button>
+      <button class="btn btn-anim" id="shareBtn">Share</button>
+    </div>
+    <div style="height:10px"></div>
+    <div class="small">Highscore: <strong>${Save.high||0}</strong> &nbsp;&nbsp; Coins: <strong>${Save.coins||0}</strong></div>
+  `;
+  overlayRoot.appendChild(card);
+  document.getElementById('tryBtn').addEventListener('click', ()=>{ overlayRoot.innerHTML = ''; overlayRoot.style.pointerEvents='none'; startGame(); });
+  document.getElementById('homeBtn').addEventListener('click', ()=>{ overlayRoot.innerHTML=''; overlayRoot.style.pointerEvents='none'; showHomeOverlay(); });
+  document.getElementById('shareBtn').addEventListener('click', ()=>{ shareScore(game.score); });
+}
+
+/* ---------- home overlay + shop integration ---------- */
+const SHOP_ITEMS = {
+  blades: [
+    { id:'neon', title:'Neon Blade', cost:0, desc:'Default glow', owned:true },
+    { id:'fire', title:'Fire Blade', cost:80, desc:'Hot orange trail' },
+    { id:'ice', title:'Ice Blade', cost:80, desc:'Cool blue trail' }
+  ],
+  themes: [
+    { id:'default', title:'Default Theme', cost:0, desc:'Original', owned:true },
+    { id:'dusk', title:'Dusk Theme', cost:120, desc:'Darker sky' },
+    { id:'sunset', title:'Sunset Theme', cost:120, desc:'Warm tones' }
+  ],
+  consumables:[
+    { id:'life1', title:'+1 Life', cost:150, desc:'One extra life', qty:1 }
+  ]
+};
+
+function showHomeOverlay(){
+  overlayRoot.innerHTML = ''; overlayRoot.style.pointerEvents = 'auto';
+  loadSave();
+  const ach = Save.achievements || {};
+  const card = document.createElement('div'); card.className = 'card';
+  card.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="text-align:left">
+        <div class="header-title">🍓 Fruit Pro — Fury</div>
+        <div class="small">Coins: <strong>${Save.coins||0}</strong> &nbsp; High: <strong>${Save.high||0}</strong></div>
+      </div>
+      <div style="text-align:right">
+        <div class="center-emoji">⚔️</div>
+      </div>
+    </div>
+    <div style="height:10px"></div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn primary btn-anim" id="playBtn">Play</button>
+      <button class="btn btn-anim" id="shopBtn">Shop</button>
+      <button class="btn btn-anim" id="achBtn">Achievements</button>
+      <button class="btn btn-anim" id="clearBtn">Reset Save</button>
+    </div>
+    <div style="height:10px"></div>
+    <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+      <div class="small">Difficulty</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn ghost btn-anim ${difficulty==='easy'?'active':''}" data-diff="easy">Easy</button>
+        <button class="btn ghost btn-anim ${difficulty==='medium'?'active':''}" data-diff="medium">Medium</button>
+        <button class="btn ghost btn-anim ${difficulty==='hard'?'active':''}" data-diff="hard">Hard</button>
+      </div>
+    </div>
+  `;
+  overlayRoot.appendChild(card);
+  document.getElementById('playBtn').addEventListener('click', ()=>{ overlayRoot.innerHTML=''; overlayRoot.style.pointerEvents='none'; startGame(); });
+  document.getElementById('shopBtn').addEventListener('click', ()=>{ showShop(); });
+  document.getElementById('achBtn').addEventListener('click', ()=>{ showAchievements(); });
+  document.getElementById('clearBtn').addEventListener('click', ()=>{ if(confirm('Reset all saved data?')){ Save = { high:0, coins:0, achievements:{}, shop:{neon:true}, equipped:{blade:'neon', theme:'default'} }; saveAll(); showToast('Save reset'); showHomeOverlay(); } });
+  // difficulty buttons
+  card.querySelectorAll('button[data-diff]').forEach(b=>{
+    b.addEventListener('click', ()=>{ difficulty = b.dataset.diff; showToast('Difficulty: ' + difficulty.toUpperCase()); card.querySelectorAll('button[data-diff]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); });
+  });
+}
+
+/* ---------- Shop UI ---------- */
+function showShop(){
+  overlayRoot.innerHTML = ''; overlayRoot.style.pointerEvents = 'auto';
+  loadSave();
+  const card = document.createElement('div'); card.className='card';
+  // build blade items
+  let bladesHtml = SHOP_ITEMS.blades.map(it=>{
+    const owned = Save.shop && Save.shop[it.id];
+    const equipped = Save.equipped && Save.equipped.blade === it.id;
+    return `<div class="shop-item ${owned? '':'item-locked'}">
+      <div class="item-title">${it.title} ${equipped? ' (Equipped)':''}</div>
+      <div class="small">${it.desc}</div>
+      <div style="height:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+        <div class="small">Cost: ${it.cost}</div>
+        <div>
+          ${owned? `<button class="btn btn-anim" data-equip="${it.id}">Equip</button>` : `<button class="btn btn-anim" data-buy="${it.id}" data-cost="${it.cost}">Buy</button>`}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  // themes
+  let themesHtml = SHOP_ITEMS.themes.map(it=>{
+    const owned = Save.shop && Save.shop[it.id];
+    const equipped = Save.equipped && Save.equipped.theme === it.id;
+    return `<div class="shop-item ${owned? '':'item-locked'}">
+      <div class="item-title">${it.title} ${equipped? ' (Equipped)':''}</div>
+      <div class="small">${it.desc}</div>
+      <div style="height:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+        <div class="small">Cost: ${it.cost}</div>
+        <div>
+          ${owned? `<button class="btn btn-anim" data-equip-theme="${it.id}">Equip</button>` : `<button class="btn btn-anim" data-buy-theme="${it.id}" data-cost="${it.cost}">Buy</button>`}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  // consumables
+  let consHtml = SHOP_ITEMS.consumables.map(it=>{
+    return `<div class="shop-item">
+      <div class="item-title">${it.title}</div>
+      <div class="small">${it.desc}</div>
+      <div style="height:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+        <div class="small">Cost: ${it.cost}</div>
+        <div>
+          <button class="btn btn-anim" data-buy-cons="${it.id}" data-cost="${it.cost}">Buy</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  card.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="text-align:left"><div class="header-title">Shop</div><div class="small">Coins: <strong>${Save.coins||0}</strong></div></div>
+      <div><button class="btn" id="backShop">Back</button></div>
+    </div>
+    <div style="height:8px"></div>
+    <div style="font-weight:900;margin-bottom:6px">Blades</div>
+    <div class="shop-grid">${bladesHtml}</div>
+    <div style="height:10px"></div>
+    <div style="font-weight:900;margin-bottom:6px">Themes</div>
+    <div class="shop-grid">${themesHtml}</div>
+    <div style="height:10px"></div>
+    <div style="font-weight:900;margin-bottom:6px">Consumables</div>
+    <div class="shop-grid">${consHtml}</div>
+  `;
+  overlayRoot.appendChild(card);
+
+  document.getElementById('backShop').addEventListener('click', ()=>{ showHomeOverlay(); });
+
+  // buy handlers
+  card.querySelectorAll('[data-buy]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const id = btn.dataset.buy; const cost = parseInt(btn.dataset.cost,10);
+      if(Save.coins >= cost){
+        if(!Save.shop) Save.shop = {};
+        Save.shop[id] = true; Save.coins -= cost; saveAll();
+        showToast(id + ' unlocked');
+        showShop();
+      } else showToast('Not enough coins');
+    });
+  });
+  card.querySelectorAll('[data-buy-theme]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const id = btn.dataset.buyTheme; const cost = parseInt(btn.dataset.cost,10);
+      if(Save.coins >= cost){
+        if(!Save.shop) Save.shop = {};
+        Save.shop[id] = true; Save.coins -= cost; saveAll();
+        showToast(id + ' theme unlocked');
+        showShop();
+      } else showToast('Not enough coins');
+    });
+  });
+  card.querySelectorAll('[data-buy-cons]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const id = btn.dataset.buyCons; const cost = parseInt(btn.dataset.cost,10);
+      if(Save.coins >= cost){
+        if(id === 'life1'){ game.lives += 1; Save.coins -= cost; saveAll(); showToast('+1 Life'); showShop(); }
+      } else showToast('Not enough coins');
+    });
+  });
+
+  // equip handlers
+  card.querySelectorAll('[data-equip]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const id = btn.dataset.equip;
+      Save.equipped = Save.equipped || {}; Save.equipped.blade = id; saveAll(); showToast('Equipped ' + id); showShop();
+    });
+  });
+  card.querySelectorAll('[data-equip-theme]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const id = btn.dataset.equipTheme;
+      Save.equipped = Save.equipped || {}; Save.equipped.theme = id; saveAll(); showToast('Theme ' + id + ' equipped'); showShop();
+    });
+  });
+}
+
+/* ---------- achievements modal ---------- */
+function showAchievements(){
+  overlayRoot.innerHTML = ''; overlayRoot.style.pointerEvents = 'auto';
+  loadSave();
+  const ach = Save.achievements || {};
+  const card = document.createElement('div'); card.className='card';
+  card.innerHTML = `<div class="header-title">Achievements</div>
+    <div style="text-align:left">
+      <div class="small">• 100 points: ${ach.score100? '✅':'❌'}</div>
+      <div class="small">• 5 combos: ${ach.combo5? '✅':'❌'}</div>
+      <div class="small">• Golden fruit found: ${ach.gotGolden? (ach.gotGolden+' times') : '—'}</div>
+      <div style="height:8px"></div>
+      <div class="small">• Combos total: ${ach.comboCount||0}</div>
+    </div>
+    <div style="height:10px"></div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="btn primary btn-anim" id="backFromAch">Back</button>
+    </div>
+  `;
+  overlayRoot.appendChild(card);
+  document.getElementById('backFromAch').addEventListener('click', ()=>{ showHomeOverlay(); });
+}
+
+/* ---------- resume audio after user gesture ---------- */
+function resumeAudioOnInteraction(){
+  ensureAudio();
+  if(audioCtx && audioCtx.state === 'suspended'){ audioCtx.resume().catch(()=>{}); }
+}
+
+/* ---------- share score (Web Share API fallback) ---------- */
+function shareScore(score){
+  const text = `मैंने Fruit Pro में ${score} पॉइंट्स बनाए! क्या आप हरा पाएंगे?`;
+  if(navigator.share){
+    navigator.share({ title: 'Fruit Pro — Score', text }).catch(()=>{ showToast('Share cancelled'); });
+  } else {
+    try{
+      navigator.clipboard.writeText(text).then(()=> showToast('Score copied to clipboard!'));
+    }catch(e){
+      alert(text);
+    }
+  }
+}
+
+/* ---------- pause/resume handlers ---------- */
+pauseBtn.addEventListener('click', ()=>{
+  if(game.running){
+    game.running = false; pauseBtn.textContent = 'Resume'; pauseBtn.setAttribute('aria-pressed','true'); showToast('Paused');
+  } else {
+    game.running = true; game.lastFrame = performance.now(); pauseBtn.textContent = 'Pause'; pauseBtn.setAttribute('aria-pressed','false'); showToast('Resumed');
+  }
+});
+homeBtnTop.addEventListener('click', ()=>{ showHomeOverlay(); });
+
+/* ---------- initialization ---------- */
+function init(){
+  loadSave();
+  showHomeOverlay();
+  if(!raf) raf = requestAnimationFrame(loop);
+}
+init();
+
+/* ---------- save on unload ---------- */
+window.addEventListener('beforeunload', ()=>{ saveAll(); });
+
+/* ---------- small helpful functions (spawn loop) ---------- */
+let spawnTicker = setInterval(()=>{ if(game.running) spawnEntity(); }, 900);
+
+</script>
+</body>
+</html>
