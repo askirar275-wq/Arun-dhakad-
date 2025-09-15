@@ -1,0 +1,1505 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>🍓 Fruit Cut — Advanced (Optimized)</title>
+<style>
+  :root{
+    --bg1:#071021; --bg2:#0b2535;
+    --panel: rgba(255,255,255,0.03);
+    --outline: rgba(255,255,255,0.10);
+    --accent:#ff6b6b; --accent2:#ffd166;
+    --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box;font-family: "Noto Sans", "Roboto", system-ui, -apple-system, sans-serif;}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#fff;}
+  .wrap{max-width:920px;margin:12px auto;padding:12px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+  .card{flex:1;min-width:300px;max-width:540px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:12px;border:1px solid var(--outline);box-shadow:0 12px 40px rgba(2,8,20,0.6);}
+  .hud{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .chip{background:var(--glass);padding:8px 12px;border-radius:12px;border:1px solid var(--outline);display:inline-flex;gap:8px;align-items:center;font-weight:700}
+  .chip small{font-weight:600;opacity:.9}
+  .game-area{position:relative;height:68vh;min-height:420px;border-radius:12px;overflow:hidden;border:6px solid rgba(255,255,255,0.03);background:linear-gradient(180deg,#e9f8ff,#dff4fb)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* overlays controlled by JS */
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;pointer-events:none}
+  .panel{pointer-events:auto;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;border:1px solid var(--outline);width:92%;max-width:520px;text-align:center}
+
+  .controls{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .btn{padding:10px 14px;border-radius:12px;background:transparent;border:2px solid var(--outline);color:#fff;font-weight:800;cursor:pointer;transition:transform .12s ease,box-shadow .12s,background .12s;outline:none;display:inline-flex;align-items:center;gap:8px}
+  .btn:active{transform:translateY(2px) scale(.99)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#ff9f9f);border:none;color:#081018;box-shadow:0 10px 28px rgba(255,107,107,0.12)}
+  .btn.outline{background:transparent}
+  .btn.icon{padding:8px 10px;border-radius:10px}
+  .small{font-size:13px;color:rgba(255,255,255,0.85)}
+  .shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px}
+
+  /* button outline & ripple-ish click */
+  .btn::after{content:"";position:absolute;inset:0;border-radius:12px;box-shadow:0 0 0 2px rgba(255,255,255,0.02) inset;pointer-events:none}
+  .title{font-size:18px;font-weight:800;margin:0}
+  .center{display:flex;flex-direction:column;align-items:center;gap:8px}
+  @media (max-width:420px){ .card{padding:10px} .chip{font-size:13px} .game-area{min-height:360px} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="application" aria-label="Fruit Cut Advanced">
+      <div class="hud">
+        <div class="chip">Score: <span id="uiScore">0</span></div>
+        <div class="chip">Lives: <span id="uiLives">3</span></div>
+        <div class="chip">Coins: <span id="uiCoins">0</span> <small>🪙</small></div>
+        <div style="flex:1"></div>
+        <div class="chip">Best: <span id="uiBest">0</span></div>
+      </div>
+
+      <div class="game-area" id="gameArea">
+        <canvas id="gc"></canvas>
+
+        <!-- overlays (single-screen manager will toggle) -->
+        <div class="overlay" id="overlay_home" style="pointer-events:auto">
+          <div class="panel center">
+            <h2 class="title">🍓 Fruit Cut — Advanced</h2>
+            <p class="small">Swipe से काटो — Knife चुनो Shop में — Golden fruit बोनस देता है।</p>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button id="playBtn" class="btn primary">Play</button>
+              <button id="shopBtn" class="btn">Shop</button>
+            </div>
+            <p class="small" style="margin-top:8px">Best: <strong id="bestDisplay">0</strong></p>
+          </div>
+        </div>
+
+        <div class="overlay" id="overlay_pause" style="display:none;pointer-events:auto">
+          <div class="panel center">
+            <h3 class="title">खेल रुका हुआ है</h3>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="resumeBtn" class="btn primary">Resume</button>
+              <button id="restartBtn" class="btn">Restart</button>
+              <button id="homeBtn" class="btn">Home</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="overlay" id="overlay_gameover" style="display:none;pointer-events:auto">
+          <div class="panel center">
+            <h2 class="title">Game Over 💥</h2>
+            <p class="small">Score: <strong id="finalScore">0</strong></p>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="againBtn" class="btn primary">Again</button>
+              <button id="goShopBtn" class="btn">Shop</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="overlay" id="overlay_shop" style="display:none;pointer-events:auto;align-items:flex-start;padding-top:40px">
+          <div class="panel" style="width:92%">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <h3 class="title">Shop — Knives & Upgrades</h3>
+                <p class="small">Coins से Knife unlock करो — जिसे select करोगे वही cursor बनेगा।</p>
+              </div>
+              <div><button id="closeShop" class="btn">Close</button></div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <div class="chip">Coins: <span id="shopCoins">0</span></div>
+              <div class="chip">Selected: <span id="selKnifeName">Default</span></div>
+            </div>
+
+            <div class="shop-grid" id="shopGrid"></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="backShop" class="btn">Back</button></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="controls" style="margin-top:10px">
+        <button id="pauseBtn" class="btn icon">⏸</button>
+        <button id="muteBtn" class="btn icon">🔊</button>
+        <div style="flex:1"></div>
+        <div class="small">Gravity: <span id="gVal">0.30</span></div>
+        <input id="gRange" type="range" min="0.20" max="0.50" step="0.01" value="0.30" style="width:120px;margin-left:8px">
+      </div>
+      <p class="small" style="margin-top:8px">Hindi UI — Local save enabled</p>
+    </div>
+
+    <!-- Right column short settings / info -->
+    <div style="width:260px;min-width:200px;">
+      <div class="card" style="padding:12px;margin-bottom:12px">
+        <h3 class="title" style="font-size:16px">Tips & Controls</h3>
+        <p class="small">Swipe तेज रखें — combo मिलेगा। Bomb काटोगे तो life घटेगा। Golden fruit special bonus देता है।</p>
+        <ul class="small" style="padding-left:18px;margin:6px 0">
+          <li>Tap Play → swipe से काटो</li>
+          <li>Shop में Knife खरीदो</li>
+          <li>Gravity slider से गिरने की तेज़ी बदलो</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 class="title" style="font-size:16px">Controls</h3>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button id="btnDemoSpawn" class="btn">Spawn</button>
+          <button id="btnClear" class="btn">Clear</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/*
+  Advanced Fruit Cut - Optimized Single File
+  - Hindi comments for clarity
+  - Object pooling and minimal allocations
+  - Single overlay manager (no double screen)
+*/
+
+/* ====== CONFIG ====== */
+const CONFIG = {
+  gravity: 0.30,
+  spawnIntervalStart: 900, // ms
+  minSpawnInterval: 450,
+  bombChance: 0.12,
+  goldChance: 0.08,
+  poolSize: 120,
+  particlePoolSize: 160,
+  maxTrailLen: 18,
+  comboTime: 450 // ms window for combo
+};
+
+/* ====== DOM ====== */
+const canvas = document.getElementById('gc');
+const area = document.getElementById('gameArea');
+const ctx = canvas.getContext('2d', { alpha: true });
+
+const uiScore = document.getElementById('uiScore');
+const uiLives = document.getElementById('uiLives');
+const uiCoins = document.getElementById('uiCoins');
+const uiBest = document.getElementById('uiBest');
+
+const overlayIds = ['overlay_home','overlay_pause','overlay_gameover','overlay_shop'];
+function showOverlay(id){
+  // hide all then show one -> prevents double screen
+  overlayIds.forEach(x => {
+    const el = document.getElementById(x);
+    el.style.display = (x === id) ? 'flex' : 'none';
+  });
+}
+
+/* buttons */
+const playBtn = document.getElementById('playBtn');
+const shopBtn = document.getElementById('shopBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const muteBtn = document.getElementById('muteBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+const restartBtn = document.getElementById('restartBtn');
+const homeBtn = document.getElementById('homeBtn');
+const againBtn = document.getElementById('againBtn');
+const goShopBtn = document.getElementById('goShopBtn');
+const shopClose = document.getElementById('closeShop');
+const backShop = document.getElementById('backShop');
+
+const gRange = document.getElementById('gRange');
+const gVal = document.getElementById('gVal');
+
+const shopGrid = document.getElementById('shopGrid');
+const shopCoins = document.getElementById('shopCoins');
+const selKnifeName = document.getElementById('selKnifeName');
+
+const bestDisplay = document.getElementById('bestDisplay');
+const finalScore = document.getElementById('finalScore');
+
+/* demo buttons */
+const btnSpawn = document.getElementById('btnDemoSpawn');
+const btnClear = document.getElementById('btnClear');
+
+/* ====== STATE ====== */
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+let W = 0, H = 0;
+
+let gameState = 'home'; // home, playing, paused, gameover
+let score = 0, lives = 3, coins = 0, best = 0;
+let gravity = CONFIG.gravity;
+gVal.textContent = gravity.toFixed(2);
+
+let spawnInterval = CONFIG.spawnIntervalStart;
+let lastSpawn = 0;
+let lastFrame = performance.now();
+let running = true;
+let muted = false;
+
+/* Knife skins */
+const KNIVES = [
+  {id:'default', name:'Default', icon:'🔪', price:0, bought:true},
+  {id:'gold', name:'Golden', icon:'🗡️', price:150, bought:false},
+  {id:'fire', name:'Fire', icon:'🔥', price:300, bought:false},
+  {id:'ice', name:'Ice', icon:'❄️', price:250, bought:false}
+];
+let selectedKnife = 'default';
+
+/* show selected on UI */
+function updateSelectedUI(){
+  selKnifeName.textContent = (KNIVES.find(k=>k.id===selectedKnife)||KNIVES[0]).name;
+}
+
+/* ====== Storage ====== */
+function loadStorage(){
+  coins = Number(localStorage.getItem('fc_coins') || 0);
+  best = Number(localStorage.getItem('fc_best') || 0);
+  selectedKnife = localStorage.getItem('fc_selKnife') || 'default';
+  KNIVES.forEach(k=>{
+    const b = localStorage.getItem('fc_bought_'+k.id);
+    if(b==='1') k.bought = true;
+  });
+  updateUI();
+  updateShopUI();
+}
+function saveStorage(){
+  localStorage.setItem('fc_coins', String(coins));
+  localStorage.setItem('fc_best', String(best));
+  localStorage.setItem('fc_selKnife', selectedKnife);
+  KNIVES.forEach(k => {
+    if(k.bought) localStorage.setItem('fc_bought_'+k.id, '1');
+  });
+}
+
+/* ====== OBJECT POOLS (fruits + particles) for fewer allocations ====== */
+const fruitPool = [];
+const activeFruits = [];
+class Fruit {
+  constructor(){ this.reset(); }
+  reset(){ this.x=0; this.y=0; this.vx=0; this.vy=0; this.r=28; this.emoji='🍓'; this.type='fruit'; this.rot=0; this.spin=0; this.life=0; this.spawn=0; this.alive=false; this.cut=false; }
+  init(x,y,vx,vy,emoji,type){
+    this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.emoji=emoji; this.type=type; this.r = 26 + Math.random()*12; this.rot = (Math.random()-0.5)*0.6; this.spin = (Math.random()-0.5)*0.04; this.spawn=performance.now(); this.alive=true; this.cut=false;
+  }
+  update(dt){
+    this.vy += gravity * dt * 0.0012;
+    this.x += this.vx * dt * 0.0012;
+    this.y += this.vy * dt * 0.0012;
+    this.rot += this.spin * dt * 0.0006;
+  }
+  draw(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.font = (this.r*1.5) + 'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(this.type==='gold') { ctx.shadowColor='rgba(255,200,60,0.95)'; ctx.shadowBlur=18; }
+    else if(this.type==='bomb'){ ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=8; }
+    else { ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=6; }
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+  }
+}
+for(let i=0;i<CONFIG.poolSize;i++) fruitPool.push(new Fruit());
+
+function spawnFruitFast(){
+  // minimal allocations
+  const areaW = W;
+  const x = 40 + Math.random() * (areaW - 80);
+  const speed = -340 - Math.random()*200;
+  const vx = (Math.random()-0.5) * 80;
+  const vy = speed;
+  const roll = Math.random();
+  let type = 'fruit', emoji = ['🍓','🍊','🍉','🍌'][Math.floor(Math.random()*4)];
+  if(roll < CONFIG.bombChance) { type='bomb'; emoji='💣'; }
+  else if(roll < CONFIG.bombChance + CONFIG.goldChance) { type='gold'; emoji='👑'; }
+  const f = fruitPool.find(fr=>!fr.alive);
+  if(f){
+    f.init(x, H + 40, vx, vy, emoji, type);
+    activeFruits.push(f);
+  }
+}
+
+/* particle pool */
+const partPool = [];
+class Part {
+  constructor(){ this.reset(); }
+  reset(){ this.x=0; this.y=0; this.vx=0; this.vy=0; this.t=0; this.life=0; this.emoji=''; this.size=8; this.alive=false; }
+  init(x,y,vx,vy,life,emoji,size){
+    this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.t=0; this.life=life; this.emoji=emoji; this.size=size; this.alive=true;
+  }
+  update(dt){
+    this.vy += gravity * dt * 0.0006;
+    this.x += this.vx * dt * 0.0012;
+    this.y += this.vy * dt * 0.0012;
+    this.t += dt;
+    if(this.t > this.life) this.alive=false;
+  }
+  draw(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.font = (this.size) + 'px serif';
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+  }
+}
+for(let i=0;i<CONFIG.particlePoolSize;i++) partPool.push(new Part());
+const activeParts = [];
+
+/* spawn particles reusing pool */
+function spawnParts(x,y,emoji,count=10){
+  let spawned=0;
+  for(let i=0;i<partPool.length && spawned<count;i++){
+    const p = partPool[i];
+    if(!p.alive){
+      const speed = 120 + Math.random()*220;
+      const ang = (Math.random()*Math.PI*2);
+      p.init(x + (Math.random()*10-5), y + (Math.random()*10-5), Math.cos(ang)*speed, Math.sin(ang)*speed - 80, 400 + Math.random()*700, emoji, 8 + Math.random()*10);
+      activeParts.push(p);
+      spawned++;
+    }
+  }
+}
+
+/* ===== trail (swipe) handling - minimal arrays, reuse points ====== */
+let isDrawing = false;
+let trail = []; // small array of {x,y,t}
+const maxTrail = CONFIG.maxTrailLen;
+
+/* pointer to local */
+function toLocal(ev){
+  const r = canvas.getBoundingClientRect();
+  let clientX = ev.clientX, clientY = ev.clientY;
+  if(ev.touches && ev.touches[0]){ clientX = ev.touches[0].clientX; clientY = ev.touches[0].clientY; }
+  return { x: (clientX - r.left), y: (clientY - r.top) };
+}
+
+/* pointer events */
+canvas.addEventListener('pointerdown', (e)=>{
+  if(gameState !== 'playing') return;
+  isDrawing = true;
+  trail.length = 0;
+  const p = toLocal(e);
+  trail.push({x:p.x, y:p.y, t: performance.now()});
+  e.preventDefault();
+});
+canvas.addEventListener('pointermove', (e)=>{
+  if(!isDrawing) return;
+  const p = toLocal(e);
+  const last = trail[trail.length-1];
+  if(!last || (p.x-last.x)*(p.x-last.x) + (p.y-last.y)*(p.y-last.y) > 24){
+    trail.push({x:p.x, y:p.y, t: performance.now()});
+    if(trail.length > maxTrail) trail.shift();
+  }
+});
+canvas.addEventListener('pointerup', (e)=>{
+  if(!isDrawing) return;
+  isDrawing = false;
+  processCut();
+  trail.length = 0;
+});
+canvas.addEventListener('pointercancel', ()=>{ isDrawing=false; trail.length=0; });
+
+/* quick line-circle intersection with bbox early-out */
+function lineIntersectsCircle(x1,y1,x2,y2, cx,cy,r){
+  // bbox check
+  const minx = Math.min(x1,x2)-r, maxx = Math.max(x1,x2)+r;
+  if(cx < minx || cx > maxx) return false;
+  const miny = Math.min(y1,y2)-r, maxy = Math.max(y1,y2)+r;
+  if(cy < miny || cy > maxy) return false;
+  // exact projection test
+  const vx = x2-x1, vy = y2-y1;
+  const wx = cx-x1, wy = cy-y1;
+  const c1 = vx*wx + vy*wy;
+  if(c1 <= 0){ const dx=x1-cx, dy=y1-cy; return dx*dx+dy*dy <= r*r; }
+  const c2 = vx*vx + vy*vy;
+  if(c2 <= c1){ const dx=x2-cx, dy=y2-cy; return dx*dx+dy*dy <= r*r; }
+  const b = c1 / c2; const px = x1 + b*vx, py = y1 + b*vy;
+  const dx = px-cx, dy = py-cy;
+  return dx*dx + dy*dy <= r*r;
+}
+
+/* process cutting using trail - optimized minimal loops */
+let lastCutTime = 0;
+let combo = 0;
+function processCut(){
+  if(trail.length < 2) return;
+  const now = performance.now();
+  let any = false;
+  // iterate fruits backwards to allow splice via marking dead
+  for(let i=activeFruits.length-1;i>=0;i--){
+    const f = activeFruits[i];
+    if(!f.alive) continue;
+    // bbox quick: if trail bounding box doesn't overlap fruit area skip
+    // iterate each segment
+    for(let s=0;s<trail.length-1;s++){
+      const a = trail[s], b = trail[s+1];
+      if(lineIntersectsCircle(a.x,a.y,b.x,b.y,f.x,f.y,f.r)){
+        // cut happens
+        f.alive = false; // mark dead, will be removed later and returned to pool
+        any = true;
+        // effects
+        spawnParts(f.x, f.y, (f.type==='bomb') ? '💥' : f.emoji, 10);
+        if(f.type === 'bomb'){
+          lives = Math.max(0, lives-1);
+          if(!muted) playSfx('bomb');
+          if(lives <= 0) endGame();
+        } else if(f.type === 'gold'){
+          score += 30;
+          coins += 6;
+          if(!muted) playSfx('coin');
+        } else {
+          // normal fruit
+          const dt = now - lastCutTime;
+          if(dt < CONFIG.comboTime) combo++; else combo = 1;
+          lastCutTime = now;
+          const base = 10;
+          const bonus = Math.floor(base * (combo-1) * 0.45);
+          score += base + bonus;
+          coins += 1 + Math.floor(combo/2);
+          if(!muted) playSfx('cut');
+        }
+        break;
+      }
+    }
+  }
+  // cleanup dead fruits and return to pool (batch)
+  for(let i=activeFruits.length-1;i>=0;i--){
+    if(!activeFruits[i].alive){
+      activeFruits[i].reset();
+      activeFruits.splice(i,1);
+    }
+  }
+  if(any){
+    updateUI();
+    saveStorage();
+  }
+}
+
+/* ====== Sounds (simple) ====== */
+const sfx = {
+  cut: null, coin: null, bomb: null
+};
+function initSfx(){
+  // small silent placeholder or you can replace with real URLs
+  try{
+    sfx.cut = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=');
+    sfx.coin = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=');
+    sfx.bomb = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=');
+  }catch(e){}
+}
+function playSfx(key){
+  const a = sfx[key];
+  if(!a || muted) return;
+  try{ a.currentTime = 0; a.play().catch(()=>{}); }catch(e){}
+}
+initSfx();
+
+/* ====== RENDER ====== */
+function fitCanvas(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  W = area.clientWidth;
+  H = area.clientHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+
+/* draw trail with gradient */
+function drawTrail(ctx){
+  if(trail.length < 2) return;
+  ctx.save();
+  ctx.lineJoin = ctx.lineCap = 'round';
+  ctx.lineWidth = 10;
+  const g = ctx.createLinearGradient(0,0,W,0);
+  g.addColorStop(0,'rgba(255,220,120,0.98)');
+  g.addColorStop(1,'rgba(255,120,120,0.98)');
+  ctx.strokeStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(trail[0].x, trail[0].y);
+  for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x, trail[i].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* draw knife cursor */
+let pointer = {x:-100,y:-100};
+area.addEventListener('pointermove', (e)=>{
+  const r = canvas.getBoundingClientRect();
+  pointer.x = (e.clientX - r.left);
+  pointer.y = (e.clientY - r.top);
+});
+
+/* keep pointer hidden when not playing? show in playing/paused */
+function drawKnife(ctx){
+  const k = KNIVES.find(k=>k.id===selectedKnife) || KNIVES[0];
+  ctx.save();
+  ctx.translate(pointer.x, pointer.y);
+  ctx.rotate(-0.25);
+  ctx.font = '28px serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(k.id==='gold') { ctx.shadowColor='rgba(255,200,60,0.95)'; ctx.shadowBlur=14; }
+  else if(k.id==='fire') { ctx.shadowColor='rgba(255,80,20,0.95)'; ctx.shadowBlur=14; }
+  else if(k.id==='ice') { ctx.shadowColor='rgba(160,220,255,0.95)'; ctx.shadowBlur=14; }
+  else ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=6;
+  ctx.fillText(k.icon, 0, 0);
+  ctx.restore();
+}
+
+/* main render */
+function render(){
+  ctx.clearRect(0,0,W,H);
+  // subtle bg fill
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#e9f8ff'); bg.addColorStop(1,'#dff4fb');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,W,H);
+
+  // draw fruits
+  for(let i=0;i<activeFruits.length;i++){
+    activeFruits[i].draw(ctx);
+  }
+  // draw particles
+  for(let i=0;i<activeParts.length;i++){
+    const p = activeParts[i];
+    if(p.alive) p.draw(ctx);
+    else {
+      // remove dead from activeParts array fast
+      activeParts.splice(i,1); i--;
+    }
+  }
+
+  // trail & knife
+  if(trail.length>0) drawTrail(ctx);
+  if(gameState === 'playing' || gameState === 'paused') drawKnife(ctx);
+
+  // combo indicator
+  if(performance.now() - lastCutTime < 800 && combo > 1){
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - (performance.now() - lastCutTime)/800);
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = '#222';
+    ctx.fillText('Combo x' + combo, 28, 38);
+    ctx.restore();
+  }
+}
+
+/* ====== GAME LOOP (optimized) ====== */
+function gameLoop(ts){
+  const now = ts || performance.now();
+  let dt = now - lastFrame;
+  if(dt > 60) dt = 60; // cap
+  lastFrame = now;
+
+  if(gameState === 'playing'){
+    // spawn logic
+    if(now - lastSpawn > spawnInterval){
+      spawnFruitFast();
+      lastSpawn = now;
+      spawnInterval = Math.max(CONFIG.minSpawnInterval, spawnInterval - 2); // slight accel
+    }
+
+    // update fruits
+    for(let i=activeFruits.length-1;i>=0;i--){
+      const f = activeFruits[i];
+      f.update(dt);
+      // offscreen removal
+      if(f.y > H + 80){
+        // missed fruit => no life lost by user request
+        f.alive = false;
+        activeFruits.splice(i,1);
+        f.reset();
+      }
+    }
+    // update particles
+    for(let i=activeParts.length-1;i>=0;i--){
+      const p = activeParts[i];
+      if(p.alive) p.update(dt);
+      else { activeParts.splice(i,1); }
+    }
+    updateUI();
+  }
+
+  render();
+  if(running) requestAnimationFrame(gameLoop);
+}
+
+/* ====== UI / State helpers ====== */
+function updateUI(){
+  uiScore.textContent = score;
+  uiLives.textContent = lives;
+  uiCoins.textContent = coins;
+  uiBest.textContent = best;
+  bestDisplay.textContent = best;
+  shopCoins.textContent = coins;
+  updateSelectedUI();
+}
+
+/* ====== GAME CONTROL API ====== */
+function startGame(){
+  score = 0; lives = 3; spawnInterval = CONFIG.spawnIntervalStart; lastSpawn = performance.now();
+  activeFruits.length = 0; activeParts.length = 0;
+  // reset pools (mark all pool objects free)
+  fruitPool.forEach(f => f.reset());
+  partPool.forEach(p => p.reset());
+  gameState = 'playing';
+  showOverlay('overlay_pause'); // hide others by toggling to pause then immediately hide
+  document.getElementById('overlay_pause').style.display = 'none';
+  showOverlay(''); // hide all overlays - helper: show nothing
+  updateUI();
+}
+function pauseGame(){
+  if(gameState !== 'playing') return;
+  gameState = 'paused';
+  showOverlay('overlay_pause');
+}
+function resumeGame(){
+  if(gameState !== 'paused') return;
+  gameState = 'playing';
+  showOverlay(''); // hide overlays
+  document.getElementById('overlay_pause').style.display = 'none';
+  lastFrame = performance.now();
+}
+function endGame(){
+  gameState = 'gameover';
+  finalScore.textContent = score;
+  if(score > best) best = score;
+  saveStorage();
+  updateUI();
+  showOverlay('overlay_gameover');
+}
+
+/* overlay helper show none by id "" */
+function showOverlay(id){
+  overlayIds.forEach(x=>{
+    const el = document.getElementById(x);
+    el.style.display = (x === id) ? 'flex' : 'none';
+  });
+  // if id empty -> hide all
+  if(!id) overlayIds.forEach(x=> document.getElementById(x).style.display = 'none');
+}
+
+/* ====== Buttons binding ====== */
+playBtn.addEventListener('click', ()=> { startGame(); });
+resumeBtn.addEventListener('click', ()=> { resumeGame(); });
+restartBtn.addEventListener('click', ()=> { startGame(); });
+homeBtn.addEventListener('click', ()=> { gameState='home'; showOverlay('overlay_home'); saveStorage(); });
+againBtn.addEventListener('click', ()=> { document.getElementById('overlay_gameover').style.display='none'; startGame(); });
+goShopBtn.addEventListener('click', ()=> { showOverlay('overlay_shop'); });
+shopBtn.addEventListener('click', ()=> { showOverlay('overlay_shop'); });
+shopClose.addEventListener('click', ()=> { showOverlay(''); showOverlay('overlay_home'); });
+backShop.addEventListener('click', ()=> { showOverlay('overlay_home'); });
+pauseBtn.addEventListener('click', ()=> { if(gameState==='playing') pauseGame(); else if(gameState==='paused') resumeGame(); });
+muteBtn.addEventListener('click', ()=> { muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; });
+
+gRange.addEventListener('input', ()=>{ gravity = parseFloat(gRange.value); gVal.textContent = gravity.toFixed(2); });
+
+btnSpawn.addEventListener('click', ()=> spawnFruitFast());
+btnClear.addEventListener('click', ()=> { activeFruits.length=0; activeParts.length=0; fruitPool.forEach(f=>f.reset()); partPool.forEach(p=>p.reset()); });
+
+/* ====== Shop UI ====== */
+function updateShopUI(){
+  shopGrid.innerHTML = '';
+  KNIVES.forEach(k=>{
+    const div = document.createElement('div');
+    div.style.background = 'rgba(255,255,255,0.02)';
+    div.style.border = '1px solid rgba(255,255,255,0.06)';
+    div.style.padding = '8px';
+    div.style.borderRadius = '10px';
+    div.style.display = 'flex';
+    div.style.flexDirection = 'column';
+    div.style.alignItems = 'center';
+    div.style.gap = '6px';
+    div.innerHTML = `<div style="font-size:28px">${k.icon}</div>
+      <div style="font-weight:800">${k.name}</div>
+      <div class="small">${k.price>0 ? k.price+' 🪙' : 'Free'}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn selBtn">${k.bought ? (k.id===selectedKnife ? 'Selected' : 'Select') : 'Buy'}</button>
+      </div>`;
+    const btn = div.querySelector('.selBtn');
+    btn.addEventListener('click', ()=>{
+      if(k.bought){
+        selectedKnife = k.id;
+        updateSelectedUI();
+        saveStorage();
+        updateShopUI();
+      } else {
+        if(coins >= k.price){
+          coins -= k.price; k.bought = true; selectedKnife = k.id;
+          saveStorage(); updateUI(); updateShopUI();
+          alert('खरीद लिया: '+k.name);
+        } else alert('Coins कम हैं — खेलकर कमाओ।');
+      }
+    });
+    shopGrid.appendChild(div);
+  });
+}
+
+/* ====== Initialization ====== */
+function init(){
+  // fix overlays: show home initially
+  showOverlay('overlay_home');
+  // load storage
+  loadStorage();
+  updateShopUI();
+  lastFrame = performance.now();
+  requestAnimationFrame(gameLoop);
+}
+init();
+
+/* ====== small housekeeping: updateUI interval & auto save ====== */
+setInterval(()=> { updateUI(); saveStorage(); }, 3000);
+
+/* ====== Single-screen helper: ensure no double overlay (defensive) ====== */
+/* Already handled by showOverlay used above. */
+
+</script>
+</body>
+</html><!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>🍓 Fruit Cut — Advanced (Optimized)</title>
+<style>
+  :root{
+    --bg1:#071021; --bg2:#0b2535;
+    --panel: rgba(255,255,255,0.03);
+    --outline: rgba(255,255,255,0.10);
+    --accent:#ff6b6b; --accent2:#ffd166;
+    --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box;font-family: "Noto Sans", "Roboto", system-ui, -apple-system, sans-serif;}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#fff;}
+  .wrap{max-width:920px;margin:12px auto;padding:12px;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+  .card{flex:1;min-width:300px;max-width:540px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:12px;border:1px solid var(--outline);box-shadow:0 12px 40px rgba(2,8,20,0.6);}
+  .hud{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .chip{background:var(--glass);padding:8px 12px;border-radius:12px;border:1px solid var(--outline);display:inline-flex;gap:8px;align-items:center;font-weight:700}
+  .chip small{font-weight:600;opacity:.9}
+  .game-area{position:relative;height:68vh;min-height:420px;border-radius:12px;overflow:hidden;border:6px solid rgba(255,255,255,0.03);background:linear-gradient(180deg,#e9f8ff,#dff4fb)}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* overlays controlled by JS */
+  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:40;pointer-events:none}
+  .panel{pointer-events:auto;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:12px;border:1px solid var(--outline);width:92%;max-width:520px;text-align:center}
+
+  .controls{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .btn{padding:10px 14px;border-radius:12px;background:transparent;border:2px solid var(--outline);color:#fff;font-weight:800;cursor:pointer;transition:transform .12s ease,box-shadow .12s,background .12s;outline:none;display:inline-flex;align-items:center;gap:8px}
+  .btn:active{transform:translateY(2px) scale(.99)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#ff9f9f);border:none;color:#081018;box-shadow:0 10px 28px rgba(255,107,107,0.12)}
+  .btn.outline{background:transparent}
+  .btn.icon{padding:8px 10px;border-radius:10px}
+  .small{font-size:13px;color:rgba(255,255,255,0.85)}
+  .shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px}
+
+  /* button outline & ripple-ish click */
+  .btn::after{content:"";position:absolute;inset:0;border-radius:12px;box-shadow:0 0 0 2px rgba(255,255,255,0.02) inset;pointer-events:none}
+  .title{font-size:18px;font-weight:800;margin:0}
+  .center{display:flex;flex-direction:column;align-items:center;gap:8px}
+  @media (max-width:420px){ .card{padding:10px} .chip{font-size:13px} .game-area{min-height:360px} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="application" aria-label="Fruit Cut Advanced">
+      <div class="hud">
+        <div class="chip">Score: <span id="uiScore">0</span></div>
+        <div class="chip">Lives: <span id="uiLives">3</span></div>
+        <div class="chip">Coins: <span id="uiCoins">0</span> <small>🪙</small></div>
+        <div style="flex:1"></div>
+        <div class="chip">Best: <span id="uiBest">0</span></div>
+      </div>
+
+      <div class="game-area" id="gameArea">
+        <canvas id="gc"></canvas>
+
+        <!-- overlays (single-screen manager will toggle) -->
+        <div class="overlay" id="overlay_home" style="pointer-events:auto">
+          <div class="panel center">
+            <h2 class="title">🍓 Fruit Cut — Advanced</h2>
+            <p class="small">Swipe से काटो — Knife चुनो Shop में — Golden fruit बोनस देता है।</p>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button id="playBtn" class="btn primary">Play</button>
+              <button id="shopBtn" class="btn">Shop</button>
+            </div>
+            <p class="small" style="margin-top:8px">Best: <strong id="bestDisplay">0</strong></p>
+          </div>
+        </div>
+
+        <div class="overlay" id="overlay_pause" style="display:none;pointer-events:auto">
+          <div class="panel center">
+            <h3 class="title">खेल रुका हुआ है</h3>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="resumeBtn" class="btn primary">Resume</button>
+              <button id="restartBtn" class="btn">Restart</button>
+              <button id="homeBtn" class="btn">Home</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="overlay" id="overlay_gameover" style="display:none;pointer-events:auto">
+          <div class="panel center">
+            <h2 class="title">Game Over 💥</h2>
+            <p class="small">Score: <strong id="finalScore">0</strong></p>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="againBtn" class="btn primary">Again</button>
+              <button id="goShopBtn" class="btn">Shop</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="overlay" id="overlay_shop" style="display:none;pointer-events:auto;align-items:flex-start;padding-top:40px">
+          <div class="panel" style="width:92%">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <h3 class="title">Shop — Knives & Upgrades</h3>
+                <p class="small">Coins से Knife unlock करो — जिसे select करोगे वही cursor बनेगा।</p>
+              </div>
+              <div><button id="closeShop" class="btn">Close</button></div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <div class="chip">Coins: <span id="shopCoins">0</span></div>
+              <div class="chip">Selected: <span id="selKnifeName">Default</span></div>
+            </div>
+
+            <div class="shop-grid" id="shopGrid"></div>
+            <div style="display:flex;justify-content:flex-end;margin-top:10px"><button id="backShop" class="btn">Back</button></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="controls" style="margin-top:10px">
+        <button id="pauseBtn" class="btn icon">⏸</button>
+        <button id="muteBtn" class="btn icon">🔊</button>
+        <div style="flex:1"></div>
+        <div class="small">Gravity: <span id="gVal">0.30</span></div>
+        <input id="gRange" type="range" min="0.20" max="0.50" step="0.01" value="0.30" style="width:120px;margin-left:8px">
+      </div>
+      <p class="small" style="margin-top:8px">Hindi UI — Local save enabled</p>
+    </div>
+
+    <!-- Right column short settings / info -->
+    <div style="width:260px;min-width:200px;">
+      <div class="card" style="padding:12px;margin-bottom:12px">
+        <h3 class="title" style="font-size:16px">Tips & Controls</h3>
+        <p class="small">Swipe तेज रखें — combo मिलेगा। Bomb काटोगे तो life घटेगा। Golden fruit special bonus देता है।</p>
+        <ul class="small" style="padding-left:18px;margin:6px 0">
+          <li>Tap Play → swipe से काटो</li>
+          <li>Shop में Knife खरीदो</li>
+          <li>Gravity slider से गिरने की तेज़ी बदलो</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3 class="title" style="font-size:16px">Controls</h3>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button id="btnDemoSpawn" class="btn">Spawn</button>
+          <button id="btnClear" class="btn">Clear</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/*
+  Advanced Fruit Cut - Optimized Single File
+  - Hindi comments for clarity
+  - Object pooling and minimal allocations
+  - Single overlay manager (no double screen)
+*/
+
+/* ====== CONFIG ====== */
+const CONFIG = {
+  gravity: 0.30,
+  spawnIntervalStart: 900, // ms
+  minSpawnInterval: 450,
+  bombChance: 0.12,
+  goldChance: 0.08,
+  poolSize: 120,
+  particlePoolSize: 160,
+  maxTrailLen: 18,
+  comboTime: 450 // ms window for combo
+};
+
+/* ====== DOM ====== */
+const canvas = document.getElementById('gc');
+const area = document.getElementById('gameArea');
+const ctx = canvas.getContext('2d', { alpha: true });
+
+const uiScore = document.getElementById('uiScore');
+const uiLives = document.getElementById('uiLives');
+const uiCoins = document.getElementById('uiCoins');
+const uiBest = document.getElementById('uiBest');
+
+const overlayIds = ['overlay_home','overlay_pause','overlay_gameover','overlay_shop'];
+function showOverlay(id){
+  // hide all then show one -> prevents double screen
+  overlayIds.forEach(x => {
+    const el = document.getElementById(x);
+    el.style.display = (x === id) ? 'flex' : 'none';
+  });
+}
+
+/* buttons */
+const playBtn = document.getElementById('playBtn');
+const shopBtn = document.getElementById('shopBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const muteBtn = document.getElementById('muteBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+const restartBtn = document.getElementById('restartBtn');
+const homeBtn = document.getElementById('homeBtn');
+const againBtn = document.getElementById('againBtn');
+const goShopBtn = document.getElementById('goShopBtn');
+const shopClose = document.getElementById('closeShop');
+const backShop = document.getElementById('backShop');
+
+const gRange = document.getElementById('gRange');
+const gVal = document.getElementById('gVal');
+
+const shopGrid = document.getElementById('shopGrid');
+const shopCoins = document.getElementById('shopCoins');
+const selKnifeName = document.getElementById('selKnifeName');
+
+const bestDisplay = document.getElementById('bestDisplay');
+const finalScore = document.getElementById('finalScore');
+
+/* demo buttons */
+const btnSpawn = document.getElementById('btnDemoSpawn');
+const btnClear = document.getElementById('btnClear');
+
+/* ====== STATE ====== */
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+let W = 0, H = 0;
+
+let gameState = 'home'; // home, playing, paused, gameover
+let score = 0, lives = 3, coins = 0, best = 0;
+let gravity = CONFIG.gravity;
+gVal.textContent = gravity.toFixed(2);
+
+let spawnInterval = CONFIG.spawnIntervalStart;
+let lastSpawn = 0;
+let lastFrame = performance.now();
+let running = true;
+let muted = false;
+
+/* Knife skins */
+const KNIVES = [
+  {id:'default', name:'Default', icon:'🔪', price:0, bought:true},
+  {id:'gold', name:'Golden', icon:'🗡️', price:150, bought:false},
+  {id:'fire', name:'Fire', icon:'🔥', price:300, bought:false},
+  {id:'ice', name:'Ice', icon:'❄️', price:250, bought:false}
+];
+let selectedKnife = 'default';
+
+/* show selected on UI */
+function updateSelectedUI(){
+  selKnifeName.textContent = (KNIVES.find(k=>k.id===selectedKnife)||KNIVES[0]).name;
+}
+
+/* ====== Storage ====== */
+function loadStorage(){
+  coins = Number(localStorage.getItem('fc_coins') || 0);
+  best = Number(localStorage.getItem('fc_best') || 0);
+  selectedKnife = localStorage.getItem('fc_selKnife') || 'default';
+  KNIVES.forEach(k=>{
+    const b = localStorage.getItem('fc_bought_'+k.id);
+    if(b==='1') k.bought = true;
+  });
+  updateUI();
+  updateShopUI();
+}
+function saveStorage(){
+  localStorage.setItem('fc_coins', String(coins));
+  localStorage.setItem('fc_best', String(best));
+  localStorage.setItem('fc_selKnife', selectedKnife);
+  KNIVES.forEach(k => {
+    if(k.bought) localStorage.setItem('fc_bought_'+k.id, '1');
+  });
+}
+
+/* ====== OBJECT POOLS (fruits + particles) for fewer allocations ====== */
+const fruitPool = [];
+const activeFruits = [];
+class Fruit {
+  constructor(){ this.reset(); }
+  reset(){ this.x=0; this.y=0; this.vx=0; this.vy=0; this.r=28; this.emoji='🍓'; this.type='fruit'; this.rot=0; this.spin=0; this.life=0; this.spawn=0; this.alive=false; this.cut=false; }
+  init(x,y,vx,vy,emoji,type){
+    this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.emoji=emoji; this.type=type; this.r = 26 + Math.random()*12; this.rot = (Math.random()-0.5)*0.6; this.spin = (Math.random()-0.5)*0.04; this.spawn=performance.now(); this.alive=true; this.cut=false;
+  }
+  update(dt){
+    this.vy += gravity * dt * 0.0012;
+    this.x += this.vx * dt * 0.0012;
+    this.y += this.vy * dt * 0.0012;
+    this.rot += this.spin * dt * 0.0006;
+  }
+  draw(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    ctx.font = (this.r*1.5) + 'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(this.type==='gold') { ctx.shadowColor='rgba(255,200,60,0.95)'; ctx.shadowBlur=18; }
+    else if(this.type==='bomb'){ ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=8; }
+    else { ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=6; }
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+  }
+}
+for(let i=0;i<CONFIG.poolSize;i++) fruitPool.push(new Fruit());
+
+function spawnFruitFast(){
+  // minimal allocations
+  const areaW = W;
+  const x = 40 + Math.random() * (areaW - 80);
+  const speed = -340 - Math.random()*200;
+  const vx = (Math.random()-0.5) * 80;
+  const vy = speed;
+  const roll = Math.random();
+  let type = 'fruit', emoji = ['🍓','🍊','🍉','🍌'][Math.floor(Math.random()*4)];
+  if(roll < CONFIG.bombChance) { type='bomb'; emoji='💣'; }
+  else if(roll < CONFIG.bombChance + CONFIG.goldChance) { type='gold'; emoji='👑'; }
+  const f = fruitPool.find(fr=>!fr.alive);
+  if(f){
+    f.init(x, H + 40, vx, vy, emoji, type);
+    activeFruits.push(f);
+  }
+}
+
+/* particle pool */
+const partPool = [];
+class Part {
+  constructor(){ this.reset(); }
+  reset(){ this.x=0; this.y=0; this.vx=0; this.vy=0; this.t=0; this.life=0; this.emoji=''; this.size=8; this.alive=false; }
+  init(x,y,vx,vy,life,emoji,size){
+    this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.t=0; this.life=life; this.emoji=emoji; this.size=size; this.alive=true;
+  }
+  update(dt){
+    this.vy += gravity * dt * 0.0006;
+    this.x += this.vx * dt * 0.0012;
+    this.y += this.vy * dt * 0.0012;
+    this.t += dt;
+    if(this.t > this.life) this.alive=false;
+  }
+  draw(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.font = (this.size) + 'px serif';
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+  }
+}
+for(let i=0;i<CONFIG.particlePoolSize;i++) partPool.push(new Part());
+const activeParts = [];
+
+/* spawn particles reusing pool */
+function spawnParts(x,y,emoji,count=10){
+  let spawned=0;
+  for(let i=0;i<partPool.length && spawned<count;i++){
+    const p = partPool[i];
+    if(!p.alive){
+      const speed = 120 + Math.random()*220;
+      const ang = (Math.random()*Math.PI*2);
+      p.init(x + (Math.random()*10-5), y + (Math.random()*10-5), Math.cos(ang)*speed, Math.sin(ang)*speed - 80, 400 + Math.random()*700, emoji, 8 + Math.random()*10);
+      activeParts.push(p);
+      spawned++;
+    }
+  }
+}
+
+/* ===== trail (swipe) handling - minimal arrays, reuse points ====== */
+let isDrawing = false;
+let trail = []; // small array of {x,y,t}
+const maxTrail = CONFIG.maxTrailLen;
+
+/* pointer to local */
+function toLocal(ev){
+  const r = canvas.getBoundingClientRect();
+  let clientX = ev.clientX, clientY = ev.clientY;
+  if(ev.touches && ev.touches[0]){ clientX = ev.touches[0].clientX; clientY = ev.touches[0].clientY; }
+  return { x: (clientX - r.left), y: (clientY - r.top) };
+}
+
+/* pointer events */
+canvas.addEventListener('pointerdown', (e)=>{
+  if(gameState !== 'playing') return;
+  isDrawing = true;
+  trail.length = 0;
+  const p = toLocal(e);
+  trail.push({x:p.x, y:p.y, t: performance.now()});
+  e.preventDefault();
+});
+canvas.addEventListener('pointermove', (e)=>{
+  if(!isDrawing) return;
+  const p = toLocal(e);
+  const last = trail[trail.length-1];
+  if(!last || (p.x-last.x)*(p.x-last.x) + (p.y-last.y)*(p.y-last.y) > 24){
+    trail.push({x:p.x, y:p.y, t: performance.now()});
+    if(trail.length > maxTrail) trail.shift();
+  }
+});
+canvas.addEventListener('pointerup', (e)=>{
+  if(!isDrawing) return;
+  isDrawing = false;
+  processCut();
+  trail.length = 0;
+});
+canvas.addEventListener('pointercancel', ()=>{ isDrawing=false; trail.length=0; });
+
+/* quick line-circle intersection with bbox early-out */
+function lineIntersectsCircle(x1,y1,x2,y2, cx,cy,r){
+  // bbox check
+  const minx = Math.min(x1,x2)-r, maxx = Math.max(x1,x2)+r;
+  if(cx < minx || cx > maxx) return false;
+  const miny = Math.min(y1,y2)-r, maxy = Math.max(y1,y2)+r;
+  if(cy < miny || cy > maxy) return false;
+  // exact projection test
+  const vx = x2-x1, vy = y2-y1;
+  const wx = cx-x1, wy = cy-y1;
+  const c1 = vx*wx + vy*wy;
+  if(c1 <= 0){ const dx=x1-cx, dy=y1-cy; return dx*dx+dy*dy <= r*r; }
+  const c2 = vx*vx + vy*vy;
+  if(c2 <= c1){ const dx=x2-cx, dy=y2-cy; return dx*dx+dy*dy <= r*r; }
+  const b = c1 / c2; const px = x1 + b*vx, py = y1 + b*vy;
+  const dx = px-cx, dy = py-cy;
+  return dx*dx + dy*dy <= r*r;
+}
+
+/* process cutting using trail - optimized minimal loops */
+let lastCutTime = 0;
+let combo = 0;
+function processCut(){
+  if(trail.length < 2) return;
+  const now = performance.now();
+  let any = false;
+  // iterate fruits backwards to allow splice via marking dead
+  for(let i=activeFruits.length-1;i>=0;i--){
+    const f = activeFruits[i];
+    if(!f.alive) continue;
+    // bbox quick: if trail bounding box doesn't overlap fruit area skip
+    // iterate each segment
+    for(let s=0;s<trail.length-1;s++){
+      const a = trail[s], b = trail[s+1];
+      if(lineIntersectsCircle(a.x,a.y,b.x,b.y,f.x,f.y,f.r)){
+        // cut happens
+        f.alive = false; // mark dead, will be removed later and returned to pool
+        any = true;
+        // effects
+        spawnParts(f.x, f.y, (f.type==='bomb') ? '💥' : f.emoji, 10);
+        if(f.type === 'bomb'){
+          lives = Math.max(0, lives-1);
+          if(!muted) playSfx('bomb');
+          if(lives <= 0) endGame();
+        } else if(f.type === 'gold'){
+          score += 30;
+          coins += 6;
+          if(!muted) playSfx('coin');
+        } else {
+          // normal fruit
+          const dt = now - lastCutTime;
+          if(dt < CONFIG.comboTime) combo++; else combo = 1;
+          lastCutTime = now;
+          const base = 10;
+          const bonus = Math.floor(base * (combo-1) * 0.45);
+          score += base + bonus;
+          coins += 1 + Math.floor(combo/2);
+          if(!muted) playSfx('cut');
+        }
+        break;
+      }
+    }
+  }
+  // cleanup dead fruits and return to pool (batch)
+  for(let i=activeFruits.length-1;i>=0;i--){
+    if(!activeFruits[i].alive){
+      activeFruits[i].reset();
+      activeFruits.splice(i,1);
+    }
+  }
+  if(any){
+    updateUI();
+    saveStorage();
+  }
+}
+
+/* ====== Sounds (simple) ====== */
+const sfx = {
+  cut: null, coin: null, bomb: null
+};
+function initSfx(){
+  // small silent placeholder or you can replace with real URLs
+  try{
+    sfx.cut = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=');
+    sfx.coin = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=');
+    sfx.bomb = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YQAAAAA=');
+  }catch(e){}
+}
+function playSfx(key){
+  const a = sfx[key];
+  if(!a || muted) return;
+  try{ a.currentTime = 0; a.play().catch(()=>{}); }catch(e){}
+}
+initSfx();
+
+/* ====== RENDER ====== */
+function fitCanvas(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  W = area.clientWidth;
+  H = area.clientHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+
+/* draw trail with gradient */
+function drawTrail(ctx){
+  if(trail.length < 2) return;
+  ctx.save();
+  ctx.lineJoin = ctx.lineCap = 'round';
+  ctx.lineWidth = 10;
+  const g = ctx.createLinearGradient(0,0,W,0);
+  g.addColorStop(0,'rgba(255,220,120,0.98)');
+  g.addColorStop(1,'rgba(255,120,120,0.98)');
+  ctx.strokeStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(trail[0].x, trail[0].y);
+  for(let i=1;i<trail.length;i++) ctx.lineTo(trail[i].x, trail[i].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* draw knife cursor */
+let pointer = {x:-100,y:-100};
+area.addEventListener('pointermove', (e)=>{
+  const r = canvas.getBoundingClientRect();
+  pointer.x = (e.clientX - r.left);
+  pointer.y = (e.clientY - r.top);
+});
+
+/* keep pointer hidden when not playing? show in playing/paused */
+function drawKnife(ctx){
+  const k = KNIVES.find(k=>k.id===selectedKnife) || KNIVES[0];
+  ctx.save();
+  ctx.translate(pointer.x, pointer.y);
+  ctx.rotate(-0.25);
+  ctx.font = '28px serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(k.id==='gold') { ctx.shadowColor='rgba(255,200,60,0.95)'; ctx.shadowBlur=14; }
+  else if(k.id==='fire') { ctx.shadowColor='rgba(255,80,20,0.95)'; ctx.shadowBlur=14; }
+  else if(k.id==='ice') { ctx.shadowColor='rgba(160,220,255,0.95)'; ctx.shadowBlur=14; }
+  else ctx.shadowColor='rgba(0,0,0,0.6)'; ctx.shadowBlur=6;
+  ctx.fillText(k.icon, 0, 0);
+  ctx.restore();
+}
+
+/* main render */
+function render(){
+  ctx.clearRect(0,0,W,H);
+  // subtle bg fill
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#e9f8ff'); bg.addColorStop(1,'#dff4fb');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,W,H);
+
+  // draw fruits
+  for(let i=0;i<activeFruits.length;i++){
+    activeFruits[i].draw(ctx);
+  }
+  // draw particles
+  for(let i=0;i<activeParts.length;i++){
+    const p = activeParts[i];
+    if(p.alive) p.draw(ctx);
+    else {
+      // remove dead from activeParts array fast
+      activeParts.splice(i,1); i--;
+    }
+  }
+
+  // trail & knife
+  if(trail.length>0) drawTrail(ctx);
+  if(gameState === 'playing' || gameState === 'paused') drawKnife(ctx);
+
+  // combo indicator
+  if(performance.now() - lastCutTime < 800 && combo > 1){
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - (performance.now() - lastCutTime)/800);
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = '#222';
+    ctx.fillText('Combo x' + combo, 28, 38);
+    ctx.restore();
+  }
+}
+
+/* ====== GAME LOOP (optimized) ====== */
+function gameLoop(ts){
+  const now = ts || performance.now();
+  let dt = now - lastFrame;
+  if(dt > 60) dt = 60; // cap
+  lastFrame = now;
+
+  if(gameState === 'playing'){
+    // spawn logic
+    if(now - lastSpawn > spawnInterval){
+      spawnFruitFast();
+      lastSpawn = now;
+      spawnInterval = Math.max(CONFIG.minSpawnInterval, spawnInterval - 2); // slight accel
+    }
+
+    // update fruits
+    for(let i=activeFruits.length-1;i>=0;i--){
+      const f = activeFruits[i];
+      f.update(dt);
+      // offscreen removal
+      if(f.y > H + 80){
+        // missed fruit => no life lost by user request
+        f.alive = false;
+        activeFruits.splice(i,1);
+        f.reset();
+      }
+    }
+    // update particles
+    for(let i=activeParts.length-1;i>=0;i--){
+      const p = activeParts[i];
+      if(p.alive) p.update(dt);
+      else { activeParts.splice(i,1); }
+    }
+    updateUI();
+  }
+
+  render();
+  if(running) requestAnimationFrame(gameLoop);
+}
+
+/* ====== UI / State helpers ====== */
+function updateUI(){
+  uiScore.textContent = score;
+  uiLives.textContent = lives;
+  uiCoins.textContent = coins;
+  uiBest.textContent = best;
+  bestDisplay.textContent = best;
+  shopCoins.textContent = coins;
+  updateSelectedUI();
+}
+
+/* ====== GAME CONTROL API ====== */
+function startGame(){
+  score = 0; lives = 3; spawnInterval = CONFIG.spawnIntervalStart; lastSpawn = performance.now();
+  activeFruits.length = 0; activeParts.length = 0;
+  // reset pools (mark all pool objects free)
+  fruitPool.forEach(f => f.reset());
+  partPool.forEach(p => p.reset());
+  gameState = 'playing';
+  showOverlay('overlay_pause'); // hide others by toggling to pause then immediately hide
+  document.getElementById('overlay_pause').style.display = 'none';
+  showOverlay(''); // hide all overlays - helper: show nothing
+  updateUI();
+}
+function pauseGame(){
+  if(gameState !== 'playing') return;
+  gameState = 'paused';
+  showOverlay('overlay_pause');
+}
+function resumeGame(){
+  if(gameState !== 'paused') return;
+  gameState = 'playing';
+  showOverlay(''); // hide overlays
+  document.getElementById('overlay_pause').style.display = 'none';
+  lastFrame = performance.now();
+}
+function endGame(){
+  gameState = 'gameover';
+  finalScore.textContent = score;
+  if(score > best) best = score;
+  saveStorage();
+  updateUI();
+  showOverlay('overlay_gameover');
+}
+
+/* overlay helper show none by id "" */
+function showOverlay(id){
+  overlayIds.forEach(x=>{
+    const el = document.getElementById(x);
+    el.style.display = (x === id) ? 'flex' : 'none';
+  });
+  // if id empty -> hide all
+  if(!id) overlayIds.forEach(x=> document.getElementById(x).style.display = 'none');
+}
+
+/* ====== Buttons binding ====== */
+playBtn.addEventListener('click', ()=> { startGame(); });
+resumeBtn.addEventListener('click', ()=> { resumeGame(); });
+restartBtn.addEventListener('click', ()=> { startGame(); });
+homeBtn.addEventListener('click', ()=> { gameState='home'; showOverlay('overlay_home'); saveStorage(); });
+againBtn.addEventListener('click', ()=> { document.getElementById('overlay_gameover').style.display='none'; startGame(); });
+goShopBtn.addEventListener('click', ()=> { showOverlay('overlay_shop'); });
+shopBtn.addEventListener('click', ()=> { showOverlay('overlay_shop'); });
+shopClose.addEventListener('click', ()=> { showOverlay(''); showOverlay('overlay_home'); });
+backShop.addEventListener('click', ()=> { showOverlay('overlay_home'); });
+pauseBtn.addEventListener('click', ()=> { if(gameState==='playing') pauseGame(); else if(gameState==='paused') resumeGame(); });
+muteBtn.addEventListener('click', ()=> { muted = !muted; muteBtn.textContent = muted ? '🔇' : '🔊'; });
+
+gRange.addEventListener('input', ()=>{ gravity = parseFloat(gRange.value); gVal.textContent = gravity.toFixed(2); });
+
+btnSpawn.addEventListener('click', ()=> spawnFruitFast());
+btnClear.addEventListener('click', ()=> { activeFruits.length=0; activeParts.length=0; fruitPool.forEach(f=>f.reset()); partPool.forEach(p=>p.reset()); });
+
+/* ====== Shop UI ====== */
+function updateShopUI(){
+  shopGrid.innerHTML = '';
+  KNIVES.forEach(k=>{
+    const div = document.createElement('div');
+    div.style.background = 'rgba(255,255,255,0.02)';
+    div.style.border = '1px solid rgba(255,255,255,0.06)';
+    div.style.padding = '8px';
+    div.style.borderRadius = '10px';
+    div.style.display = 'flex';
+    div.style.flexDirection = 'column';
+    div.style.alignItems = 'center';
+    div.style.gap = '6px';
+    div.innerHTML = `<div style="font-size:28px">${k.icon}</div>
+      <div style="font-weight:800">${k.name}</div>
+      <div class="small">${k.price>0 ? k.price+' 🪙' : 'Free'}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn selBtn">${k.bought ? (k.id===selectedKnife ? 'Selected' : 'Select') : 'Buy'}</button>
+      </div>`;
+    const btn = div.querySelector('.selBtn');
+    btn.addEventListener('click', ()=>{
+      if(k.bought){
+        selectedKnife = k.id;
+        updateSelectedUI();
+        saveStorage();
+        updateShopUI();
+      } else {
+        if(coins >= k.price){
+          coins -= k.price; k.bought = true; selectedKnife = k.id;
+          saveStorage(); updateUI(); updateShopUI();
+          alert('खरीद लिया: '+k.name);
+        } else alert('Coins कम हैं — खेलकर कमाओ।');
+      }
+    });
+    shopGrid.appendChild(div);
+  });
+}
+
+/* ====== Initialization ====== */
+function init(){
+  // fix overlays: show home initially
+  showOverlay('overlay_home');
+  // load storage
+  loadStorage();
+  updateShopUI();
+  lastFrame = performance.now();
+  requestAnimationFrame(gameLoop);
+}
+init();
+
+/* ====== small housekeeping: updateUI interval & auto save ====== */
+setInterval(()=> { updateUI(); saveStorage(); }, 3000);
+
+/* ====== Single-screen helper: ensure no double overlay (defensive) ====== */
+/* Already handled by showOverlay used above. */
+
+</script>
+</body>
+</html>
