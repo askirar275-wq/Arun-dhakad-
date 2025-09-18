@@ -1,0 +1,139 @@
+<!doctype html>
+
+<html lang="hi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ChatApp — फोन OTP + Real Chat (Firebase)</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#60a5fa; --muted:#94a3b8; --glass: rgba(255,255,255,0.04);
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,Roboto,Arial}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071028 0%, #071a2a 100%);color:#e6eef8}
+    .wrap{max-width:880px;margin:28px auto;padding:18px}
+    header{display:flex;align-items:center;gap:12px}
+    .logo{width:56px;height:56px;background:linear-gradient(135deg,var(--accent),#7c3aed);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 6px 20px rgba(2,6,23,0.6)}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:4px 0 18px;color:var(--muted)}
+    .card{background:linear-gradient(180deg,var(--card),#071122);padding:18px;border-radius:14px;box-shadow:0 6px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03);margin-bottom:20px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=text]{width:100%;padding:12px 14px;border-radius:10px;background:var(--glass);border:1px solid rgba(255,255,255,0.04);color:inherit;font-size:15px}
+    .btn{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;border:2px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-weight:600;transition:transform .12s ease,box-shadow .12s}
+    .btn:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(96,165,250,0.12)}
+    .btn:active{transform:translateY(0)}
+    .btn-primary{background:linear-gradient(90deg,var(--accent),#7c3aed);color:#021026;border:2px solid rgba(255,255,255,0.06);box-shadow:0 10px 30px rgba(124,58,237,0.12)}
+    .muted{color:var(--muted);font-size:13px}
+    .chat-area{height:50vh;border-radius:12px;padding:12px;overflow:auto;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02)}
+    .msg{max-width:70%;padding:8px 12px;border-radius:12px;margin:8px 0;word-wrap:break-word}
+    .msg.me{background:linear-gradient(90deg,#05203b,rgba(96,165,250,0.04));margin-left:auto}
+    .msg.other{background:rgba(255,255,255,0.08)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">C</div>
+      <div>
+        <h1>ChatApp — Phone OTP + Chat</h1>
+        <p class="lead">Firebase Phone Auth + Firestore Chat Demo</p>
+      </div>
+    </header><section class="card">
+  <h3>लॉगिन OTP से</h3>
+  <label for="phone">फोन नंबर (जैसे: +91 9xxxxxxxxx)</label>
+  <input id="phone" type="text" placeholder="+91..." />
+  <div id="recaptcha-container" style="margin-top:12px" class="muted">reCAPTCHA यहाँ दिखेगा</div>
+  <div style="margin-top:12px;display:flex;gap:10px">
+    <button id="sendBtn" class="btn">Send OTP</button>
+    <button id="signOutBtn" class="btn">Sign Out</button>
+  </div>
+  <label for="otp" style="margin-top:12px">OTP डालें</label>
+  <input id="otp" type="text" placeholder="6-digit code" />
+  <button id="verifyBtn" class="btn btn-primary" style="margin-top:10px">Verify</button>
+  <div id="status" style="margin-top:12px" class="muted">स्टेटस: इंतज़ार...</div>
+</section>
+
+<section class="card">
+  <h3>चैट</h3>
+  <div id="chatArea" class="chat-area"></div>
+  <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+    <input id="message" type="text" placeholder="Message..." style="flex:1;padding:10px 12px;border-radius:10px;background:var(--glass);border:1px solid rgba(255,255,255,0.03)" />
+    <button id="sendMsg" class="btn btn-primary">Send</button>
+  </div>
+</section>
+
+  </div>  <!-- Firebase SDK -->  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAYiCfR1-UrHO4URnkkzVmqDEiHdWOvFZ8",
+      authDomain: "chatapp-66809.firebaseapp.com",
+      projectId: "chatapp-66809",
+      storageBucket: "chatapp-66809.firebasestorage.app",
+      messagingSenderId: "513053373469",
+      appId: "1:513053373469:web:d99d27f12f0176c5e2c2f4",
+      measurementId: "G-T32WEZW4LW"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const phoneInput = document.getElementById('phone');
+    const otpInput = document.getElementById('otp');
+    const statusDiv = document.getElementById('status');
+    const chatArea = document.getElementById('chatArea');
+    const msgInput = document.getElementById('message');
+
+    let confirmationResult;
+
+    function setStatus(t,err){statusDiv.textContent='स्टेटस: '+t;statusDiv.style.color=err?'#ffb4b4':'var(--muted)'}
+
+    function renderMessage(text,me){
+      const div=document.createElement('div');
+      div.className='msg '+(me?'me':'other');
+      div.textContent=text;
+      chatArea.appendChild(div);
+      chatArea.scrollTop=chatArea.scrollHeight;
+    }
+
+    window.recaptchaVerifier=new firebase.auth.RecaptchaVerifier('recaptcha-container');
+
+    document.getElementById('sendBtn').onclick=async()=>{
+      const num=phoneInput.value.trim();
+      if(!num){setStatus('नंबर डालें',true);return}
+      try{
+        confirmationResult=await auth.signInWithPhoneNumber(num,window.recaptchaVerifier);
+        setStatus('OTP भेजा गया, Verify करें');
+      }catch(e){console.error(e);setStatus('Error: '+e.message,true)}
+    }
+
+    document.getElementById('verifyBtn').onclick=async()=>{
+      try{
+        const code=otpInput.value.trim();
+        const res=await confirmationResult.confirm(code);
+        setStatus('Login success: '+res.user.phoneNumber);
+        loadMessages();
+      }catch(e){setStatus('OTP गलत: '+e.message,true)}
+    }
+
+    document.getElementById('signOutBtn').onclick=()=>{auth.signOut();chatArea.innerHTML='';setStatus('Signed out')}
+
+    document.getElementById('sendMsg').onclick=async()=>{
+      const text=msgInput.value.trim();
+      if(!text)return;
+      const user=auth.currentUser;
+      if(!user){setStatus('पहले Login करो',true);return;}
+      await db.collection('messages').add({text,uid:user.uid,ts:firebase.firestore.FieldValue.serverTimestamp()});
+      msgInput.value='';
+    }
+
+    function loadMessages(){
+      db.collection('messages').orderBy('ts').onSnapshot(snap=>{
+        chatArea.innerHTML='';
+        snap.forEach(doc=>{
+          const m=doc.data();
+          renderMessage(m.text,auth.currentUser && m.uid===auth.currentUser.uid);
+        });
+      });
+    }
+  </script></body>
+</html>
