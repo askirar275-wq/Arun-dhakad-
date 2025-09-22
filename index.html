@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fruit Cut — Ultra (Offline)</title>
+<meta name="theme-color" content="#07111a"/>
+<style>
+:root{
+  --bg1:#07111a; --card:#0f1724; --accent:#6ee7b7; --accent2:#60a5fa;
+  --muted:#9aa7b3; --btn-border: rgba(255,255,255,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:linear-gradient(180deg,#061018,#07111a);font-family:Inter, system-ui, Arial; -webkit-font-smoothing:antialiased;color:#e6f0ff}
+body{display:flex;align-items:center;justify-content:center;padding:12px}
+
+/* App container */
+.app{width:100%;max-width:540px;height:calc(100vh - 24px);border-radius:18px;overflow:hidden;
+     background:linear-gradient(180deg,#0e1a2a,#07111a);box-shadow:0 24px 60px rgba(2,6,12,0.75);
+     border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;position:relative}
+
+/* Header */
+.header{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.logo{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--accent2),var(--accent));
+      display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 8px 26px rgba(6,12,20,0.6)}
+.title{display:flex;flex-direction:column}
+.title h1{font-size:18px;margin:0}
+.title p{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* HUD right */
+.hud{margin-left:auto;display:flex;gap:8px;align-items:center}
+.chip{background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:12px;font-weight:800;font-size:14px;border:1px solid rgba(255,255,255,0.02);display:flex;gap:8px;align-items:center}
+
+/* Controls */
+.controls{display:flex;gap:10px;padding:10px 12px}
+.btn{flex:0 0 auto;padding:10px 14px;border-radius:12px;font-weight:800;border:2px solid var(--btn-border);background:transparent;color:var(--accent2);
+     cursor:pointer;transition:transform .16s,box-shadow .16s,background .16s;outline:none;display:inline-flex;align-items:center;gap:8px;text-transform:uppercase}
+.btn:active{transform:translateY(2px) scale(.99)}
+.btn.play{border-color:rgba(110,231,183,0.14);color:var(--accent);box-shadow:0 10px 28px rgba(96,165,250,0.06)}
+.btn.outline{border-color:rgba(255,255,255,0.06)}
+
+/* Play area */
+.play{position:relative;flex:1;padding:10px;display:flex;align-items:center;justify-content:center}
+canvas{width:100%;height:100%;border-radius:14px;background:linear-gradient(180deg,#18202a,#0f1724);touch-action:none;display:block}
+
+/* overlays / modals */
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.card{width:88%;max-width:420px;background:linear-gradient(180deg,rgba(2,6,12,0.96),rgba(6,12,20,0.92));
+      border-radius:14px;padding:18px;text-align:center;border:1px solid rgba(255,255,255,0.03);transform:translateY(12px) scale(.98);opacity:0;transition:all .26s;pointer-events:auto;box-shadow:0 20px 50px rgba(2,8,20,0.6)}
+.card.show{transform:translateY(0) scale(1);opacity:1}
+.card h2{margin:0 0 6px 0}
+.card p{color:var(--muted);margin:6px 0}
+
+/* info / status */
+.infobox{position:absolute;left:14px;bottom:14px;font-size:12px;color:var(--muted);background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+.statusRow{position:absolute;left:14px;top:86px;display:flex;flex-direction:column;gap:8px}
+
+/* combo popup */
+.comboText{position:absolute;right:14px;bottom:86px;font-size:18px;color:#fff;background:linear-gradient(90deg,#ffb86b,#ff6b6b);padding:8px 12px;border-radius:12px;box-shadow:0 8px 20px rgba(255,80,80,0.12);transform:translateY(10px);opacity:0;transition:all .28s}
+.comboText.show{transform:translateY(0);opacity:1}
+
+/* responsive tweaks */
+@media (max-width:420px){
+  .logo{width:46px;height:46px;font-size:22px}
+  .title h1{font-size:16px}
+  .controls{padding:8px}
+  .card{width:94%}
+}
+</style>
+</head>
+<body>
+<div class="app" role="application" aria-label="Fruit Cut Game — Ultra">
+  <div class="header">
+    <div class="logo">🍉</div>
+    <div class="title"><h1>Fruit Cut — Ultra</h1><p>Swipe karo, fruits kaat ke high score banao — 💣 se savdhan!</p></div>
+    <div class="hud">
+      <div class="chip">Score: <span id="score">0</span></div>
+      <div class="chip">Lives: <span id="lives">3</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="openMenu" class="btn outline">Menu</button>
+    <button id="start" class="btn play">Play</button>
+    <button id="pause" class="btn">Pause</button>
+    <button id="restart" class="btn">Restart</button>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <small style="color:var(--muted)">Best</small>
+      <div class="chip" id="best">0</div>
+    </div>
+  </div>
+
+  <div class="play">
+    <canvas id="c" aria-label="game-canvas"></canvas>
+
+    <!-- Menu Overlay -->
+    <div class="overlay">
+      <div class="card show" id="menuCard">
+        <h2>Fruit Cut — Ultra</h2>
+        <p>Coins, Freeze, Hearts, Bombs, Combo system aur dynamic difficulty — Offline-ready.</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+          <button class="btn play" id="menuPlay">Start Game</button>
+          <button class="btn" id="how">How to Play</button>
+          <button class="btn" id="scores">Best: <span id="menuBest">0</span></button>
+          <button class="btn" id="audioToggle">Sound: On</button>
+        </div>
+        <p style="margin-top:10px;color:var(--muted);font-size:12px">
+          Offline note: service-worker tab register hoga jab file `localhost` ya `https` par serve hogi. Direct file open karne par bhi game chalega.
+        </p>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div class="overlay">
+      <div class="card" id="gameover">
+        <h2>Game Over</h2>
+        <p id="gscore">Score: 0</p>
+        <p id="gbest">Best: 0</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+          <button class="btn play" id="playAgain">Play Again</button>
+          <button class="btn" id="home">Home</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="infobox" id="hint">Tip: tez aur lambi swipe se combo milega — Freeze 🔷 se slow-motion aur coin 🪙 collect karo!</div>
+
+    <div class="statusRow">
+      <div class="chip small" id="statusFreeze">Freeze: Off</div>
+      <div class="chip small" id="statusCombo">Combo: x1</div>
+    </div>
+
+    <div class="comboText" id="comboText">Combo x2! +1 bonus</div>
+  </div>
+</div>
+
+<script>
+/*
+  Fruit Cut — Ultra single-file game
+  Hindi comments short & helpful.
+  - Offline-ready (service worker blob)
+  - Mobile friendly, outlined buttons, click animations
+  - Features: fruits, bombs, coin, freeze, heart, combo, particles
+*/
+
+/* ------------------------ Service Worker (inline blob) ------------------------ */
+(function registerSW(){
+  if('serviceWorker' in navigator){
+    const swCode = `
+self.addEventListener('install', e => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+const CACHE = 'fruitcut-ultra-v1';
+self.addEventListener('fetch', event => {
+  if(event.request.method !== 'GET') return;
+  event.respondWith(caches.match(event.request).then(cached => {
+    if(cached) return cached;
+    return fetch(event.request).then(resp => {
+      const copy = resp.clone();
+      caches.open(CACHE).then(c => { try{ c.put(event.request, copy);}catch(err){} });
+      return resp;
+    }).catch(()=> {
+      if(event.request.mode === 'navigate'){
+        return new Response('<!doctype html><meta charset="utf-8"><title>Offline</title><p style="font-family:sans-serif">Offline — Pehle se load kiya hua page dikhaiye.</p>', {headers:{'Content-Type':'text/html'}});
+      }
+    });
+  }));
+});`;
+    try{
+      const blob = new Blob([swCode], {type:'text/javascript'});
+      const url = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(url).then(()=>console.log('SW registered (blob)')).catch(err=>console.warn('SW failed',err));
+    }catch(err){ console.warn('SW blob err',err); }
+  }
+})();
+/* ----------------------------------------------------------------------------- */
+
+/* === DOM refs === */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const startBtn = document.getElementById('start');
+const pauseBtn = document.getElementById('pause');
+const restartBtn = document.getElementById('restart');
+const playAgain = document.getElementById('playAgain');
+const homeBtn = document.getElementById('home');
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const bestEl = document.getElementById('best');
+const gscore = document.getElementById('gscore');
+const gbest = document.getElementById('gbest');
+const gameover = document.getElementById('gameover');
+const menuCard = document.getElementById('menuCard');
+const menuPlay = document.getElementById('menuPlay');
+const openMenu = document.getElementById('openMenu');
+const howBtn = document.getElementById('how');
+const menuBest = document.getElementById('menuBest');
+const audioToggle = document.getElementById('audioToggle');
+const comboTextEl = document.getElementById('comboText');
+const statusFreeze = document.getElementById('statusFreeze');
+const statusCombo = document.getElementById('statusCombo');
+const hintEl = document.getElementById('hint');
+
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.floor(rect.width * DPR);
+  canvas.height = Math.floor(rect.height * DPR);
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+
+/* === State === */
+let running = false, paused = false;
+let score = 0, lives = 3;
+let best = parseInt(localStorage.getItem('emoji_best')||'0',10) || 0;
+bestEl.innerText = best; menuBest.innerText = best;
+let entities = []; // fruits, bombs, items
+let particles = []; // juice + fragments
+let path = []; // swipe points
+const MAX_PATH_MS = 220;
+const MAX_PATH_POINTS = 36;
+let lastTS = 0;
+let spawnTimer = 0;
+const baseSpawnInterval = 820; // ms
+let spawnInterval = baseSpawnInterval;
+let gameTime = 0; // seconds
+
+/* Freeze mechanic */
+let freezeActive = false;
+let freezeTimer = 0;
+const FREEZE_DURATION = 3000; // ms
+
+/* Combo */
+let lastSliceTime = 0;
+let comboCount = 0;
+const comboTimeout = 900; // ms
+let comboDisplayTimer = 0;
+
+/* Emojis and items */
+const FRUITS = ['🍎','🍊','🍋','🍓','🍑','🍌','🍉','🍒','🍇','🥭','🥝','🍍','🍈','🍐','🥑','🥥','🍆','🥦','🍏','🥕'];
+const BOMB = '💣';
+const COIN = '🪙';
+const FREEZE = '❄️';
+const HEART = '❤️';
+
+/* Helpers */
+function rand(a,b){return Math.random()*(b-a)+a;}
+function randInt(a,b){return Math.floor(rand(a,b+1));}
+function animateButton(b){
+  if(!b) return;
+  b.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}], {duration:160,easing:'ease'});
+}
+
+/* init canvas size to parent */
+function initResize(){
+  const parent = canvas.parentElement;
+  canvas.style.width = parent.clientWidth + 'px';
+  canvas.style.height = parent.clientHeight + 'px';
+  resize();
+}
+
+/* Entities factory */
+function spawnOne(){
+  const r = Math.random();
+  const bombChance = Math.min(0.18, 0.06 + gameTime/140); // increases slowly with time
+  const specialChance = 0.14; // coin/freeze/heart combined
+  const wide = canvas.clientWidth;
+  const x = rand(60, wide - 60);
+  const y = canvas.clientHeight + 60;
+  const baseVy = -rand(760,980) - Math.min(240, gameTime*6);
+  const vx = rand(-160,160);
+
+  if(r < bombChance){
+    entities.push({type:'bomb', emoji:BOMB, x,y, vx, vy:baseVy, rot:rand(-1,1), vr:rand(-3,3), r:34});
+  } else if(r < bombChance + specialChance){
+    const pick = Math.random();
+    if(pick < 0.5){
+      entities.push({type:'coin', emoji:COIN, x,y, vx, vy:baseVy*0.9, rot:rand(-0.2,0.2), vr:0.5, r:32});
+    } else if(pick < 0.8){
+      entities.push({type:'freeze', emoji:FREEZE, x,y, vx, vy:baseVy*0.85, rot:0, vr:0.4, r:36});
+    } else {
+      entities.push({type:'heart', emoji:HEART, x,y, vx, vy:baseVy*0.9, rot:0, vr:0.5, r:36});
+    }
+  } else {
+    const emoji = FRUITS[randInt(0,FRUITS.length-1)];
+    const size = (emoji==='🍉')?64:48;
+    entities.push({type:'fruit', emoji, x,y, vx, vy:baseVy, rot:rand(-0.8,0.8), vr:rand(-3,3), r:size, sliced:false});
+  }
+}
+
+/* Path management */
+function addPoint(x,y){
+  path.push({x,y,t:performance.now()});
+  if(path.length > MAX_PATH_POINTS) path.shift();
+}
+function cleanupPath(){
+  const cutoff = performance.now() - MAX_PATH_MS;
+  path = path.filter(p => p.t >= cutoff);
+}
+
+/* Combo handling */
+function handleCombo(){
+  const now = performance.now();
+  if(now - lastSliceTime <= comboTimeout) comboCount++;
+  else comboCount = 1;
+  lastSliceTime = now;
+  if(comboCount > 1){
+    comboTextEl.innerText = `Combo x${comboCount}! +${comboCount-1} bonus`;
+    comboTextEl.classList.add('show');
+    comboDisplayTimer = 700;
+  }
+  statusCombo.innerText = `Combo: x${comboCount}`;
+}
+
+/* Scoring */
+function addScore(base){
+  const bonus = Math.max(0, comboCount - 1);
+  const gained = base + bonus;
+  score += gained;
+  scoreEl.innerText = score;
+  if(score > best){
+    best = score;
+    localStorage.setItem('emoji_best', best);
+    bestEl.innerText = best; menuBest.innerText = best;
+  }
+}
+
+/* Particles & fragments */
+function createFragments(e){
+  const count = 10;
+  for(let i=0;i<count;i++){
+    const ang = rand(0,Math.PI*2);
+    const speed = rand(120,520);
+    particles.push({
+      x: e.x + Math.cos(ang)*rand(0, e.r*0.6),
+      y: e.y + Math.sin(ang)*rand(0, e.r*0.6),
+      vx: Math.cos(ang)*speed,
+      vy: Math.sin(ang)*speed*-0.5,
+      life: rand(0.6,1.3),
+      age: 0,
+      color: '#fff',
+      size: rand(6,16),
+      emoji: (Math.random()<0.36)?e.emoji:null
+    });
+  }
+}
+
+function spawnJuice(x,y,emoji, amount=14){
+  const colorMap = {'🍎':'#ff6b6b','🍊':'#ff9f43','🍋':'#ffd166','🍓':'#ff7aa2','🍑':'#ffb5a7','🍌':'#ffee7a','🍉':'#8be08b','🪙':'#ffd166','💥':'#ffcf66','❄️':'#9be7ff','❤️':'#ff7aa2'};
+  const color = colorMap[emoji] || '#ffd166';
+  for(let i=0;i<amount;i++){
+    const a = rand(0,Math.PI*2);
+    const s = rand(80,420);
+    particles.push({x,y,vx:Math.cos(a)*rand(40,s),vy:Math.sin(a)*rand(30,s*0.8),age:0,life:rand(0.6,1.3),color,size:rand(3,12)});
+  }
+}
+
+/* Update particles */
+function updateParticles(dt){
+  for(let p of particles){
+    p.age += dt;
+    p.vy += (freezeActive ? 300 : 900) * dt;
+    p.vx *= (1 - Math.min(dt*3,0.25));
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+  particles = particles.filter(p => p.age < p.life);
+}
+
+/* Entities physics */
+function updateEntities(dt){
+  for(let e of entities){
+    e.vy += (freezeActive ? 300 : 900) * dt;
+    e.x += e.vx * dt;
+    e.y += e.vy * dt;
+    e.rot += (e.vr||0) * dt;
+    if(e.type === 'fruit' && e.sliced){
+      e.vy += (freezeActive ? 120 : 420) * dt;
+      if(e.y > canvas.clientHeight + 120) e._remove = true;
+    }
+    if(['coin','freeze','heart','bomb'].includes(e.type)){
+      if(e.y > canvas.clientHeight + 120) e._remove = true;
+    }
+  }
+  entities = entities.filter(e => !e._remove && !(e.type==='fruit' && e.sliced && e.y > canvas.clientHeight+200));
+}
+
+/* Slice detection */
+function checkSlice(){
+  if(path.length < 2) return;
+  const segs = [];
+  for(let i=0;i<path.length-1;i++) segs.push({x1:path[i].x, y1:path[i].y, x2:path[i+1].x, y2:path[i+1].y});
+  for(let e of entities){
+    if((e.type === 'fruit' && !e.sliced) || e.type === 'bomb' || ['coin','freeze','heart'].includes(e.type)){
+      const r = Math.max(18, e.r*0.45);
+      for(let s of segs){
+        const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
+        const len2 = dx*dx + dy*dy;
+        const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((e.x - s.x1)*dx + (e.y - s.y1)*dy)/len2));
+        const px = s.x1 + dx*t, py = s.y1 + dy*t;
+        const dist = Math.hypot(px - e.x, py - e.y);
+        if(dist < r + 6){
+          if(e.type === 'fruit' && !e.sliced){
+            e.sliced = true; e._removeSoon = true;
+            createFragments(e);
+            spawnJuice(e.x, e.y, e.emoji);
+            handleCombo(); addScore(1);
+          } else if(e.type === 'bomb'){
+            e._remove = true;
+            lives -= 1; livesEl.innerText = lives;
+            spawnJuice(e.x, e.y, '💥', 26);
+            comboCount = 0; statusCombo.innerText = `Combo: x${comboCount}`;
+            if(lives <= 0) gameOver();
+          } else if(e.type === 'coin'){
+            e._remove = true;
+            handleCombo(); addScore(3);
+            spawnJuice(e.x, e.y, '🪙', 20);
+          } else if(e.type === 'freeze'){
+            e._remove = true;
+            freezeActive = true; freezeTimer = FREEZE_DURATION;
+            statusFreeze.innerText = `Freeze: On`;
+            spawnJuice(e.x, e.y, '❄️', 20);
+          } else if(e.type === 'heart'){
+            e._remove = true;
+            lives += 1; livesEl.innerText = lives;
+            spawnJuice(e.x, e.y, '❤️', 22);
+          }
+          break;
+        }
+      }
+    }
+  }
+  entities = entities.filter(e => !e._remove);
+}
+
+/* Draw */
+function drawAll(){
+  ctx.clearRect(0,0,canvas.width/DPR,canvas.height/DPR);
+
+  // subtle horizontal texture
+  ctx.save();
+  ctx.globalAlpha = 0.04;
+  ctx.fillStyle = '#000';
+  for(let y=40; y < canvas.clientHeight; y += 60) ctx.fillRect(0, y, canvas.clientWidth, 2);
+  ctx.restore();
+
+  // draw entities (emoji)
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for(let e of entities){
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(e.rot || 0);
+    if(e.type === 'fruit'){
+      const size = Math.max(28, e.r);
+      ctx.font = size + "px serif";
+      ctx.fillText(e.emoji, 0, 0);
+      if(e.sliced){
+        ctx.globalAlpha = 0.6;
+        ctx.font = (size*0.6) + "px serif";
+        ctx.fillText('✧', -size*0.36, -size*0.36);
+        ctx.globalAlpha = 1;
+      }
+    } else { // bomb / coin / freeze / heart
+      ctx.font = (e.r + 6) + "px serif";
+      ctx.fillText(e.emoji, 0, 0);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // particles
+  for(let p of particles){
+    const t = p.age / p.life;
+    ctx.globalAlpha = Math.max(0, 1 - t);
+    if(p.emoji && Math.random() < 0.25){
+      ctx.font = (p.size*1.6) + "px serif";
+      ctx.fillText(p.emoji, p.x, p.y);
+    } else {
+      ctx.beginPath();
+      ctx.fillStyle = p.color || '#fff';
+      ctx.arc(p.x, p.y, p.size*(1 - t*0.8), 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // swipe beam (glow layers)
+  if(path.length > 1){
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.globalCompositeOperation = 'lighter';
+    for(let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.lineWidth = 28 - i*8;
+      ctx.strokeStyle = `rgba(255,220,140,${0.12 - i*0.03})`;
+      ctx.moveTo(path[0].x, path[0].y);
+      for(let p=1;p<path.length;p++) ctx.lineTo(path[p].x, path[p].y);
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.beginPath();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.moveTo(path[0].x, path[0].y);
+    for(let p=1;p<path.length;p++) ctx.lineTo(path[p].x, path[p].y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,110,110,0.9)';
+    ctx.moveTo(path[0].x, path[0].y);
+    for(let p=1;p<path.length;p++) ctx.lineTo(path[p].x, path[p].y);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/* Main loop */
+function loop(ts){
+  if(!lastTS) lastTS = ts;
+  const dtRaw = Math.min(0.05, (ts - lastTS) / 1000);
+  lastTS = ts;
+  let dt = dtRaw;
+  if(running && !paused){
+    gameTime += dtRaw;
+    spawnTimer += dtRaw * 1000;
+    const effectiveInterval = freezeActive ? spawnInterval * 1.4 : spawnInterval;
+    if(spawnTimer > effectiveInterval){
+      spawnOne(); spawnTimer = 0;
+      if(!freezeActive && spawnInterval > 260) spawnInterval *= 0.994;
+    }
+
+    if(freezeActive){
+      freezeTimer -= dtRaw*1000;
+      if(freezeTimer <= 0){ freezeActive = false; statusFreeze.innerText = `Freeze: Off`; }
+      dt *= 0.34; // dramatic slow effect on motion while freeze (affects particle gravity)
+    }
+
+    updateEntities(dt);
+    updateParticles(dt);
+    cleanupPath();
+    checkSlice();
+  }
+
+  // combo popup timer
+  if(comboDisplayTimer > 0){
+    comboDisplayTimer -= dtRaw*1000;
+    comboTextEl.classList.add('show');
+  } else comboTextEl.classList.remove('show');
+
+  drawAll();
+  requestAnimationFrame(loop);
+}
+
+/* Input handling (pointer unified) */
+let isDown = false;
+canvas.addEventListener('pointerdown', (e)=>{
+  isDown = true;
+  const r = canvas.getBoundingClientRect();
+  addPoint(e.clientX - r.left, e.clientY - r.top);
+});
+canvas.addEventListener('pointermove', (e)=>{
+  if(!isDown) return;
+  const r = canvas.getBoundingClientRect();
+  addPoint(e.clientX - r.left, e.clientY - r.top);
+});
+window.addEventListener('pointerup', ()=>{ isDown = false; path = []; comboCount = 0; statusCombo.innerText = `Combo: x1`; });
+
+/* Controls wiring */
+startBtn.addEventListener('click', ()=>{
+  animateButton(startBtn);
+  startGame();
+});
+menuPlay.addEventListener('click', ()=>{
+  animateButton(menuPlay);
+  startGame();
+});
+openMenu.addEventListener('click', ()=>{
+  animateButton(openMenu);
+  showMenu(true);
+});
+howBtn.addEventListener('click', ()=>{
+  animateButton(howBtn);
+  alert("How to Play:\n\n- Swipe across fruits to slice them.\n- Don't slice bombs (💣) — bomb katne par life kam hoti hai.\n- Slice coins (🪙) for extra points, slice freeze (❄️) to get slow-motion (3s), slice heart (❤️) to get extra life.\n- Fast consecutive slices build Combo — zyada combo => extra points.");
+});
+pauseBtn.addEventListener('click', ()=>{ animateButton(pauseBtn); paused = !paused; pauseBtn.innerText = paused ? 'Resume' : 'Pause'; });
+restartBtn.addEventListener('click', ()=>{ animateButton(restartBtn); resetGame(); setTimeout(()=> startGame(), 140); });
+playAgain.addEventListener('click', ()=>{ animateButton(playAgain); startGame(); });
+homeBtn.addEventListener('click', ()=>{ animateButton(homeBtn); showMenu(true); });
+audioToggle.addEventListener('click', ()=>{ animateButton(audioToggle); audioToggle.innerText = audioToggle.innerText === 'Sound: On' ? 'Sound: Off' : 'Sound: On'; });
+
+/* Menu / overlays */
+function showMenu(show){
+  if(show){
+    menuCard.classList.add('show');
+    gameover.classList.remove('show');
+    running = false;
+  } else {
+    menuCard.classList.remove('show');
+  }
+}
+
+/* Game lifecycle */
+function startGame(){
+  animateButton(startBtn);
+  running = true; paused = false;
+  score = 0; lives = 3; entities=[]; particles=[]; path=[]; spawnInterval = baseSpawnInterval; gameTime = 0;
+  scoreEl.innerText = score; livesEl.innerText = lives;
+  gameover.classList.remove('show'); menuCard.classList.remove('show');
+  lastTS = 0;
+  requestAnimationFrame(loop);
+}
+function resetGame(){
+  running = false; paused = false; entities=[]; particles=[]; path=[]; score = 0; lives = 3;
+  scoreEl.innerText = 0; livesEl.innerText = 3; spawnInterval = baseSpawnInterval; gameTime = 0;
+  freezeActive = false; freezeTimer = 0; comboCount = 0;
+  statusFreeze.innerText = `Freeze: Off`; statusCombo.innerText = `Combo: x1`;
+  menuCard.classList.add('show'); gameover.classList.remove('show');
+}
+function gameOver(){
+  running = false;
+  gameover.classList.add('show');
+  gscore.innerText = 'Score: ' + score;
+  gbest.innerText = 'Best: ' + best;
+}
+
+/* debug: double-click spawn */
+canvas.addEventListener('dblclick', ()=>{ for(let i=0;i<3;i++) spawnOne(); });
+
+/* cleanup path interval */
+setInterval(()=> cleanupPath(), 120);
+
+/* init */
+initResize();
+menuCard.classList.add('show'); gameover.classList.remove('show');
+requestAnimationFrame(loop);
+
+/* keyboard for desktop */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === ' ') { e.preventDefault(); if(!running) startGame(); else { paused = !paused; pauseBtn.innerText = paused ? 'Resume' : 'Pause'; } }
+  if(e.key === 'r') { resetGame(); setTimeout(()=> startGame(), 140); }
+});
+</script>
+</body>
+</html>
