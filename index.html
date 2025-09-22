@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fruit Cut Game — Play Store Ready</title>
+<style>
+:root{--accent:#6ee7b7;--accent2:#60a5fa;--muted:#9aa7b3;}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:Inter,Arial,sans-serif;background:#0f1724;}
+body{display:flex;justify-content:center;align-items:center;}
+.card{width:100%;max-width:460px;height:calc(100vh - 36px);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;background:#1e293b;box-shadow:0 6px 28px rgba(11,23,40,0.5);}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;color:white;}
+.title{display:flex;flex-direction:column;}
+.title h1{margin:0;font-size:18px;}
+.title p{margin:0;font-size:12px;color:var(--muted);}
+.hud{margin-left:auto;display:flex;gap:8px;}
+.chip{background:rgba(255,255,255,0.04);padding:8px 10px;border-radius:10px;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,0.03);}
+.controls{display:flex;gap:8px;padding:0 16px 12px;}
+.btn{flex:1;background:transparent;border-radius:12px;padding:10px 12px;font-weight:700;border:2px solid rgba(255,255,255,0.08);color:var(--accent2);display:flex;justify-content:center;align-items:center;gap:8px;text-transform:uppercase;cursor:pointer;transition:all .18s;}
+.btn:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(11,23,40,0.6);}
+.btn:active{transform:translateY(2px) scale(.995);}
+.play-area{position:relative;flex:1;display:flex;align-items:center;justify-content:center;padding:6px;}
+canvas{width:100%;height:100%;border-radius:14px;touch-action:none;}
+.modal{position:absolute;z-index:60;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.gameover-card{width:88%;max-width:360px;background:linear-gradient(180deg, rgba(3,7,18,0.9), rgba(6,16,28,0.85));border-radius:14px;padding:18px;text-align:center;border:1px solid rgba(255,255,255,0.04);transform:translateY(20px) scale(.98);opacity:0;transition:all .28s;pointer-events:auto;}
+.gameover-card.show{transform:translateY(0) scale(1);opacity:1;}
+.gameover-card h2{margin:0 0 8px 0;font-size:20px;}
+.gameover-card p{margin:6px 0;color:var(--muted);}
+.hint{position:absolute;right:12px;bottom:12px;font-size:12px;color:var(--muted);background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:10px;}
+</style>
+</head>
+<body>
+<div class="card">
+<header>
+<div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:20px;">🍉</div>
+<div class="title"><h1>Fruit Cut</h1><p>Swipe fruits — 💣 avoid bombs!</p></div>
+<div class="hud">
+<div class="chip">Score: <span id="score">0</span></div>
+<div class="chip">Lives: <span id="lives">3</span></div>
+</div>
+</header>
+<div class="controls">
+<button class="btn" id="startBtn">Start</button>
+<button class="btn" id="pauseBtn">Pause</button>
+<button class="btn" id="restartBtn">Restart</button>
+</div>
+<div class="play-area">
+<canvas id="gameCanvas"></canvas>
+<div class="modal" id="modal">
+<div class="gameover-card" id="gameoverCard">
+<h2>Game Over</h2>
+<p id="goScore">Score: 0</p>
+<p id="goBest">Best: 0</p>
+<div style="display:flex;gap:8px;margin-top:12px;justify-content:center">
+<button class="btn" id="goRestart">Play Again</button>
+<button class="btn" id="goHome">Home</button>
+</div>
+</div>
+</div>
+<div class="hint">Tip: swipe fast for combo!</div>
+</div>
+</div>
+
+<script>
+(() => {
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const scoreEl=document.getElementById('score');
+const livesEl=document.getElementById('lives');
+const startBtn=document.getElementById('startBtn');
+const pauseBtn=document.getElementById('pauseBtn');
+const restartBtn=document.getElementById('restartBtn');
+const gameoverCard=document.getElementById('gameoverCard');
+const goScore=document.getElementById('goScore');
+const goBest=document.getElementById('goBest');
+const goRestart=document.getElementById('goRestart');
+const goHome=document.getElementById('goHome');
+
+let running=false,paused=false,spawnTimer=0,spawnInterval=900;
+let entities=[],score=0,lives=3,slicePath=[],maxPathTime=0.15;
+const emojiFruits=['🍎','🍊','🍋','🍓','🍑','🍌','🍉'];
+const bombEmoji='💣', freezeEmoji='❄️';
+let high=parseInt(localStorage.getItem('fruitcut_high')||'0',10)||0;
+let lastSliceTime=0,combo=0,comboDuration=1.2;
+let freezeActive=false,freezeTimer=0,freezeDuration=2.0;
+
+// Canvas setup
+function resizeCanvas(){const rect=canvas.getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
+
+// Helpers
+function rand(a,b){return Math.random()*(b-a)+a;}
+function randInt(a,b){return Math.floor(rand(a,b+1));}
+
+// Entity class
+class Entity{
+constructor(opts){Object.assign(this,opts);this.sliced=false;this.spawn=Date.now();}
+update(dt){if(this.type==='fragment'){this.vy+=1400*dt;this.x+=this.vx*dt;this.y+=this.vy*dt;this.rot+=this.vr*dt;this.size*=0.995;this.life-=dt;}
+else{this.vy+=900*dt;this.x+=this.vx*dt;this.y+=this.vy*dt;this.rot+=this.vr*dt;}}
+draw(ctx){ctx.save();ctx.translate(this.x,this.y);ctx.rotate(this.rot);ctx.font=this.size+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(this.emoji,0,0);ctx.restore();}
+isOffScreen(w,h){return(this.type==='fragment'?this.y>h+80||this.x<-100||this.x>w+100||this.size<6:this.y>h+120||this.x<-120||this.x>w+120);}
+bounds(){return{x:this.x,y:this.y,r:Math.max(20,this.size*0.45)};}
+}
+
+// Spawn
+function spawnFruit(){
+const r=Math.random();
+let type='fruit',emoji=emojiFruits[randInt(0,emojiFruits.length-1)];
+if(r<0.15){type='bomb';emoji=bombEmoji;}
+else if(r<0.22){type='freeze';emoji=freezeEmoji;}
+const x=rand(60,canvas.width-60),y=canvas.height+40,vx=rand(-100,100),vy=rand(-800,-600);
+entities.push(new Entity({x,y,vx,vy,rot:rand(0,Math.PI*2),vr:rand(-2,2),size:48,emoji,type}));
+}
+
+// Slice detection
+function checkSlice(){
+const nowTime=performance.now()/1000;
+slicePath = slicePath.filter(p=>nowTime - p.t < maxPathTime);
+if(slicePath.length<2)return;
+for(let e of entities){if(e.sliced||e.type==='fragment')continue;
+for(let i=0;i<slicePath.length-1;i++){
+const p1=slicePath[i],p2=slicePath[i+1];
+const dx=p2.x-p1.x,dy=p2.y-p1.y;const fx=e.x-p1.x,fy=e.y-p1.y;
+const t=Math.max(0,Math.min(1,(fx*dx+fy*dy)/(dx*dx+dy*dy)));
+const dist=Math.hypot(p1.x+t*dx-e.x,p1.y+t*dy-e.y);
+if(dist<e.bounds().r){sliceFruit(e);break;}}}}
+
+function sliceFruit(e){
+e.sliced=true;
+const now=performance.now()/1000;
+combo=(now-lastSliceTime<comboDuration)?combo+1:1;
+lastSliceTime=now;
+const multiplier=combo;
+if(e.type==='bomb'){lives--;livesEl.innerText=lives;if(lives<=0)gameOver();return;}
+else if(e.type==='freeze'){freezeActive=true;freezeTimer=freezeDuration;return;}
+else{score+=multiplier;scoreEl.innerText=score;}
+// Fragments
+for(let i=0;i<6;i++){entities.push(new Entity({x:e.x,y:e.y,vx:rand(-300,300),vy:rand(-300,0),vr:rand(-6,6),size:e.size/2,emoji:e.emoji,type:'fragment',life:0.6}));}
+if(score>high){high=score;localStorage.setItem('fruitcut_high',high);}
+}
+
+function gameOver(){running=false;gameoverCard.classList.add('show');goScore.innerText='Score: '+score;goBest.innerText='Best: '+high;}
+
+// Input
+function addSlicePoint(x,y){slicePath.push({x,y,t:performance.now()/1000});}
+canvas.addEventListener('mousedown',e=>addSlicePoint(e.offsetX,e.offsetY));
+canvas.addEventListener('mousemove',e=>{if(e.buttons)addSlicePoint(e.offsetX,e.offsetY);});
+canvas.addEventListener('touchstart',e=>{for(const t of e.touches)addSlicePoint(t.clientX-t.target.getBoundingClientRect().left,t.clientY-t.target.getBoundingClientRect().top);});
+canvas.addEventListener('touchmove',e=>{for(const t of e.touches)addSlicePoint(t.clientX-t.target.getBoundingClientRect().left,t.clientY-t.target.getBoundingClientRect().top);});
+
+// Update & draw
+function update(dt){
+if(freezeActive){dt*=0.35;freezeTimer-=dt;if(freezeTimer<=0)freezeActive=false;}
+spawnTimer+=dt*1000;if(spawnTimer>spawnInterval){spawnFruit();spawnTimer=0;}
+entities.forEach(e=>e.update(dt));
+entities=entities.filter(e=>!e.isOffScreen(canvas.width,canvas.height));
+checkSlice();
+}
+
+function draw(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+entities.forEach(e=>e.draw(ctx));
+
+// Swipe line
+const nowTime=performance.now()/1000;
+if(slicePath.length>1){
+for(let i=0;i<slicePath.length-1;i++){
+const p1=slicePath[i],p2=slicePath[i+1];
+const alpha=1-(nowTime-p1.t)/maxPathTime;
+ctx.strokeStyle=`rgba(110,231,183,${alpha})`;
+ctx.lineWidth=4;ctx.lineCap='round';
+ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();}}
+if(combo>1){ctx.fillStyle="rgba(255,255,255,0.8)";ctx.font="24px Arial";ctx.fillText("x"+combo,canvas.width/2,50);}
+}
+
+// Game loop
+let lastTS=0;
+function gameLoop(ts){
+if(!running||paused)return;
+let dt=(ts-lastTS)/1000;lastTS=ts;
+lastTS=ts;
+update(dt);draw();
+lastTS=ts;
+requestAnimationFrame(gameLoop);
+}
+
+// Buttons
+startBtn.onclick=()=>{if(!running){running=true;paused=false;lastTS=performance.now();requestAnimationFrame(gameLoop);}};
+pauseBtn.onclick=()=>{paused=!paused;};
+restartBtn.onclick=()=>{entities=[];score=0;lives=3;scoreEl.innerText=score;livesEl.innerText=lives;running=false;gameoverCard.classList.remove('show');combo=0;startBtn.click();};
+goRestart.onclick=()=>{restartBtn.click();};
+goHome.onclick=()=>{gameoverCard.classList.remove('show');running=false;};
+})();
+</script>
+</body>
+</html>
