@@ -3,392 +3,188 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Fruit Cut — Advanced Level (Themed + Leaderboard)</title>
+<title>Fruit Cut — Final All-in-One</title>
 <style>
-  :root{ --ink:#0b1020; --ui:#1f2937; --accent:#00ffd5; }
-  html,body{height:100%;margin:0;background:#0b1020;color:#fff;font-family:Inter,system-ui,Arial}
-  #game-wrap{position:relative;display:grid;height:100%;grid-template-rows:1fr auto}
-
-  /* Background layer (theme-controlled) */
-  #bg{position:absolute;inset:0;z-index:0;background:#081023}
-
-  canvas{position:relative;z-index:1;display:block;width:100%;height:100%}
-  #ui{position:relative;z-index:2;padding:10px;display:flex;gap:10px;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.25);backdrop-filter:blur(4px)}
-  .btn{background:#1f2937;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);cursor:pointer;font-weight:700;color:#e9f2ff}
-  .btn:hover{filter:brightness(1.05)}
-  .btn:active{transform:translateY(1px)}
-  .small{font-size:13px}
-  #hud{display:flex;gap:10px;align-items:center}
-  .pill{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);padding:6px 10px;border-radius:10px}
-
-  /* Modal (Leaderboard) */
-  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45);backdrop-filter:blur(3px);z-index:5}
-  .card{min-width:280px;max-width:92vw;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.2));border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px;box-shadow:0 18px 48px rgba(0,0,0,.6)}
-  .list{margin:8px 0 0;padding:0;list-style:none}
-  .list li{display:flex;justify-content:space-between;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:8px 10px;border-radius:10px;margin:6px 0}
-
-  /* Toast */
-  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:rgba(0,0,0,.85);color:#fff;padding:8px 14px;border-radius:999px;display:none;z-index:6}
+:root{
+  --ui:#f4f7fb; --panel:#efe9e1; --btn:#111; --accent:#22c55e;
+  --hud-shadow: 0 8px 22px rgba(0,0,0,0.06);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--ui);font-family:Inter,system-ui,Roboto,Arial,sans-serif;color:#111}
+.container{max-width:920px;margin:0 auto;padding:12px}
+h1{text-align:center;margin:8px 0}
+.hud{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
+.stat{background:#fff;padding:8px 12px;border-radius:12px;box-shadow:var(--hud-shadow);font-weight:700}
+#gameWrapper{position:relative;border-radius:14px;overflow:hidden;height:66vh;min-height:480px;background:linear-gradient(180deg,#bfe9ff,#f6f7fb)}
+#sky{position:absolute;inset:0;z-index:1}
+#gameArea{position:absolute;inset:0;z-index:2;touch-action:none}
+canvas{position:absolute;inset:0;z-index:6;pointer-events:none}
+.fruit, .half{position:absolute;transform:translate(-50%,-50%);user-select:none;pointer-events:none;z-index:5}
+#bigStart{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;background:var(--btn);color:#fff;padding:14px 20px;border-radius:12px;font-weight:700;cursor:pointer;box-shadow:0 12px 34px rgba(0,0,0,0.25)}
+.controls{display:flex;gap:12px;justify-content:center;padding:18px;margin-top:6px}
+.btn{background:#fff;border:0;padding:10px 18px;border-radius:12px;cursor:pointer;box-shadow:0 10px 26px rgba(2,6,23,0.06);font-weight:700}
+.btn.ghost{background:transparent;border:1px solid rgba(0,0,0,0.06)}
+#gameOver{position:absolute;inset:0;z-index:1400;display:none;align-items:center;justify-content:center}
+.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 12px 36px rgba(2,6,23,0.12)}
+.modal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1500;display:none}
+.shopGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.shopItem{background:#fff;padding:8px;border-radius:8px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.thumb{width:64px;height:44px;object-fit:cover;border-radius:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:rgba(0,0,0,0.8);color:#fff;padding:8px 14px;border-radius:999px;z-index:1600;display:none}
+.loadingOverlay{position:absolute;inset:0;background:rgba(255,255,255,0.9);z-index:2000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
+.progress{width:70%;max-width:420px;background:#fff;padding:18px;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
+.progressBar{height:10px;background:#eee;border-radius:999px;overflow:hidden;margin:10px 0}
+.progressFill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#06b6d4)}
+.loadingEmoji{font-size:42px}
+.hidden{display:none}
+.small{font-size:13px;color:#666}
+@media (max-width:720px){ #gameWrapper{height:62vh;min-height:420px} .thumb{width:56px;height:40px} }
 </style>
 </head>
 <body>
-  <div id="game-wrap">
-    <div id="bg"></div>
-    <canvas id="c"></canvas>
+<div class="container">
+  <h1>🍉 Fruit Cut — Final </h1>
 
-    <div id="ui">
-      <div id="hud">
-        <div id="score" class="pill">Score: 0</div>
-        <div id="combo" class="pill">Combo: x1</div>
-        <div id="lives" class="pill">Lives: 3</div>
-        <div id="themeName" class="pill">Theme: Neon</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button id="themeBtn" class="btn small">Change Theme</button>
-        <button id="boardBtn" class="btn small">Leaderboard</button>
-        <button id="pauseBtn" class="btn small">Pause</button>
-        <button id="restartBtn" class="btn small">Restart</button>
-      </div>
-    </div>
+  <div class="hud">
+    <div class="stat">Score: <strong id="score">0</strong></div>
+    <div class="stat">Lives: <strong id="lives">3</strong></div>
+    <div class="stat">Coins: <strong id="coins">0</strong></div>
+    <div style="flex:1"></div>
+    <div class="stat">Level: <strong id="level">1</strong></div>
   </div>
 
-  <!-- Leaderboard Modal -->
-  <div id="boardModal" class="modal">
-    <div class="card">
-      <h3 style="margin:0 0 8px">🏆 Leaderboard</h3>
-      <ol id="boardList" class="list"></ol>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
-        <button id="resetBoard" class="btn small" style="background:#ef4444;border-color:#ef444450">Reset</button>
-        <button id="closeBoard" class="btn small">Close</button>
+  <div id="gameWrapper">
+    <div id="sky"></div>
+    <div id="gameArea" aria-label="game area"></div>
+    <canvas id="bladeCanvas"></canvas>
+    <canvas id="particles"></canvas>
+
+    <div class="loadingOverlay" id="loader">
+      <div class="progress">
+        <div class="loadingEmoji" id="loadEmoji">🍉</div>
+        <div id="loadText">Loading images...</div>
+        <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
+        <div class="small" id="progressCount">0 / 0</div>
       </div>
     </div>
+
+    <div id="bigStart">START</div>
+
+    <div id="gameOver">
+      <div class="card" style="text-align:center">
+        <h2>Game Over</h2>
+        <p>Score: <strong id="goScore">0</strong></p>
+        <p>Best: <strong id="goBest">0</strong></p>
+        <div style="margin-top:12px">
+          <button id="goRestart" class="btn">Play Again</button>
+        </div>
+      </div>
+    </div>
+<!-- Shop modal -->
+    <div id="shopModal" class="modal">
+      <div class="card" style="min-width:320px;max-width:92vw">
+        <h3 style="margin:0 0 8px">Shop — Buy Backgrounds / Blades</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div class="small">Coins: <strong id="shopCoins">0</strong></div>
+          <div style="flex:1"></div>
+          <button id="closeShop" class="btn">Close</button>
+        </div>
+
+        <div style="margin-top:6px"><strong>Backgrounds</strong></div>
+        <div class="shopGrid" id="bgGrid" style="margin:8px 0"></div>
+
+        <div style="margin-top:6px"><strong>Blade skins</strong></div>
+        <div class="shopGrid" id="bladeGrid" style="margin:8px 0"></div>
+      </div>
+    </div>
+
   </div>
 
-  <div id="toast" class="toast"></div>
+  <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
+    <button id="startBtn" class="btn">Start</button>
+    <button id="pauseBtn" class="btn">Pause</button>
+    <button id="restartBtn" class="btn">Restart</button>
+    <button id="shopBtn" class="btn">Shop</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <script>
-/* ===========================================================
-   Fruit Cut — Advanced (Patched + Themes + Leaderboard)
-   - Responsive canvas + accurate touch mapping
-   - Themes (Neon / Sunset / Ocean / Wood)
-   - Local leaderboard (Top 5)
-   =========================================================== */
-
-const THEMES = [
-  { id:'neon',   name:'Neon',   css:'radial-gradient(120% 120% at 50% 15%, #0e1626 0%, #08121d 60%, #050b12 100%)' },
-  { id:'sunset', name:'Sunset', css:'linear-gradient(180deg,#22122d 0%, #3b1531 55%, #1b0f1a 100%)' },
-  { id:'ocean',  name:'Ocean',  css:'linear-gradient(180deg,#051b2a 0%, #093247 55%, #061b28 100%)' },
-];
-// built-in transparent wood svg (tiled)
-const woodSVG = encodeURIComponent(`
-<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'>
-  <defs>
-    <linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>
-      <stop offset='0%' stop-color='#7b5a2b' stop-opacity='0.18'/>
-      <stop offset='100%' stop-color='#4e351a' stop-opacity='0.18'/>
-    </linearGradient>
-  </defs>
-  <rect width='256' height='256' fill='url(#g)'/>
-  <g fill='none' stroke='#3a2813' stroke-opacity='.25' stroke-width='4'>
-    <path d='M0,40 C60,20 120,60 180,40 C220,28 250,38 256,36'/>
-    <path d='M0,100 C60,80 120,120 180,100 C220,88 250,98 256,96'/>
-    <path d='M0,160 C60,140 120,180 180,160 C220,148 250,158 256,156'/>
-    <path d='M0,220 C60,200 120,240 180,220 C220,208 250,218 256,216'/>
-  </g>
-  <g fill='#3a2813' fill-opacity='.28'>
-    <circle cx='42' cy='88' r='6'/>
-    <circle cx='210' cy='190' r='5'/>
-  </g>
-</svg>`);
-THEMES.push({ id:'wood', name:'Wood', css:`url("data:image/svg+xml;utf8,${woodSVG}") repeat, radial-gradient(120% 120% at 50% 15%, #1a1712 0%, #13110e 60%, #0d0c0a 100%)` });
-
-/* ---------- Leaderboard ---------- */
-const BOARD_KEY = 'fc_leader_top5_v1';
-function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); }catch(e){ return []; } }
-function saveBoard(list){ localStorage.setItem(BOARD_KEY, JSON.stringify(list.slice(0,5))); }
-function addScore(sc){
-  const list = loadBoard();
-  list.push({score: sc, ts: Date.now()});
-  list.sort((a,b)=> b.score - a.score);
-  saveBoard(list);
-}
-function renderBoard(){
-  const list = loadBoard();
-  const ul = document.getElementById('boardList');
-  ul.innerHTML = '';
-  if(list.length===0){ ul.innerHTML = '<li style="justify-content:center">No scores yet</li>'; return; }
-  list.slice(0,5).forEach((it,i)=>{
-    const li = document.createElement('li');
-    const d = new Date(it.ts);
-    li.innerHTML = `<span>${i+1}. ${it.score}</span><span class="small">${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}</span>`;
-    ul.appendChild(li);
-  });
-}
-
-/* ---------- Canvas & Config ---------- */
-const cfg = {
-  width: 900, height: 1600, viewW: 900, viewH: 1600,
-  gravity: 1400,
-  spawnInterval: 0.8,
-  difficultyRamp: 0.985,
-  maxFruits: 32, maxParticles: 220,
-  trailLength: 10,
-  comboResetTime: 1.6,
-  powerupChance: 0.06,
-  assets: { fruits:["🍎","🍌","🍊","🍐","🍇","🍓","🥝"], bombs:["💣"] }
-};
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d', { alpha:false });
-const bgLayer = document.getElementById('bg');
-const themeBtn = document.getElementById('themeBtn');
-const themeName = document.getElementById('themeName');
-
-let themeIndex = 0;
-function applyTheme(idx){
-  themeIndex = (idx+THEMES.length)%THEMES.length;
-  const t = THEMES[themeIndex];
-  bgLayer.style.background = t.css;
-  bgLayer.style.backgroundSize = t.id==='wood' ? '256px 256px, cover' : 'cover';
-  themeName.textContent = `Theme: ${t.name}`;
-}
-applyTheme(0);
-
-/* ---------- UI ---------- */
-const scoreEl=document.getElementById('score'), comboEl=document.getElementById('combo'), livesEl=document.getElementById('lives');
-const pauseBtn=document.getElementById('pauseBtn'), restartBtn=document.getElementById('restartBtn');
-const boardBtn=document.getElementById('boardBtn'), boardModal=document.getElementById('boardModal');
-document.getElementById('closeBoard').onclick=()=>boardModal.style.display='none';
-document.getElementById('resetBoard').onclick=()=>{ localStorage.removeItem(BOARD_KEY); renderBoard(); };
-boardBtn.onclick=()=>{ renderBoard(); boardModal.style.display='flex'; };
-themeBtn.onclick=()=> applyTheme(themeIndex+1);
-const toastEl = document.getElementById('toast');
-function toast(m){ toastEl.textContent=m; toastEl.style.display='block'; setTimeout(()=>toastEl.style.display='none',1100); }
-
-/* ---------- Resize ---------- */
-function resize(){
-  const r = window.devicePixelRatio || 1;
-  const uiHeight = document.getElementById('ui')?.offsetHeight || 60;
-  const cssW = Math.min(window.innerWidth,  cfg.width);
-  const cssH = Math.min(window.innerHeight - uiHeight, cfg.height);
-  canvas.width = Math.floor(cssW * r); canvas.height = Math.floor(cssH * r);
-  canvas.style.width = cssW+'px'; canvas.style.height = cssH+'px';
-  ctx.setTransform(r,0,0,r,0,0);
-  cfg.viewW = cssW; cfg.viewH = cssH;
-}
-addEventListener('resize', resize); resize();
-
-/* ---------- Pools & Entities ---------- */
-function Pool(createFn, size){ this.pool=[]; for(let i=0;i<size;i++) this.pool.push(createFn()); }
-Pool.prototype.get=function(){ return this.pool.length?this.pool.pop():null; }
-Pool.prototype.release=function(o){ if(o.reset)o.reset(); this.pool.push(o); }
-
-class Fruit{
-  constructor(){ this.reset(); }
-  reset(){ this.alive=false; this.x=0; this.y=0; this.vx=0; this.vy=0; this.radius=36; this.type='fruit'; this.emoji='🍎'; this.rotation=0; this.spin=0; }
-  init(o){ Object.assign(this,o); this.alive=true; }
-  update(dt){ this.vy += cfg.gravity*dt; this.x+=this.vx*dt; this.y+=this.vy*dt; this.rotation+=this.spin*dt; if(this.y-this.radius>cfg.viewH+100) this.alive=false; }
-  draw(ctx){ ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.rotation); ctx.font=`${this.radius*1.6}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(this.emoji,0,0); ctx.restore(); }
-}
-class Particle{
-  constructor(){ this.reset(); }
-  reset(){ this.alive=false; this.x=0;this.y=0;this.vx=0;this.vy=0;this.l=0;this.life=0;this.size=2; }
-  init(x,y,vx,vy,life,size){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.life=life;this.l=life;this.size=size; this.alive=true; }
-  update(dt){ this.vy += 400*dt; this.x += this.vx*dt; this.y += this.vy*dt; this.life -= dt; if(this.life<=0) this.alive=false; }
-  draw(ctx){ ctx.globalAlpha=Math.max(0,this.life/this.l); ctx.fillRect(this.x,this.y,this.size,this.size); ctx.globalAlpha=1; }
-}
-const fruitPool=new Pool(()=>new Fruit(),cfg.maxFruits);
-const particlePool=new Pool(()=>new Particle(),cfg.maxParticles);
-
-/* ---------- Game State ---------- */
-let fruits=[], particles=[];
-let score=0, combo=0, comboTimer=0, lives=3;
-let lastSpawn=0, spawnInterval=cfg.spawnInterval, wave=1;
-let running=true, paused=false;
-let lastTime=performance.now()/1000;
-let powerups=[]; // 'slow','double','shield'
-let slowTimer=0, doubleTimer=0;
-
-/* ---------- Spawning ---------- */
-function rand(a,b){ return a + Math.random()*(b-a); }
-function choose(arr){ return arr[(Math.random()*arr.length)|0]; }
-
-function spawnFruitPattern(){
-  const patterns=['arc','fan','single','chain','burst'];
-  const p=choose(patterns);
-  const count=Math.min(6+Math.floor(wave/2),12);
-  if(p==='single') spawnSingle();
-  else if(p==='arc') spawnArc(count);
-  else if(p==='fan') spawnFan(count);
-  else if(p==='chain') spawnChain(count);
-  else if(p==='burst') spawnBurst(count);
-  if(Math.random()<0.12) spawnBomb();
-  if(Math.random()<cfg.powerupChance) spawnPowerup();
-}
-function spawnOne(x,y,vx,vy){
-  const f=fruitPool.get(); if(!f) return;
-  const isBomb=Math.random()<0.07;
-  f.init({ x,y,vx,vy, radius:rand(28,44),
-    emoji:isBomb?choose(cfg.assets.bombs):choose(cfg.assets.fruits),
-    type:isBomb?'bomb':'fruit', spin:rand(-6,6)
-  }); fruits.push(f);
-}
-function spawnSingle(){ spawnOne(rand(120,cfg.viewW-120), cfg.viewH+60, rand(-260,260), -rand(900,1400)); }
-function spawnArc(n){
-  const cx=rand(200,cfg.viewW-200);
-  for(let i=0;i<n;i++){ const ang=Math.PI*(0.2+i/(n-1)*0.6); const s=rand(900,1300); const vx=Math.cos(ang-1.2)*s; const vy=-Math.sin(ang-1.2)*s; spawnOne(cx+(i-n/2)*30, cfg.viewH+60, vx, vy); }
-}
-function spawnFan(n){
-  const left=rand(120, Math.max(160,cfg.viewW-400));
-  for(let i=0;i<n;i++){ spawnOne(left+i*40, cfg.viewH+60, rand(-160,400), -rand(800,1500)); }
-}
-function spawnChain(n){
-  const x=rand(160,cfg.viewW-160);
-  for(let i=0;i<n;i++){ spawnOne(x+Math.sin(i*0.6)*40, cfg.viewH+60+i*10, rand(-100,100), -rand(700,1200)-i*20); }
-}
-function spawnBurst(n){
-  const cx=rand(200,cfg.viewW-200);
-  for(let i=0;i<n;i++){ const a=rand(0,Math.PI*2), s=rand(400,1400); spawnOne(cx+Math.cos(a)*10, cfg.viewH+60+Math.sin(a)*10, Math.cos(a)*s, -Math.abs(Math.sin(a))*s); }
-}
-function spawnBomb(){ spawnOne(rand(120,cfg.viewW-120), cfg.viewH+60, rand(-220,220), -rand(900,1400)); }
-function spawnPowerup(){
-  const f=fruitPool.get(); if(!f) return;
-  const kind=choose(['slow','double','shield']);
-  f.init({ x:rand(160,cfg.viewW-160), y:cfg.viewH+60, vx:rand(-200,200), vy:-rand(900,1600),
-    radius:38, emoji:kind==='slow'?'🐢':kind==='double'?'✨':'🛡️', type:'power', power:kind, spin:rand(-5,5)
-  }); fruits.push(f);
-}
-
-/* ---------- Input & Slicing ---------- */
-let isPointerDown=false; let pointerPositions=[]; const maxTrail=cfg.trailLength;
-function addTrail(x,y){ pointerPositions.push({x,y}); if(pointerPositions.length>maxTrail) pointerPositions.shift(); }
-function onDown(x,y){ isPointerDown=true; pointerPositions=[]; addTrail(x,y); }
-function onMove(x,y){ if(isPointerDown) addTrail(x,y); }
-function onUp(){ if(!isPointerDown) return; isPointerDown=false; checkSlicing(); pointerPositions=[]; }
-
-canvas.addEventListener('mousedown',e=>{ const r=canvas.getBoundingClientRect(); onDown(e.clientX-r.left, e.clientY-r.top); });
-addEventListener('mousemove',e=>{ if(!isPointerDown) return; const r=canvas.getBoundingClientRect(); onMove(e.clientX-r.left, e.clientY-r.top); });
-addEventListener('mouseup',onUp);
-
-canvas.addEventListener('touchstart',e=>{ e.preventDefault(); const r=canvas.getBoundingClientRect(); const t=e.changedTouches[0]; onDown(t.clientX-r.left, t.clientY-r.top); },{passive:false});
-canvas.addEventListener('touchmove',e=>{ e.preventDefault(); if(!isPointerDown) return; const r=canvas.getBoundingClientRect(); const t=e.changedTouches[0]; onMove(t.clientX-r.left, t.clientY-r.top); },{passive:false});
-canvas.addEventListener('touchend',e=>{ e.preventDefault(); onUp(); },{passive:false});
-
-function checkSlicing(){
-  if(pointerPositions.length<2) return;
-  for(let i=0;i<fruits.length;i++){
-    const f=fruits[i]; if(!f.alive) continue;
-    for(let s=0;s<pointerPositions.length-1;s++){
-      const a=pointerPositions[s], b=pointerPositions[s+1];
-      const dx=b.x-a.x, dy=b.y-a.y, l2=dx*dx+dy*dy+1e-6;
-      const t=((f.x-a.x)*dx+(f.y-a.y)*dy)/l2;
-      const clx=a.x+dx*Math.max(0,Math.min(1,t)), cly=a.y+dy*Math.max(0,Math.min(1,t));
-      const d2=(clx-f.x)**2+(cly-f.y)**2;
-      if(d2<=f.radius*f.radius){ processHit(f, l2); break; }
-    }
-  }
-}
-
-function processHit(f, speedSq){
-  if(!f.alive) return;
-  if(f.type==='bomb'){
-    if(powerups.includes('shield')){ powerups = powerups.filter(p=>p!=='shield'); }
-    else{ lives=Math.max(0,lives-1); for(let i=0;i<40;i++) spawnParticle(f.x+rand(-10,10), f.y+rand(-10,10), rand(-800,800), rand(-800,800), rand(0.4,1.0), 3); }
-    f.alive=false; fruitPool.release(f); fruits.splice(fruits.indexOf(f),1); return;
-  }
-  if(f.type==='power'){
-    powerups.push(f.power);
-    if(f.power==='slow') slowTimer=Math.max(slowTimer,2.4);
-    if(f.power==='double') doubleTimer=Math.max(doubleTimer,6);
-    f.alive=false; fruitPool.release(f); fruits.splice(fruits.indexOf(f),1);
-    toast(f.power==='slow'?'SLOW!':f.power==='double'?'DOUBLE!':'SHIELD!');
-    return;
-  }
-  // fruit
-  f.alive=false; fruitPool.release(f); fruits.splice(fruits.indexOf(f),1);
-  for(let i=0;i<12;i++) spawnParticle(f.x+rand(-f.radius,f.radius), f.y+rand(-f.radius,f.radius), rand(-500,500), rand(-500,500), rand(0.4,0.9), rand(2,5));
-  const base=10, speedBonus=Math.min(4, Math.sqrt(speedSq)/80);
-  combo+=1; comboTimer=cfg.comboResetTime;
-  const mult = 1 + Math.floor(combo/5)*0.5 + (doubleTimer>0 ? 1 : 0);
-  score += Math.round(base * mult * (1 + speedBonus*0.2));
-}
-
-/* ---------- Particles ---------- */
-function spawnParticle(x,y,vx,vy,life,size){ const p=particlePool.get(); if(!p) return; p.init(x,y,vx,vy,life,size); particles.push(p); }
-
-/* ---------- Loop ---------- */
-pauseBtn.addEventListener('click',()=>{ if(!running && paused){ restart(); return; } paused=!paused; pauseBtn.textContent = paused?'Resume':'Pause'; });
-restartBtn.addEventListener('click', restart);
-
-function restart(){
-  fruits.forEach(f=>fruitPool.release(f)); fruits=[];
-  particles.forEach(p=>particlePool.release(p)); particles=[];
-  score=0; combo=0; comboTimer=0; lives=3;
-  spawnInterval=cfg.spawnInterval; wave=1; lastSpawn=0;
-  running=true; paused=false; pauseBtn.textContent='Pause';
-}
-
-function update(dt){
-  if(paused) return;
-  // timers
-  if(comboTimer>0) comboTimer-=dt; else combo=0;
-  if(slowTimer>0) slowTimer-=dt; if(doubleTimer>0) doubleTimer-=dt;
-  if(slowTimer<=0){ slowTimer=0; const i=powerups.indexOf('slow'); if(i!==-1) powerups.splice(i,1); }
-  if(doubleTimer<=0){ doubleTimer=0; const i=powerups.indexOf('double'); if(i!==-1) powerups.splice(i,1); }
-
-  // spawn
-  lastSpawn += dt * (slowTimer>0 ? 0.5 : 1);
-  if(lastSpawn>=spawnInterval){ lastSpawn=0; spawnFruitPattern(); spawnInterval*=Math.pow(cfg.difficultyRamp, wave*0.05); wave+=0.02; }
-
-  // update fruits
-  const slowFactor= slowTimer>0 ? 0.7 : 1;
-  for(let i=fruits.length-1;i>=0;i--){
-    const f=fruits[i]; if(!f.alive){ fruits.splice(i,1); continue; }
-    f.update(dt*slowFactor);
-    if(f.y - f.radius > cfg.viewH + 100){
-      if(f.type==='fruit') lives=Math.max(0,lives-1);
-      f.alive=false; fruitPool.release(f); fruits.splice(i,1);
-    }
+/* FINAL ALL-IN-ONE: Game + Preload + Shop + Save
+   Put fruit images in images/ folder. Use filenames in FRUITS+ BOMB arrays below.
+*/
   }
 
-  // particles
-  for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.update(dt); if(!p.alive){ particlePool.release(p); particles.splice(i,1); } }
-
-  // HUD
-  scoreEl.textContent=`Score: ${score}`;
-  comboEl.textContent=`Combo: x${1 + Math.floor(combo/5)}`;
-  livesEl.textContent=`Lives: ${lives}`;
-
-  if(lives<=0){ running=false; paused=true; pauseBtn.textContent='Restart'; addScore(score); }
-}
-
-function draw(){
-  // bg fill is handled by #bg; we still clear canvas
-  ctx.clearRect(0,0,cfg.viewW,cfg.viewH);
-  // fruits
-  for(const f of fruits) f.draw(ctx);
-  // particles
-  ctx.fillStyle='rgba(255,200,80,0.9)';
-  for(const p of particles) p.draw(ctx);
-  // trail
-  if(pointerPositions.length>1){
-    ctx.lineCap='round'; ctx.lineJoin='round';
-    for(let i=0;i<pointerPositions.length-1;i++){
-      const a=pointerPositions[i], b=pointerPositions[i+1];
-      const age=(pointerPositions.length-i)/pointerPositions.length;
-      ctx.strokeStyle=`rgba(0,255,213,${0.18*age})`;
-      ctx.lineWidth=8*age;
-      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
-    }
+  function applyBackground(bgId){
+    const bg = BACKGROUNDS.find(b=>b.id===bgId) || BACKGROUNDS[0];
+    document.getElementById('gameWrapper').style.background = bg.css;
+    shopState.selectedBg = bg.id;
+    saveShop();
   }
-}
 
-function loop(){
-  const t=performance.now()/1000; const dt=Math.min(0.033, t-lastTime); lastTime=t;
-  if(running && !paused) update(dt);
-  draw();
-  requestAnimationFrame(loop);
-}
-restart(); loop();
+  // map blade data for quick access
+  const BLADES_MAP = {};
+  BLADES.forEach(b=>BLADES_MAP[b.id]=b);
+
+  // === INIT & BINDINGS ===
+  startBtn.addEventListener('click', ()=> startGame(false));
+  bigStart.addEventListener('click', ()=> startGame(false));
+  pauseBtn.addEventListener('click', ()=> pauseGame());
+  restartBtn.addEventListener('click', ()=> restartGame());
+  shopBtn.addEventListener('click', ()=> openShop());
+  closeShop.addEventListener('click', ()=> closeShopModal());
+  goRestart.addEventListener('click', ()=> { gameOver.style.display='none'; restartGame(); });
+
+  // pointer listeners
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerdown', onPointerMove);
+  window.addEventListener('pointerup', ()=> bladePoints = []);
+
+  // resize on load
+  function init(){
+    resize(); physicsTick();
+    // show loader and start emoji
+    loader.style.display = 'flex'; startEmoji();
+    preloadImages(2400).then(() => {
+      stopEmoji();
+      loader.style.display = 'none';
+      // apply saved shop state / coins
+      coins = shopState.coins || coins;
+      updateHUD();
+      updateShopUI();
+      // auto start after small delay
+      setTimeout(()=>{ if(!running){ startGame(true); } }, 300);
+    });
+  }
+
+  // pointer move handler (defined earlier). Ensure area rect on load
+  function initBindings(){ /* already bound */ }
+
+  // start emoji helper
+  function startEmoji(){ let i=0; loadEmoji.textContent = EMOJIS[0]; if(!window._emojiInterval){ window._emojiInterval = setInterval(()=>{ i=(i+1)%EMOJIS.length; loadEmoji.textContent = EMOJIS[i]; }, 600); } }
+  function stopEmoji(){ if(window._emojiInterval){ clearInterval(window._emojiInterval); window._emojiInterval = null; } }
+
+  // physics & drawing tick loop already defined as physicsTick but need to call update/draw inside
+  function physicsTick(){ if(running && !paused){ update(); draw(); } requestAnimationFrame(physicsTick); }
+
+  // preload wrapper already defined; update loader counts
+  // modify preloadImages to update progress display (done above)
+
+  // Start everything when page load
+  window.addEventListener('load', init);
+
+  // Expose small API for debugging (hidden by default)
+  window.FruitCut = { start: ()=>startGame(false), pause: ()=>pauseGame(), restart: ()=>restartGame(), shop: ()=>openShop() };
+
+  // initial HUD
+  updateHUD();
+
+  // small convenience: ensure shopState default purchases include free items
+  BACKGROUNDS.forEach(b => { if(b.cost===0 && !shopState.purchasedBackgrounds.includes(b.id)) shopState.purchasedBackgrounds.push(b.id); });
+  BLADES.forEach(b => { if(b.cost===0 && !shopState.purchasedBlades.includes(b.id)) shopState.purchasedBlades.push(b.id); });
+
+})();
 </script>
 </body>
 </html>
