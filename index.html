@@ -452,3 +452,67 @@ function draw(){
     ctx.shadowColor='rgba(255,80,80,.18)'; ctx.shadowBlur=10;
     ctx.fillText(b.emoji,0,0); ctx.restore();
   });
+pieces
+  pieces.forEach(p=>{
+    ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+    const sz=Math.floor(p.size); ctx.font=sz+'px serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.beginPath(); if(p.side==='L') ctx.rect(-sz,-sz,sz,sz*2); else ctx.rect(0,-sz,sz,sz*2);
+    ctx.clip(); ctx.fillText(p.emoji,0,0); ctx.restore();
+  });
+  // particles
+  particles.forEach(pr=>{
+    ctx.beginPath(); ctx.globalAlpha = Math.max(0, Math.min(1, pr.life/60));
+    ctx.fillStyle='#ffd66b'; ctx.arc(pr.x, pr.y, pr.r, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+  });
+
+  // trail (blade color from shop)
+  if(trails.length>1){
+    const blade = BLADES.find(b=>b.id===owned.blade) || BLADES[0];
+    ctx.lineJoin = ctx.lineCap = 'round';
+    for(let i=0;i<trails.length-1;i++){
+      const a=trails[i], b=trails[i+1];
+      const age = Date.now()-a.t, alpha = 1-Math.min(1, age/220);
+      ctx.strokeStyle = `${blade.color}${alpha*.95})`;
+      ctx.lineWidth = 8*(1 - i/trails.length) + 2;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
+  }
+}
+
+/* ---------- Loop ---------- */
+function loop(){ if(running && !paused){ update(); draw(); } requestAnimationFrame(loop); }
+
+/* ---------- Start/End ---------- */
+function startGame(){
+  fruits=[]; bombs=[]; pieces=[]; particles=[]; trails=[];
+  score=0; lives=3; level=1;
+  ui.score.textContent=score; ui.lives.textContent=lives; ui.level.textContent=level;
+  running=true; paused=false; spawnTimer=6;
+  ui.startOverlay.classList.add('hidden'); ui.pauseBtn.classList.remove('hidden'); ui.restartBtn.classList.remove('hidden');
+  ui.gameOver.classList.add('hidden');
+}
+function endGame(){
+  running=false; paused=false;
+  ui.finalScore.textContent = score;
+  best = Math.max(best, score); ui.bestScore.textContent = best;
+  save();
+  ui.gameOver.classList.remove('hidden');
+}
+
+/* ---------- HUD / Toast ---------- */
+function updateHUD(){ ui.score.textContent=score; ui.lives.textContent=lives; ui.level.textContent=level; ui.coins.textContent=coins; ui.shopCoins.textContent=coins; }
+function toast(msg){ ui.toast.textContent=msg; ui.toast.style.display='block'; setTimeout(()=> ui.toast.style.display='none', 1100); }
+
+/* ---------- Buttons ---------- */
+ui.bigStart.onclick = startGame;
+ui.startBtn.onclick = startGame;
+ui.pauseBtn.onclick = ()=>{ paused=!paused; ui.pauseBtn.textContent = paused? 'Resume':'Pause'; };
+ui.restartBtn.onclick = ()=>{ startGame(); };
+ui.playAgain.onclick = ()=>{ startGame(); ui.gameOver.classList.add('hidden'); };
+
+/* ---------- Init ---------- */
+updateHUD(); setBlade(owned.blade||'neon'); applyBG(owned.bg||'neon'); requestAnimationFrame(loop);
+</script>
+</body>
+</html>
