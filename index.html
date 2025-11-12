@@ -3,49 +3,72 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Fruit Cut — Final All-in-One</title>
+<title>Fruit Cut — Final All-in-One (Updated)</title>
 <style>
 :root{
-  --ui:#f4f7fb; --panel:#efe9e1; --btn:#111; --accent:#22c55e;
-  --hud-shadow: 0 8px 22px rgba(0,0,0,0.06);
+  --ui:#f4f7fb; --panel:#ffffff; --btn:#111; --accent:#22c55e;
+  --accent-2:#06b6d4; --hud-shadow: 0 8px 22px rgba(2,6,23,0.06);
+  --glass: rgba(255,255,255,0.6);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0;background:var(--ui);font-family:Inter,system-ui,Roboto,Arial,sans-serif;color:#111}
-.container{max-width:920px;margin:0 auto;padding:12px}
-h1{text-align:center;margin:8px 0}
-.hud{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
-.stat{background:#fff;padding:8px 12px;border-radius:12px;box-shadow:var(--hud-shadow);font-weight:700}
-#gameWrapper{position:relative;border-radius:14px;overflow:hidden;height:66vh;min-height:480px;background:linear-gradient(180deg,#bfe9ff,#f6f7fb)}
-#sky{position:absolute;inset:0;z-index:1}
+html,body{height:100%;margin:0;background:linear-gradient(180deg,#e6f7ff,#f4fbf7);font-family:Inter,system-ui,Roboto,Arial,sans-serif;color:#111}
+.container{max-width:960px;margin:0 auto;padding:12px}
+h1{text-align:center;margin:6px 0;font-weight:700}
+.hud{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
+.stat{background:var(--panel);padding:10px 14px;border-radius:12px;box-shadow:var(--hud-shadow);font-weight:700;display:flex;gap:8px;align-items:center}
+#gameWrapper{position:relative;border-radius:14px;overflow:hidden;height:66vh;min-height:460px;background:linear-gradient(180deg,#bfe9ff,#f6f7fb);border:1px solid rgba(0,0,0,0.04)}
+#sky{position:absolute;inset:0;z-index:1;pointer-events:none}
 #gameArea{position:absolute;inset:0;z-index:2;touch-action:none}
-canvas{position:absolute;inset:0;z-index:6;pointer-events:none}
+canvas#bladeCanvas, canvas#particles{position:absolute;inset:0;z-index:6;pointer-events:none}
 .fruit, .half{position:absolute;transform:translate(-50%,-50%);user-select:none;pointer-events:none;z-index:5}
-#bigStart{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;background:var(--btn);color:#fff;padding:14px 20px;border-radius:12px;font-weight:700;cursor:pointer;box-shadow:0 12px 34px rgba(0,0,0,0.25)}
-.controls{display:flex;gap:12px;justify-content:center;padding:18px;margin-top:6px}
-.btn{background:#fff;border:0;padding:10px 18px;border-radius:12px;cursor:pointer;box-shadow:0 10px 26px rgba(2,6,23,0.06);font-weight:700}
-.btn.ghost{background:transparent;border:1px solid rgba(0,0,0,0.06)}
-#gameOver{position:absolute;inset:0;z-index:1400;display:none;align-items:center;justify-content:center}
-.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 12px 36px rgba(2,6,23,0.12)}
+#bigStart{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;background:transparent;color:#111;padding:14px 20px;border-radius:12px;font-weight:800;cursor:pointer;border:2px solid #111}
+.controls{display:flex;gap:12px;justify-content:center;padding:18px;margin-top:8px;flex-wrap:wrap}
+.btn{
+  background:transparent;border:2px solid rgba(0,0,0,0.08);padding:10px 18px;border-radius:12px;cursor:pointer;font-weight:700;
+  transition:all 180ms ease;backdrop-filter: blur(4px);
+  box-shadow: 0 8px 24px rgba(2,6,23,0.06);
+}
+.btn:hover{transform:translateY(-4px);border-color:rgba(0,0,0,0.12)}
+.btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff;border:2px solid rgba(0,0,0,0.06)}
+.btn.ghost{background:transparent;border:2px dashed rgba(0,0,0,0.06)}
+#gameOver{position:absolute;inset:0;z-index:1400;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(0,0,0,0.25),rgba(0,0,0,0.45))}
+.card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 12px 36px rgba(2,6,23,0.12);min-width:260px;text-align:center}
 .modal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1500;display:none}
 .shopGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .shopItem{background:#fff;padding:8px;border-radius:8px;display:flex;align-items:center;gap:8px;justify-content:space-between}
 .thumb{width:64px;height:44px;object-fit:cover;border-radius:8px}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:rgba(0,0,0,0.8);color:#fff;padding:8px 14px;border-radius:999px;z-index:1600;display:none}
-.loadingOverlay{position:absolute;inset:0;background:rgba(255,255,255,0.9);z-index:2000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
-.progress{width:70%;max-width:420px;background:#fff;padding:18px;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:rgba(0,0,0,0.85);color:#fff;padding:8px 14px;border-radius:999px;z-index:1600;display:none}
+.loadingOverlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0.95));z-index:2000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
+.progress{width:78%;max-width:520px;background:var(--panel);padding:18px;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
 .progressBar{height:10px;background:#eee;border-radius:999px;overflow:hidden;margin:10px 0}
-.progressFill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#06b6d4)}
+.progressFill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
 .loadingEmoji{font-size:42px}
 .hidden{display:none}
 .small{font-size:13px;color:#666}
-@media (max-width:720px){ #gameWrapper{height:62vh;min-height:420px} .thumb{width:56px;height:40px} }
+#spinContainer{display:none;flex-direction:column;align-items:center;gap:10px;position:absolute;right:12px;top:12px;z-index:1300}
+#spinWheel{
+  width:180px;height:180px;border-radius:50%;border:6px solid rgba(0,0,0,0.08);
+  background:conic-gradient(#ffb4b4 0deg 60deg,#ffd8a8 60deg 120deg,#c7f9cc 120deg 180deg,#bde4ff 180deg 240deg,#f3d1ff 240deg 300deg,#fff3b0 300deg 360deg);
+  display:flex;align-items:center;justify-content:center;position:relative;transition:transform 4s cubic-bezier(.2,.9,.2,1);
+  box-shadow:0 10px 30px rgba(2,6,23,0.08);
+}
+#wheelPointer{position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:18px solid #111;border-radius:2px}
+.rewardBox{background:#fff;padding:10px;border-radius:10px;box-shadow:0 8px 26px rgba(2,6,23,0.08);min-width:160px;text-align:center}
+.badge{background:rgba(0,0,0,0.06);padding:6px 10px;border-radius:999px;font-weight:700}
+.infoRow{display:flex;gap:8px;align-items:center}
+@media (max-width:720px){
+  #gameWrapper{height:64vh;min-height:420px}
+  .thumb{width:56px;height:40px}
+  .stat{font-size:14px;padding:8px}
+  #spinWheel{width:140px;height:140px}
+}
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>🍉 Fruit Cut — Final </h1>
+  <h1>🍉 Fruit Cut — Final (All-in-One)</h1>
 
-  <div class="hud">
+  <div class="hud" role="region" aria-label="Game stats">
     <div class="stat">Score: <strong id="score">0</strong></div>
     <div class="stat">Lives: <strong id="lives">3</strong></div>
     <div class="stat">Coins: <strong id="coins">0</strong></div>
@@ -53,7 +76,7 @@ canvas{position:absolute;inset:0;z-index:6;pointer-events:none}
     <div class="stat">Level: <strong id="level">1</strong></div>
   </div>
 
-  <div id="gameWrapper">
+  <div id="gameWrapper" aria-live="polite">
     <div id="sky"></div>
     <div id="gameArea" aria-label="game area"></div>
     <canvas id="bladeCanvas"></canvas>
@@ -62,21 +85,21 @@ canvas{position:absolute;inset:0;z-index:6;pointer-events:none}
     <div class="loadingOverlay" id="loader">
       <div class="progress">
         <div class="loadingEmoji" id="loadEmoji">🍉</div>
-        <div id="loadText">Loading images...</div>
+        <div id="loadText">Preparing game...</div>
         <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
-        <div class="small" id="progressCount">0 / 0</div>
+        <div class="small" id="progressCount">Loading...</div>
       </div>
     </div>
 
-    <div id="bigStart">START</div>
+    <div id="bigStart" class="btn primary">START</div>
 
     <div id="gameOver">
-      <div class="card" style="text-align:center">
+      <div class="card">
         <h2>Game Over</h2>
         <p>Score: <strong id="goScore">0</strong></p>
         <p>Best: <strong id="goBest">0</strong></p>
         <div style="margin-top:12px">
-          <button id="goRestart" class="btn">Play Again</button>
+          <button id="goRestart" class="btn primary">Play Again</button>
         </div>
       </div>
     </div>
@@ -99,94 +122,550 @@ canvas{position:absolute;inset:0;z-index:6;pointer-events:none}
       </div>
     </div>
 
+    <div id="spinContainer">
+      <div id="wheelPointer"></div>
+      <div id="spinWheel" role="img" aria-label="Lucky spin wheel"></div>
+      <div class="rewardBox" id="spinResult">Spin to win!</div>
+    </div>
+
   </div>
 
-  <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
-    <button id="startBtn" class="btn">Start</button>
+  <div class="controls" role="toolbar" aria-label="Controls">
+    <button id="startBtn" class="btn primary">Start</button>
     <button id="pauseBtn" class="btn">Pause</button>
     <button id="restartBtn" class="btn">Restart</button>
     <button id="shopBtn" class="btn">Shop</button>
+    <button id="dailyBtn" class="btn">Daily Reward</button>
+    <button id="missionBtn" class="btn ghost">Get Mission</button>
+    <button id="spinBtn" class="btn">Open Spin</button>
   </div>
 </div>
 
 <div id="toast" class="toast"></div>
 
 <script>
-/* FINAL ALL-IN-ONE: Game + Preload + Shop + Save
-   Put fruit images in images/ folder. Use filenames in FRUITS+ BOMB arrays below.
+/*
+  Final integrated game shell:
+  - Basic fruit spawn & slice detection (touch/mouse)
+  - Score, lives, coins, level
+  - Shop skeleton with purchasable items (no external assets required)
+  - Daily Reward (localStorage)
+  - Mission / Challenge generator
+  - Lucky Spin wheel
+  - Preloader simulated (no external images required)
 */
 
-  }
+/* ---------- App state ---------- */
+const state = {
+  running: false,
+  paused: false,
+  score: 0,
+  lives: 3,
+  coins: 0,
+  level: 1,
+  best: 0,
+  highScoreKey: 'fc_best',
+  coinsKey: 'fc_coins',
+  shopStateKey: 'fc_shop',
+  lastClaimKey: 'fc_lastClaim',
+  missionKey: 'fc_mission',
+  bladePath: [],
+  fruits: [],
+  particles: [],
+  spawnTimer: 0,
+  spawnInterval: 900,
+  bladeCanvasSize: {w:0,h:0}
+};
 
-  function applyBackground(bgId){
-    const bg = BACKGROUNDS.find(b=>b.id===bgId) || BACKGROUNDS[0];
-    document.getElementById('gameWrapper').style.background = bg.css;
-    shopState.selectedBg = bg.id;
-    saveShop();
-  }
+/* ---------- DOM ---------- */
+const gameArea = document.getElementById('gameArea');
+const bladeCanvas = document.getElementById('bladeCanvas');
+const particlesCanvas = document.getElementById('particles');
+const loader = document.getElementById('loader');
+const progressFill = document.getElementById('progressFill');
+const progressCount = document.getElementById('progressCount');
+const bigStart = document.getElementById('bigStart');
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const restartBtn = document.getElementById('restartBtn');
+const shopBtn = document.getElementById('shopBtn');
+const shopModal = document.getElementById('shopModal');
+const closeShop = document.getElementById('closeShop');
+const goRestart = document.getElementById('goRestart');
+const gameOver = document.getElementById('gameOver');
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const coinsEl = document.getElementById('coins');
+const levelEl = document.getElementById('level');
+const goScore = document.getElementById('goScore');
+const goBest = document.getElementById('goBest');
+const shopCoins = document.getElementById('shopCoins');
 
-  // map blade data for quick access
-  const BLADES_MAP = {};
-  BLADES.forEach(b=>BLADES_MAP[b.id]=b);
+const dailyBtn = document.getElementById('dailyBtn');
+const missionBtn = document.getElementById('missionBtn');
+const spinBtn = document.getElementById('spinBtn');
 
-  // === INIT & BINDINGS ===
-  startBtn.addEventListener('click', ()=> startGame(false));
-  bigStart.addEventListener('click', ()=> startGame(false));
-  pauseBtn.addEventListener('click', ()=> pauseGame());
-  restartBtn.addEventListener('click', ()=> restartGame());
-  shopBtn.addEventListener('click', ()=> openShop());
-  closeShop.addEventListener('click', ()=> closeShopModal());
-  goRestart.addEventListener('click', ()=> { gameOver.style.display='none'; restartGame(); });
+const spinContainer = document.getElementById('spinContainer');
+const spinWheel = document.getElementById('spinWheel');
+const spinResult = document.getElementById('spinResult');
 
-  // pointer listeners
-  window.addEventListener('pointermove', onPointerMove);
-  window.addEventListener('pointerdown', onPointerMove);
-  window.addEventListener('pointerup', ()=> bladePoints = []);
+const toast = document.getElementById('toast');
 
-  // resize on load
-  function init(){
-    resize(); physicsTick();
-    // show loader and start emoji
-    loader.style.display = 'flex'; startEmoji();
-    preloadImages(2400).then(() => {
-      stopEmoji();
-      loader.style.display = 'none';
-      // apply saved shop state / coins
-      coins = shopState.coins || coins;
-      updateHUD();
-      updateShopUI();
-      // auto start after small delay
-      setTimeout(()=>{ if(!running){ startGame(true); } }, 300);
+/* ---------- Canvas contexts ---------- */
+let bladeCtx, particlesCtx;
+
+/* ---------- Utils ---------- */
+function showToast(text, time=1800){
+  toast.textContent = text; toast.style.display='block';
+  setTimeout(()=>{ toast.style.display='none'; }, time);
+}
+function rand(min,max){ return Math.random()*(max-min)+min; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+function load(key, def){ const v=localStorage.getItem(key); return v?JSON.parse(v):def; }
+
+/* ---------- Persistence ---------- */
+state.best = load(state.highScoreKey, 0);
+state.coins = load(state.coinsKey, 0);
+let shopState = load(state.shopStateKey, { purchasedBackgrounds:[], purchasedBlades:[], selectedBg:null, selectedBlade:null });
+
+/* ---------- Simple preloader (simulated) ---------- */
+function fakePreload(){
+  loader.style.display = 'flex';
+  let progress = 0;
+  const steps = 20;
+  progressCount.textContent = `0 / ${steps}`;
+  const id = setInterval(()=>{
+    progress++;
+    progressFill.style.width = `${(progress/steps)*100}%`;
+    progressCount.textContent = `${progress} / ${steps}`;
+    if(progress>=steps){ clearInterval(id); setTimeout(()=>{ loader.style.display='none'; }, 400); }
+  }, 60);
+}
+
+/* ---------- HUD ---------- */
+function updateHUD(){
+  scoreEl.textContent = state.score;
+  livesEl.textContent = state.lives;
+  coinsEl.textContent = state.coins;
+  shopCoins.textContent = state.coins;
+  levelEl.textContent = state.level;
+}
+
+/* ---------- Game area + canvas sizing ---------- */
+function resize(){
+  const rect = gameArea.getBoundingClientRect();
+  bladeCanvas.width = rect.width; bladeCanvas.height = rect.height;
+  particlesCanvas.width = rect.width; particlesCanvas.height = rect.height;
+  bladeCanvas.style.width = rect.width + 'px'; bladeCanvas.style.height = rect.height + 'px';
+  particlesCanvas.style.width = rect.width + 'px'; particlesCanvas.style.height = rect.height + 'px';
+  state.bladeCanvasSize.w = rect.width; state.bladeCanvasSize.h = rect.height;
+  if(!bladeCtx) bladeCtx = bladeCanvas.getContext('2d');
+  if(!particlesCtx) particlesCtx = particlesCanvas.getContext('2d');
+}
+window.addEventListener('resize', resize);
+
+/* ---------- Fruit mechanics (simple circles to demo) ---------- */
+function spawnFruit(){
+  const w = state.bladeCanvasSize.w, h = state.bladeCanvasSize.h;
+  const size = rand(32,58);
+  const x = rand(60,w-60);
+  const y = h + 40;
+  // upward velocity
+  const vx = rand(-60,60)/100;
+  const vy = -rand(7,11);
+  const typeRoll = Math.random();
+  const isBomb = typeRoll < 0.08; // 8% bomb
+  const isGolden = typeRoll > 0.95;
+  const fruit = {
+    id: Date.now() + Math.random(),
+    x, y, vx, vy, ax:0, ay:0.35, size,
+    angle: rand(-0.6,0.6), spin: rand(-0.08,0.08),
+    sliced:false, lifespan: 8000,
+    kind: isBomb ? 'bomb' : (isGolden ? 'gold' : 'normal'),
+    points: isBomb ? -1 : (isGolden ? 40 : 10)
+  };
+  state.fruits.push(fruit);
+}
+
+/* ---------- Particle for splashes ---------- */
+function spawnParticles(x,y,color,amount=10){
+  for(let i=0;i<amount;i++){
+    state.particles.push({
+      x,y,vx:rand(-3,3),vy:rand(-6,-1),
+      life: rand(400,1200), t:0, size: rand(3,8), color
     });
   }
+}
 
-  // pointer move handler (defined earlier). Ensure area rect on load
-  function initBindings(){ /* already bound */ }
+/* ---------- Update & Draw ---------- */
+function update(dt=16){
+  // spawn logic
+  state.spawnTimer += dt;
+  const interval = Math.max(450, state.spawnInterval - state.level*20);
+  if(state.spawnTimer > interval){
+    state.spawnTimer = 0;
+    spawnFruit();
+  }
 
-  // start emoji helper
-  function startEmoji(){ let i=0; loadEmoji.textContent = EMOJIS[0]; if(!window._emojiInterval){ window._emojiInterval = setInterval(()=>{ i=(i+1)%EMOJIS.length; loadEmoji.textContent = EMOJIS[i]; }, 600); } }
-  function stopEmoji(){ if(window._emojiInterval){ clearInterval(window._emojiInterval); window._emojiInterval = null; } }
+  // update fruits
+  for(let i=state.fruits.length-1;i>=0;i--){
+    const f = state.fruits[i];
+    f.vy += f.ay;
+    f.x += f.vx;
+    f.y += f.vy;
+    f.angle += f.spin;
+    // if falls below bottom and not sliced
+    if(f.y > state.bladeCanvasSize.h + 80 && !f.sliced){
+      if(f.kind === 'bomb'){
+        // bomb falls harmlessly
+      } else {
+        state.lives = Math.max(0, state.lives - 1);
+        if(state.lives <= 0) endGame();
+      }
+      state.fruits.splice(i,1);
+    }
+    // lifespan guard
+    f.lifespan -= dt;
+    if(f.lifespan <= 0) state.fruits.splice(i,1);
+  }
 
-  // physics & drawing tick loop already defined as physicsTick but need to call update/draw inside
-  function physicsTick(){ if(running && !paused){ update(); draw(); } requestAnimationFrame(physicsTick); }
+  // particles
+  for(let i=state.particles.length-1;i>=0;i--){
+    const p = state.particles[i];
+    p.vy += 0.12;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.t += dt;
+    if(p.t > p.life) state.particles.splice(i,1);
+  }
 
-  // preload wrapper already defined; update loader counts
-  // modify preloadImages to update progress display (done above)
+  // blade smoothing: cut detection
+  if(state.bladePath.length > 1){
+    // check line segments vs fruits
+    for(let i=state.fruits.length-1;i>=0;i--){
+      const f = state.fruits[i];
+      if(f.sliced) continue;
+      for(let s=0;s<state.bladePath.length-1;s++){
+        const a = state.bladePath[s], b = state.bladePath[s+1];
+        if(!a || !b) continue;
+        const hit = lineIntersectsCircle(a.x,a.y,b.x,b.y,f.x,f.y,f.size);
+        if(hit){
+          // sliced
+          f.sliced = true;
+          // score logic
+          if(f.kind === 'bomb'){
+            // bomb penalty: lose a life
+            state.lives = Math.max(0, state.lives - 1);
+            spawnParticles(f.x,f.y,'#222',14);
+            showToast('Bomb! -1 life',1000);
+            if(state.lives <= 0) endGame();
+          } else {
+            state.score += f.points;
+            // coin reward
+            const cReward = (f.kind === 'gold') ? 10 : 2;
+            state.coins += cReward;
+            spawnParticles(f.x,f.y,(f.kind==='gold' ? '#ffd700' : '#ff6b6b'), 14);
+          }
+          // remove fruit
+          state.fruits.splice(i,1);
+          // small break
+          break;
+        }
+      }
+    }
+  }
 
-  // Start everything when page load
-  window.addEventListener('load', init);
-
-  // Expose small API for debugging (hidden by default)
-  window.FruitCut = { start: ()=>startGame(false), pause: ()=>pauseGame(), restart: ()=>restartGame(), shop: ()=>openShop() };
-
-  // initial HUD
   updateHUD();
+}
 
-  // small convenience: ensure shopState default purchases include free items
-  BACKGROUNDS.forEach(b => { if(b.cost===0 && !shopState.purchasedBackgrounds.includes(b.id)) shopState.purchasedBackgrounds.push(b.id); });
-  BLADES.forEach(b => { if(b.cost===0 && !shopState.purchasedBlades.includes(b.id)) shopState.purchasedBlades.push(b.id); });
+function draw(){
+  // clear
+  bladeCtx.clearRect(0,0,bladeCanvas.width,bladeCanvas.height);
+  particlesCtx.clearRect(0,0,particlesCanvas.width,particlesCanvas.height);
 
-})();
+  // draw fruits
+  for(const f of state.fruits){
+    particlesCtx.save();
+    particlesCtx.translate(f.x, f.y);
+    particlesCtx.rotate(f.angle);
+    // fruit body
+    if(f.kind === 'bomb'){
+      particlesCtx.fillStyle = '#222';
+      particlesCtx.beginPath();
+      particlesCtx.arc(0,0,f.size/2,0,Math.PI*2);
+      particlesCtx.fill();
+      // fuse
+      particlesCtx.strokeStyle = '#fff';
+      particlesCtx.lineWidth = 2;
+      particlesCtx.beginPath();
+      particlesCtx.moveTo(-f.size*0.18,-f.size*0.46);
+      particlesCtx.lineTo(f.size*0.46,-f.size*0.86);
+      particlesCtx.stroke();
+    } else {
+      particlesCtx.fillStyle = (f.kind==='gold' ? '#ffd66b' : '#ff6b6b');
+      particlesCtx.beginPath();
+      particlesCtx.ellipse(0,0,f.size*0.6,f.size*0.8,0,0,Math.PI*2);
+      particlesCtx.fill();
+      // leaf
+      particlesCtx.fillStyle = '#2ecc71';
+      particlesCtx.beginPath();
+      particlesCtx.ellipse(f.size*0.3,-f.size*0.6, f.size*0.18, f.size*0.08, -0.6,0,Math.PI*2);
+      particlesCtx.fill();
+    }
+    particlesCtx.restore();
+  }
+
+  // draw particles (splashes)
+  for(const p of state.particles){
+    particlesCtx.globalAlpha = 1 - (p.t / p.life);
+    particlesCtx.fillStyle = p.color;
+    particlesCtx.beginPath();
+    particlesCtx.arc(p.x,p.y,p.size,0,Math.PI*2);
+    particlesCtx.fill();
+    particlesCtx.globalAlpha = 1;
+  }
+
+  // draw blade trail
+  if(state.bladePath.length>1){
+    bladeCtx.lineJoin = bladeCtx.lineCap = 'round';
+    bladeCtx.lineWidth = 18;
+    bladeCtx.strokeStyle = 'rgba(255,255,255,0.9)';
+    bladeCtx.shadowBlur = 30;
+    bladeCtx.shadowColor = 'rgba(255,255,255,0.25)';
+    bladeCtx.beginPath();
+    for(let i=0;i<state.bladePath.length;i++){
+      const p = state.bladePath[i];
+      if(i===0) bladeCtx.moveTo(p.x,p.y);
+      else bladeCtx.lineTo(p.x,p.y);
+    }
+    bladeCtx.stroke();
+
+    bladeCtx.lineWidth = 6;
+    bladeCtx.strokeStyle = 'rgba(0,0,0,0.08)';
+    bladeCtx.beginPath();
+    for(let i=0;i<state.bladePath.length;i++){
+      const p = state.bladePath[i];
+      if(i===0) bladeCtx.moveTo(p.x,p.y);
+      else bladeCtx.lineTo(p.x,p.y);
+    }
+    bladeCtx.stroke();
+  }
+}
+
+/* ---------- Simple collision helper ---------- */
+function lineIntersectsCircle(x1,y1,x2,y2,cx,cy,r){
+  // distance from circle center to line segment
+  const vx = x2 - x1, vy = y2 - y1;
+  const wx = cx - x1, wy = cy - y1;
+  const c1 = (wx*vx + wy*vy);
+  const c2 = (vx*vx + vy*vy);
+  let t = c2 === 0 ? 0 : c1 / c2;
+  t = clamp(t,0,1);
+  const px = x1 + vx*t, py = y1 + vy*t;
+  const dx = px - cx, dy = py - cy;
+  return (dx*dx + dy*dy) <= (r*r * 1.1); // small tolerance
+}
+
+/* ---------- Game loop ---------- */
+let lastTime=0;
+function loop(ts){
+  if(!lastTime) lastTime = ts;
+  const dt = ts - lastTime;
+  lastTime = ts;
+  if(state.running && !state.paused){
+    update(dt);
+    draw();
+  }
+  // age blade path
+  if(state.bladePath.length>0){
+    // keep last 12 points
+    while(state.bladePath.length>12) state.bladePath.shift();
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Input: pointer events ---------- */
+let pointerDown = false;
+function toLocal(e){
+  const rect = bladeCanvas.getBoundingClientRect();
+  let x = e.clientX - rect.left;
+  let y = e.clientY - rect.top;
+  return {x,y};
+}
+window.addEventListener('pointerdown', (e)=>{
+  pointerDown = true;
+  state.bladePath = [];
+  const p = toLocal(e);
+  state.bladePath.push({x:p.x,y:p.y,t:Date.now()});
+});
+window.addEventListener('pointermove', (e)=>{
+  if(!pointerDown) return;
+  const p = toLocal(e);
+  state.bladePath.push({x:p.x,y:p.y,t:Date.now()});
+});
+window.addEventListener('pointerup', (e)=>{
+  pointerDown = false;
+  // clear blade path after short delay
+  setTimeout(()=> state.bladePath = [], 120);
+});
+
+/* ---------- Game controls ---------- */
+function startGame(auto=false){
+  if(state.running) return;
+  state.running = true;
+  state.paused = false;
+  state.score = 0;
+  state.lives = 3;
+  state.fruits = [];
+  state.particles = [];
+  state.spawnTimer = 0;
+  loader.style.display = 'none';
+  bigStart.style.display = 'none';
+  gameOver.style.display = 'none';
+  updateHUD();
+  showToast('Game started!');
+}
+function pauseGame(){
+  state.paused = !state.paused;
+  showToast(state.paused ? 'Paused' : 'Resumed', 900);
+}
+function restartGame(){
+  state.running = false;
+  setTimeout(()=> startGame(false), 120);
+}
+function endGame(){
+  state.running = false;
+  gameOver.style.display = 'flex';
+  goScore.textContent = state.score;
+  if(state.score > state.best){
+    state.best = state.score;
+    save(state.highScoreKey, state.best);
+  }
+  goBest.textContent = state.best;
+  save(state.coinsKey, state.coins);
+}
+
+/* ---------- Shop UI minimal ---------- */
+function openShop(){ shopModal.style.display='block'; }
+function closeShopModal(){ shopModal.style.display='none'; }
+closeShop.addEventListener('click', closeShopModal);
+
+/* ---------- Daily Reward ---------- */
+function claimDaily(){
+  const today = new Date().toDateString();
+  const last = localStorage.getItem(state.lastClaimKey);
+  if(last === today){
+    showToast('Aaj reward already claim ho chuka hai!');
+    return;
+  }
+  // progressive reward example: count streak
+  let streak = load('fc_streak', 0);
+  const yesterday = new Date(Date.now() - 24*3600*1000).toDateString();
+  if(localStorage.getItem(state.lastClaimKey) === yesterday) streak++;
+  else streak = 1;
+  save('fc_streak', streak);
+  const reward = Math.min(200, 20 * streak); // upto 200 coins
+  state.coins += reward;
+  localStorage.setItem(state.lastClaimKey, today);
+  save(state.coinsKey, state.coins);
+  updateHUD();
+  showToast(`Daily reward: ${reward} coins!`);
+}
+
+/* ---------- Mission System ---------- */
+const MISSION_POOL = [
+  { text: "Cut 50 fruits without missing!", type: "cut", target: 50, reward: 60 },
+  { text: "Avoid 3 bombs in a single life!", type: "avoidBombs", target: 3, reward: 40 },
+  { text: "Make 5 combos in a game!", type: "combo", target: 5, reward: 50 },
+  { text: "Reach 500 score in one run!", type: "score", target: 500, reward: 80 },
+  { text: "Play 3 times this week!", type: "plays", target: 3, reward: 30 }
+];
+function giveMission(){
+  const m = MISSION_POOL[Math.floor(Math.random()*MISSION_POOL.length)];
+  localStorage.setItem(state.missionKey, JSON.stringify({...m, progress:0, given: new Date().toISOString()}));
+  showToast("New Mission: " + m.text, 2000);
+}
+function getCurrentMission(){ return load(state.missionKey, null); }
+missionBtn.addEventListener('click', ()=> giveMission());
+
+/* ---------- Lucky Spin ---------- */
+const SPIN_SECTORS = [
+  { label: "50 Coins", value: {coins:50} },
+  { label: "Free Power-up", value: {power:'slow'} },
+  { label: "Double Score", value: {power:'double'} },
+  { label: "Bomb Shield", value: {power:'shield'} },
+  { label: "100 Coins", value: {coins:100} },
+  { label: "Mystery Fruit", value: {fruit:'mystery'} }
+];
+
+let spinning = false;
+function openSpin(){
+  spinContainer.style.display = (spinContainer.style.display === 'flex' ? 'none' : 'flex');
+}
+spinBtn.addEventListener('click', openSpin);
+spinWheel.addEventListener('click', ()=> {
+  if(spinning) return;
+  spinning = true;
+  // spin degrees
+  const spins = 6 + Math.floor(Math.random()*6);
+  const sectorAngle = 360 / SPIN_SECTORS.length;
+  const randomIndex = Math.floor(Math.random()*SPIN_SECTORS.length);
+  // compute final rotation
+  const final = (spins * 360) + (randomIndex * sectorAngle) + sectorAngle/2;
+  spinWheel.style.transform = `rotate(${final}deg)`;
+  spinResult.textContent = "Spinning...";
+  setTimeout(()=>{
+    const prize = SPIN_SECTORS[randomIndex];
+    handleSpinPrize(prize);
+    spinning = false;
+    // reset wheel slowly after a short delay (visual only)
+    setTimeout(()=>{ spinWheel.style.transform = `rotate(${(randomIndex * sectorAngle) + sectorAngle/2}deg)`; }, 50);
+  }, 4200);
+});
+
+function handleSpinPrize(prize){
+  if(prize.value.coins){
+    state.coins += prize.value.coins;
+    save(state.coinsKey, state.coins);
+    updateHUD();
+    spinResult.textContent = `You Won: ${prize.label}`;
+    showToast(`${prize.label} added!`);
+  } else if(prize.value.power){
+    // For demo, we just show toast
+    spinResult.textContent = `You Won: ${prize.label}`;
+    showToast(`Power-up unlocked: ${prize.label}`);
+  } else {
+    spinResult.textContent = `You Won: ${prize.label}`;
+    showToast(`Lucky! ${prize.label}`);
+  }
+}
+
+/* ---------- Bind buttons ---------- */
+startBtn.addEventListener('click', ()=> startGame(false));
+bigStart.addEventListener('click', ()=> startGame(false));
+pauseBtn.addEventListener('click', ()=> pauseGame());
+restartBtn.addEventListener('click', ()=> restartGame());
+shopBtn.addEventListener('click', ()=> openShop());
+goRestart.addEventListener('click', ()=> { gameOver.style.display='none'; restartGame(); });
+dailyBtn.addEventListener('click', ()=> claimDaily());
+
+/* ---------- Init & start loop ---------- */
+resize();
+fakePreload();
+requestAnimationFrame(loop);
+
+/* ---------- Small autosave every 7s ---------- */
+setInterval(()=> {
+  save(state.coinsKey, state.coins);
+  save(state.highScoreKey, state.best);
+  save(state.shopStateKey, shopState);
+}, 7000);
+
+/* ---------- Final quick helpers for integration with your original shop arrays ----------
+   If you plan to add image assets, replace spawnFruit drawing with image draws and preload assets,
+   and update the preload function to actually load images.
+*/
 </script>
 </body>
 </html>
