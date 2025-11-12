@@ -1,391 +1,703 @@
-!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Fruit Cut — Images Mode</title>
+<title>Fruit Cut — Final All-in-One (Updated)</title>
 <style>
-  :root{ --accent:#00ffd5; --danger:#ff6b6b; }
-  html,body{height:100%;margin:0;background:#0b1020;color:#fff;font-family:Inter,system-ui,Arial;overflow:hidden}
-  #game-wrap{position:relative;display:grid;height:100%;grid-template-rows:1fr auto}
-  #bg{position:absolute;inset:0;z-index:0;background:#081023}
-  canvas{position:relative;z-index:1;display:block;width:100%;height:100%}
-  #ui{position:relative;z-index:2;padding:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;background:rgba(0,0,0,0.22);backdrop-filter:blur(4px)}
-  .btn{--bd:2px;padding:8px 12px;border-radius:10px;cursor:pointer;outline:none;color:var(--accent);background:transparent;border:var(--bd) solid rgba(0,255,213,.14);font-weight:800;box-shadow:0 8px 26px rgba(0,0,0,.45)}
-  .btn:hover{transform:translateY(-3px)}
-  .btn.small{padding:7px 10px;font-size:13px}
-  .pill{background:rgba(255,255,255,0.04);padding:6px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.06)}
-  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:rgba(0,0,0,.86);color:#fff;padding:8px 14px;border-radius:999px;display:none;z-index:6}
-  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:8;background:rgba(0,0,0,.45)}
-  #loaderCard{min-width:260px;padding:18px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(0,0,0,.18));border:1px solid rgba(255,255,255,.06);text-align:center}
-  #hitFlash{position:fixed;inset:0;background:radial-gradient(120% 120% at 50% 40%, rgba(255,80,80,.25), rgba(0,0,0,0));pointer-events:none;opacity:0;transition:opacity .12s;z-index:4}
-  #hitFlash.show{opacity:1}
+:root{
+  --ui:#f4f7fb; --panel:#efe9e1; --btn:#111; --accent:#22c55e;
+  --hud-shadow: 0 8px 22px rgba(0,0,0,0.06);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--ui);font-family:Inter,system-ui,Roboto,Arial,sans-serif;color:#111}
+.container{max-width:920px;margin:0 auto;padding:12px}
+h1{text-align:center;margin:8px 0}
+.hud{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
+.stat{background:#fff;padding:8px 12px;border-radius:12px;box-shadow:var(--hud-shadow);font-weight:700}
+#gameWrapper{position:relative;border-radius:14px;overflow:hidden;height:66vh;min-height:480px;background:linear-gradient(180deg,#bfe9ff,#f6f7fb)}
+#sky{position:absolute;inset:0;z-index:1}
+#gameArea{position:absolute;inset:0;z-index:2;touch-action:none}
+canvas{position:absolute;inset:0;z-index:6}
+.fruit, .half{position:absolute;transform:translate(-50%,-50%);user-select:none;pointer-events:none;z-index:5}
+#bigStart{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:12;background:var(--btn);color:#fff;padding:14px 20px;border-radius:12px;font-weight:700;cursor:pointer;box-shadow:0 12px 34px rgba(0,0,0,0.25)}
+.controls{display:flex;gap:12px;justify-content:center;padding:18px;margin-top:6px}
+.btn{background:#fff;border:0;padding:10px 18px;border-radius:12px;cursor:pointer;box-shadow:0 10px 26px rgba(2,6,23,0.06);font-weight:700}
+.btn.ghost{background:transparent;border:1px solid rgba(0,0,0,0.06)}
+#gameOver{position:absolute;inset:0;z-index:1400;display:none;align-items:center;justify-content:center}
+.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 12px 36px rgba(2,6,23,0.12)}
+.modal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1500;display:none}
+.shopGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.shopItem{background:#fff;padding:8px;border-radius:8px;display:flex;align-items:center;gap:8px;justify-content:space-between}
+.thumb{width:64px;height:44px;object-fit:cover;border-radius:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:rgba(0,0,0,0.8);color:#fff;padding:8px 14px;border-radius:999px;z-index:1600;display:none}
+.loadingOverlay{position:absolute;inset:0;background:rgba(255,255,255,0.9);z-index:2000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}
+.progress{width:70%;max-width:420px;background:#fff;padding:18px;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,0.08);text-align:center}
+.progressBar{height:10px;background:#eee;border-radius:999px;overflow:hidden;margin:10px 0}
+.progressFill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#06b6d4)}
+.loadingEmoji{font-size:42px}
+.hidden{display:none}
+.small{font-size:13px;color:#666}
+#hitFlash{position:absolute;inset:0;z-index:1401;pointer-events:none;background:radial-gradient(120% 120% at 50% 40%, rgba(255,80,80,0.22), rgba(0,0,0,0));opacity:0;transition:opacity .12s}
+#hitFlash.show{opacity:1}
+@media (max-width:720px){ #gameWrapper{height:62vh;min-height:420px} .thumb{width:56px;height:40px} }
 </style>
 </head>
 <body>
-  <div id="game-wrap">
-    <div id="bg"></div>
-    <canvas id="c"></canvas>
+<div class="container">
+  <h1>🍉 Fruit Cut — Final </h1>
 
-    <div id="ui">
-      <div style="display:flex;gap:8px;align-items:center">
-        <div id="score" class="pill">Score: 0</div>
-        <div id="combo" class="pill">Combo: x1</div>
-        <div id="lives" class="pill">Lives: 3</div>
-        <div id="themeName" class="pill">Theme: Neon</div>
-      </div>
-
-      <div style="display:flex;gap:8px;align-items:center">
-        <button id="devBtn" class="btn small">Dev Console</button>
-        <button id="imagesToggle" class="btn small">Use Images: OFF</button>
-        <button id="themeBtn" class="btn small">Change Theme</button>
-        <button id="boardBtn" class="btn small">Leaderboard</button>
-        <button id="pauseBtn" class="btn small">Pause</button>
-        <button id="restartBtn" class="btn small">Restart</button>
-      </div>
-    </div>
+  <div class="hud">
+    <div class="stat">Score: <strong id="score">0</strong></div>
+    <div class="stat">Lives: <strong id="lives">3</strong></div>
+    <div class="stat">Coins: <strong id="coins">0</strong></div>
+    <div style="flex:1"></div>
+    <div class="stat">Level: <strong id="level">1</strong></div>
   </div>
 
-  <!-- Loader -->
-  <div id="loader" class="overlay" style="display:flex">
-    <div id="loaderCard">
-      <div id="loaderText">Loading images...</div>
-      <div style="height:10px;margin-top:12px;background:#0b1220;border-radius:999px;overflow:hidden">
-        <div id="loaderFill" style="height:100%;width:0;background:linear-gradient(90deg,var(--accent),#06b6d4);transition:width .25s"></div>
-      </div>
-      <div id="loaderCount" style="margin-top:8px;font-size:13px;color:#cfe">0 / 0</div>
-      <div style="margin-top:10px;font-size:13px;color:#cfe">Put images into <code>images/</code> folder with correct filenames.</div>
-    </div>
-  </div>
+  <div id="gameWrapper">
+    <div id="sky"></div>
+    <div id="gameArea" aria-label="game area"></div>
+    <canvas id="gameCanvas"></canvas>
+    <canvas id="bladeCanvas"></canvas>
+    <canvas id="particles"></canvas>
 
-  <!-- Leaderboard Modal -->
-  <div id="boardModal" class="overlay" style="display:none;align-items:center;justify-content:center">
-    <div style="min-width:280px;padding:16px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(0,0,0,.16));border:1px solid rgba(255,255,255,.06)">
-      <h3 style="margin:0 0 8px">🏆 Leaderboard</h3>
-      <ol id="boardList" style="padding-left:18px;margin:6px 0 0"></ol>
-      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-        <button id="resetBoard" class="btn small" style="background:rgba(255,80,80,.08);border-color:rgba(255,80,80,.18)">Reset</button>
-        <button id="closeBoard" class="btn small">Close</button>
+    <div class="loadingOverlay" id="loader">
+      <div class="progress">
+        <div class="loadingEmoji" id="loadEmoji">🍉</div>
+        <div id="loadText">Loading images...</div>
+        <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
+        <div class="small" id="progressCount">0 / 0</div>
       </div>
     </div>
+
+    <div id="bigStart">START</div>
+
+    <div id="gameOver">
+      <div class="card" style="text-align:center">
+        <h2>Game Over</h2>
+        <p>Score: <strong id="goScore">0</strong></p>
+        <p>Best: <strong id="goBest">0</strong></p>
+        <div style="margin-top:12px">
+          <button id="goRestart" class="btn">Play Again</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="hitFlash"></div>
+
+    <!-- Shop modal -->
+    <div id="shopModal" class="modal">
+      <div class="card" style="min-width:320px;max-width:92vw">
+        <h3 style="margin:0 0 8px">Shop — Backgrounds / Blades</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <div class="small">Coins: <strong id="shopCoins">0</strong></div>
+          <div style="flex:1"></div>
+          <button id="closeShop" class="btn">Close</button>
+        </div>
+
+        <div style="margin-top:6px"><strong>Backgrounds</strong></div>
+        <div class="shopGrid" id="bgGrid" style="margin:8px 0"></div>
+
+        <div style="margin-top:6px"><strong>Blade skins</strong></div>
+        <div class="shopGrid" id="bladeGrid" style="margin:8px 0"></div>
+      </div>
+    </div>
+
   </div>
 
-  <div id="toast" class="toast"></div>
-  <div id="hitFlash"></div>
+  <div style="display:flex;gap:12px;justify-content:center;margin-top:12px">
+    <button id="startBtn" class="btn">Start</button>
+    <button id="pauseBtn" class="btn">Pause</button>
+    <button id="restartBtn" class="btn">Restart</button>
+    <button id="shopBtn" class="btn">Shop</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
 
 <script>
-/* Fruit Cut — Image assets support + Eruda + Smooth build
-   Place image files as specified in IMAGE_ASSETS. If some images fail, emoji fallback used.
-*/
+(() => {
+  // ---------------------------
+  // Config / assets
+  // ---------------------------
+  const IMAGE_ASSETS = {
+    fruits: [
+      { name:'apple', file:'images/apple.png', emoji:'🍎' },
+      { name:'banana', file:'images/banana.png', emoji:'🍌' },
+      { name:'orange', file:'images/orange.png', emoji:'🍊' },
+      { name:'pear', file:'images/pear.png', emoji:'🍐' },
+      { name:'grapes', file:'images/grapes.png', emoji:'🍇' },
+      { name:'straw', file:'images/strawberry.png', emoji:'🍓' },
+      { name:'kiwi', file:'images/kiwi.png', emoji:'🥝' }
+    ],
+    bomb: { name:'bomb', file:'images/bomb.png', emoji:'💣' },
+    powerups: [
+      { name:'slow', file:'images/slow.png', emoji:'🐢' },
+      { name:'double', file:'images/double.png', emoji:'✨' },
+      { name:'shield', file:'images/shield.png', emoji:'🛡️' }
+    ]
+  };
 
-/* ---------- CONFIG: filenames to load from images/ folder ---------- */
-const IMAGE_ASSETS = {
-  fruits: [
-    {name:'apple', file:'images/apple.png', emoji:'🍎'},
-    {name:'banana',file:'images/banana.png', emoji:'🍌'},
-    {name:'orange',file:'images/orange.png', emoji:'🍊'},
-    {name:'pear',  file:'images/pear.png',   emoji:'🍐'},
-    {name:'grapes',file:'images/grapes.png', emoji:'🍇'},
-    {name:'straw', file:'images/strawberry.png', emoji:'🍓'},
-    {name:'kiwi',  file:'images/kiwi.png',    emoji:'🥝'}
-  ],
-  bomb: {name:'bomb', file:'images/bomb.png', emoji:'💣'},
-  powerups: [
-    {name:'slow', file:'images/slow.png', emoji:'🐢'},
-    {name:'double', file:'images/double.png', emoji:'✨'},
-    {name:'shield', file:'images/shield.png', emoji:'🛡️'}
-  ]
-};
+  // DOM refs
+  const gameWrapper = document.getElementById('gameWrapper');
+  const gameCanvas = document.getElementById('gameCanvas');
+  const bladeCanvas = document.getElementById('bladeCanvas');
+  const particlesCanvas = document.getElementById('particles');
+  const loader = document.getElementById('loader');
+  const progressFill = document.getElementById('progressFill');
+  const progressCount = document.getElementById('progressCount');
+  const loadEmoji = document.getElementById('loadEmoji');
 
-/* ---------- Theme (same as before) ---------- */
-const THEMES = [
-  { id:'neon',   name:'Neon',   css:'radial-gradient(120% 120% at 50% 15%, #0e1626 0%, #08121d 60%, #050b12 100%)' },
-  { id:'sunset', name:'Sunset', css:'linear-gradient(180deg,#22122d 0%, #3b1531 55%, #1b0f1a 100%)' },
-  { id:'ocean',  name:'Ocean',  css:'linear-gradient(180deg,#051b2a 0%, #093247 55%, #061b28 100%)' },
-];
-const woodSVG = encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='#7b5a2b' stop-opacity='0.18'/><stop offset='100%' stop-color='#4e351a' stop-opacity='0.18'/></linearGradient></defs><rect width='256' height='256' fill='url(#g)'/><g fill='none' stroke='#3a2813' stroke-opacity='.25' stroke-width='4'><path d='M0,40 C60,20 120,60 180,40 C220,28 250,38 256,36'/><path d='M0,100 C60,80 120,120 180,100 C220,88 250,98 256,96'/><path d='M0,160 C60,140 120,180 180,160 C220,148 250,158 256,156'/><path d='M0,220 C60,200 120,240 180,220 C220,208 250,218 256,216'/></g><g fill='#3a2813' fill-opacity='.28'><circle cx='42' cy='88' r='6'/><circle cx='210' cy='190' r='5'/></g></svg>`);
-THEMES.push({ id:'wood', name:'Wood', css:`url("data:image/svg+xml;utf8,${woodSVG}") repeat, radial-gradient(120% 120% at 50% 15%, #1a1712 0%, #13110e 60%, #0d0c0a 100%)` });
+  const scoreEl = document.getElementById('score');
+  const livesEl = document.getElementById('lives');
+  const coinsEl = document.getElementById('coins');
+  const levelEl = document.getElementById('level');
 
-/* ---------- Leaderboard helpers ---------- */
-const BOARD_KEY = 'fc_images_top5_v1';
-function loadBoard(){ try{ return JSON.parse(localStorage.getItem(BOARD_KEY)||'[]'); }catch(e){ return []; } }
-function saveBoard(list){ localStorage.setItem(BOARD_KEY, JSON.stringify(list.slice(0,5))); }
-function addScore(sc){ const list=loadBoard(); list.push({score:sc, ts:Date.now()}); list.sort((a,b)=>b.score-a.score); saveBoard(list); }
-function renderBoard(){ const list=loadBoard(); const container=document.getElementById('boardList'); container.innerHTML=''; if(!list.length){ container.innerHTML='<li style="justify-content:center">No scores yet</li>'; return; } list.slice(0,5).forEach((it,i)=>{ const d=new Date(it.ts); const li=document.createElement('li'); li.style.display='flex'; li.style.justifyContent='space-between'; li.style.gap='10px'; li.style.padding='8px'; li.style.borderRadius='8px'; li.style.background='rgba(255,255,255,.02)'; li.innerHTML = `<span>${i+1}. ${it.score}</span><span style="color:#cfe">${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}</span>`; container.appendChild(li); }); }
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const shopBtn = document.getElementById('shopBtn');
+  const bigStart = document.getElementById('bigStart');
+  const gameOver = document.getElementById('gameOver');
+  const goRestart = document.getElementById('goRestart');
+  const goScore = document.getElementById('goScore');
+  const goBest = document.getElementById('goBest');
+  const toastEl = document.getElementById('toast');
+  const hitFlash = document.getElementById('hitFlash');
 
-/* ---------- Canvas & Game configuration ---------- */
-const cfg = {
-  width: 900, height: 1600, viewW:900, viewH:1600,
-  gravity: 1100, spawnInterval: 1.0, difficultyRamp: 0.992,
-  maxFruits: 36, maxParticles: 200, trailLength: 12,
-  comboResetTime: 1.6, powerupChance: 0.05
-};
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d', { alpha:false });
-const bgLayer = document.getElementById('bg');
+  const bgGrid = document.getElementById('bgGrid');
+  const bladeGrid = document.getElementById('bladeGrid');
+  const shopCoins = document.getElementById('shopCoins');
+  const closeShop = document.getElementById('closeShop');
 
-/* ---------- Responsive sizing ---------- */
-function resize(){ const r = window.devicePixelRatio||1; const uiH = document.getElementById('ui')?.offsetHeight || 60; const cssW = Math.min(window.innerWidth, cfg.width); const cssH = Math.min(window.innerHeight - uiH, cfg.height); canvas.width = Math.floor(cssW * r); canvas.height = Math.floor(cssH * r); canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px'; ctx.setTransform(r,0,0,r,0,0); cfg.viewW = cssW; cfg.viewH = cssH; } window.addEventListener('resize', resize); resize();
+  // canvases and contexts
+  const gCtx = gameCanvas.getContext('2d', { alpha:true });
+  const bladeCtx = bladeCanvas.getContext('2d', { alpha:true });
+  const pCtx = particlesCanvas.getContext('2d', { alpha:true });
 
-/* ---------- Pools ---------- */
-function Pool(createFn, size){ this.pool=[]; for(let i=0;i<size;i++) this.pool.push(createFn()); }
-Pool.prototype.get=function(){ return this.pool.length?this.pool.pop():null; }
-Pool.prototype.release=function(o){ if(o.reset) o.reset(); this.pool.push(o); }
+  // device pixel
+  let DPR = Math.min(window.devicePixelRatio || 1, 2);
 
-/* ---------- Entities ---------- */
-class Fruit {
-  constructor(){ this.reset(); }
-  reset(){ this.alive=false; this.x=0;this.y=0;this.vx=0;this.vy=0;this.radius=36;this.type='fruit';this.img=null;this.emoji='🍎';this.rotation=0;this.spin=0; }
-  init(opts){ Object.assign(this, opts); this.alive=true; }
-  update(dt){ this.vy += cfg.gravity * dt; this.x += this.vx * dt; this.y += this.vy * dt; this.rotation += this.spin * dt; if(this.y - this.radius > cfg.viewH + 100) this.alive=false; }
-  draw(ctx, useImages){
-    ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(this.rotation);
-    if(useImages && this.img && this.img.complete){
-      // drawImage centered, scale to diameter
-      const d = this.radius*2;
-      ctx.drawImage(this.img, -d/2, -d/2, d, d);
-    } else {
-      ctx.font = `${this.radius*1.6}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(this.emoji, 0, 0);
-    }
-    ctx.restore();
-  }
-}
-class Particle {
-  constructor(){ this.reset(); }
-  reset(){ this.alive=false; this.x=0;this.y=0;this.vx=0;this.vy=0;this.life=0;this.l=0;this.size=2; }
-  init(x,y,vx,vy,life,size){ this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.life=life;this.l=life;this.size=size; this.alive=true; }
-  update(dt){ this.vy += 360 * dt; this.x += this.vx * dt; this.y += this.vy * dt; this.life -= dt; if(this.life <= 0) this.alive=false; }
-  draw(ctx){ ctx.globalAlpha = Math.max(0, this.life / this.l); ctx.fillRect(this.x, this.y, this.size, this.size); ctx.globalAlpha = 1; }
-}
-
-/* ---------- Pools instances ---------- */
-const fruitPool = new Pool(()=>new Fruit(), cfg.maxFruits);
-const particlePool = new Pool(()=>new Particle(), cfg.maxParticles);
-
-/* ---------- State ---------- */
-let fruits = [], particles = [];
-let score = 0, combo = 0, comboTimer = 0, lives = 3;
-let lastSpawn = 0, spawnInterval = cfg.spawnInterval, wave = 1;
-let running = true, paused = false;
-let lastTime = performance.now()/1000;
-let powerups = [], slowTimer = 0, doubleTimer = 0, lifeCooldown = 0;
-
-let useImages = false; // toggled by UI
-const images = { fruits: {}, bomb: null, powerups: {} };
-
-/* ---------- Preload images from IMAGE_ASSETS ---------- */
-const loader = document.getElementById('loader');
-const loaderFill = document.getElementById('loaderFill');
-const loaderCount = document.getElementById('loaderCount');
-
-async function preloadAll(){
-  const toLoad = [];
-  IMAGE_ASSETS.fruits.forEach(f => toLoad.push({type:'fruit', key:f.name, file:f.file, emoji:f.emoji}));
-  toLoad.push({type:'bomb', key:'bomb', file:IMAGE_ASSETS.bomb.file, emoji:IMAGE_ASSETS.bomb.emoji});
-  IMAGE_ASSETS.powerups.forEach(p => toLoad.push({type:'power', key:p.name, file:p.file, emoji:p.emoji}));
-
-  loader.style.display = 'flex';
-  loaderCount.textContent = `0 / ${toLoad.length}`;
-  loaderFill.style.width = '0%';
-
-  let loadedCount = 0;
-  function mark(){
-    loadedCount++;
-    loaderCount.textContent = `${loadedCount} / ${toLoad.length}`;
-    loaderFill.style.width = `${Math.round(loadedCount / toLoad.length * 100)}%`;
-  }
-
-  // load sequentially (so user sees progress)
-  for(const item of toLoad){
-    try{
-      const img = await loadImage(item.file);
-      if(item.type === 'fruit') images.fruits[item.key] = img;
-      else if(item.type === 'bomb') images.bomb = img;
-      else if(item.type === 'power') images.powerups[item.key] = img;
-    }catch(err){
-      // store null to indicate fallback to emoji
-      if(item.type === 'fruit') images.fruits[item.key] = null;
-      else if(item.type === 'bomb') images.bomb = null;
-      else if(item.type === 'power') images.powerups[item.key] = null;
-      console.warn('Image failed:', item.file, err);
-    }
-    mark();
-  }
-
-  // hide loader
-  setTimeout(()=>{ loader.style.display = 'none'; }, 350);
-}
-
-function loadImage(src){
-  return new Promise((resolve, reject)=>{
-    const img = new Image();
-    img.onload = ()=>resolve(img);
-    img.onerror = ()=>reject(new Error('Failed to load ' + src));
-    img.src = src;
-    // cache-busting avoided to let local files be used
-  });
-}
-
-/* ---------- Spawn helpers (use same patterns as before) ---------- */
-function rand(a,b){ return a + Math.random()*(b-a); }
-function choose(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-
-function spawnOne(x,y,vx,vy,opts={}){
-  const f = fruitPool.get(); if(!f) return;
-  const isBomb = Math.random() < 0.06;
-  if(isBomb){
-    const img = images.bomb;
-    f.init({
-      x,y,vx,vy,
-      radius: rand(30,48),
-      emoji: IMAGE_ASSETS.bomb.emoji,
-      img: img,
-      type: 'bomb',
-      spin: rand(-4,4)
+  function resizeCanvases(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = gameWrapper.getBoundingClientRect();
+    [gameCanvas, bladeCanvas, particlesCanvas].forEach(c => {
+      c.width = Math.floor(rect.width * DPR);
+      c.height = Math.floor(rect.height * DPR);
+      c.style.width = rect.width + 'px';
+      c.style.height = rect.height + 'px';
     });
-  } else {
-    // choose fruit entry and attach the preloaded image
-    const entry = IMAGE_ASSETS.fruits[(Math.random()*IMAGE_ASSETS.fruits.length)|0];
-    const img = images.fruits[entry.name] ?? null;
-    f.init({
-      x,y,vx,vy,
-      radius: rand(28,42),
-      emoji: entry.emoji,
-      img: img,
-      type: 'fruit',
-      spin: rand(-4,4)
+    gCtx.setTransform(DPR,0,0,DPR,0,0);
+    bladeCtx.setTransform(DPR,0,0,DPR,0,0);
+    pCtx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resizeCanvases);
+
+  // ---------------------------
+  // Game state
+  // ---------------------------
+  let running = false;
+  let paused = false;
+
+  let score = 0;
+  let lives = 3;
+  let coins = 0;
+  let level = 1;
+
+  let best = Number(localStorage.getItem('fc_best_v1') || 0);
+
+  // physics / spawn
+  const BASE = { GRAV: 1100, VY_MIN: -900, VY_MAX: -700, VX: 200 };
+  let spawnTimer = 0;
+
+  // collections
+  let fruits = [];
+  let pieces = [];
+  let particles = [];
+  let trails = [];
+
+  // preloaded images
+  const images = { fruits: {}, bomb: null, powerups: {} };
+
+  // shop & skins
+  const BACKGROUNDS = [
+    { id:'neon', name:'Neon', cost:0, css:'linear-gradient(180deg,#bfe9ff,#f6f7fb)' },
+    { id:'wood', name:'Wood', cost:15, css:`url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><rect width='256' height='256' fill="#e9ddcf"/><g fill='none' stroke='#c8b59b' stroke-width='3'><path d='M0 40 C60 20 120 60 180 40 C220 28 250 38 256 36'/><path d='M0 120 C60 100 120 140 180 120 C220 108 250 118 256 116'/></g></svg>`) }` }
+  ];
+  const BLADES = [
+    { id:'neon', name:'Neon', cost:0, color:'rgba(34,197,94,' },
+    { id:'fire', name:'Fire', cost:25, color:'rgba(255,99,71,' },
+    { id:'ice', name:'Ice',  cost:35, color:'rgba(102,204,255,' }
+  ];
+
+  let shopState = JSON.parse(localStorage.getItem('fc_shop_v1') || '{}');
+  if(!shopState.purchasedBackgrounds) shopState.purchasedBackgrounds = [];
+  if(!shopState.purchasedBlades) shopState.purchasedBlades = [];
+  if(!shopState.selectedBg) shopState.selectedBg = BACKGROUNDS[0].id;
+  if(!shopState.selectedBlade) shopState.selectedBlade = BLADES[0].id;
+  if(shopState.coins == null) shopState.coins = 0;
+
+  // load from shop state
+  coins = shopState.coins || coins;
+
+  // ---------------------------
+  // Utility & helpers
+  // ---------------------------
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function choose(arr){ return arr[(Math.random()*arr.length)|0]; }
+  function showToast(msg, t=1100){ toastEl.textContent = msg; toastEl.style.display='block'; setTimeout(()=> toastEl.style.display='none', t); }
+
+  // ---------------------------
+  // Preload images from IMAGE_ASSETS
+  // ---------------------------
+  async function loadImage(src){
+    return new Promise((res, rej)=>{
+      const img = new Image();
+      img.onload = ()=>res(img);
+      img.onerror = ()=>rej(new Error('load failed ' + src));
+      img.src = src;
     });
   }
-  fruits.push(f);
-}
 
-function spawnSingle(){ spawnOne(rand(120,cfg.viewW-120), cfg.viewH+60, rand(-200,200), -rand(700,1100)); }
-function spawnBomb(){ spawnOne(rand(120,cfg.viewW-120), cfg.viewH+60, rand(-180,180), -rand(700,1050)); }
+  async function preloadImages(timeoutMs = 5000){
+    // build list
+    const list = [];
+    IMAGE_ASSETS.fruits.forEach(it => list.push({type:'fruit', key:it.name, file:it.file, emoji:it.emoji}));
+    list.push({type:'bomb', key:'bomb', file:IMAGE_ASSETS.bomb.file, emoji:IMAGE_ASSETS.bomb.emoji});
+    IMAGE_ASSETS.powerups.forEach(it => list.push({type:'power', key:it.name, file:it.file, emoji:it.emoji}));
 
-function spawnArc(n){
-  const cx = rand(200,cfg.viewW-200);
-  for(let i=0;i<n;i++){
-    const ang = Math.PI*(0.25 + i/(n-1)*0.5);
-    const s = rand(700,1050); const vx = Math.cos(ang-1.2)*s; const vy = -Math.sin(ang-1.2)*s;
-    spawnOne(cx + (i-n/2)*28, cfg.viewH+60, vx, vy);
+    progressCount.textContent = `0 / ${list.length}`;
+    progressFill.style.width = '0%';
+    loadEmoji.textContent = '🍉';
+
+    let loaded = 0;
+    for(const item of list){
+      try{
+        const img = await Promise.race([
+          loadImage(item.file),
+          new Promise((_,rej)=> setTimeout(()=> rej(new Error('timeout')), timeoutMs))
+        ]);
+        if(item.type === 'fruit') images.fruits[item.key] = img;
+        else if(item.type === 'bomb') images.bomb = img;
+        else if(item.type === 'power') images.powerups[item.key] = img;
+      }catch(e){
+        // fallback — leave null so emoji used
+        if(item.type === 'fruit') images.fruits[item.key] = null;
+        else if(item.type === 'bomb') images.bomb = null;
+        else if(item.type === 'power') images.powerups[item.key] = null;
+        console.warn('Image missing or failed:', item.file, e.message);
+      }
+      loaded++;
+      progressCount.textContent = `${loaded} / ${list.length}`;
+      progressFill.style.width = `${Math.round(loaded/list.length*100)}%`;
+      // animate emoji
+      loadEmoji.textContent = choose(IMAGE_ASSETS.fruits.map(f=>f.emoji));
+      await new Promise(r=>setTimeout(r, 80));
+    }
   }
-}
-function spawnFan(n){
-  const left = rand(120, Math.max(160, cfg.viewW-360));
-  for(let i=0;i<n;i++) spawnOne(left + i*36, cfg.viewH+60, rand(-140,340), -rand(650,1050));
-}
-function spawnChain(n){
-  const x = rand(160, cfg.viewW-160);
-  for(let i=0;i<n;i++) spawnOne(x + Math.sin(i*0.55)*36, cfg.viewH+60 + i*10, rand(-90,90), -rand(600,950) - i*18);
-}
-function spawnBurst(n){
-  const cx = rand(200,cfg.viewW-200);
-  for(let i=0;i<n;i++){ const a=rand(0,Math.PI*2), s=rand(380,980); spawnOne(cx+Math.cos(a)*10, cfg.viewH+60 + Math.sin(a)*10, Math.cos(a)*s, -Math.abs(Math.sin(a))*s); }
-}
-function spawnPowerup(){
-  const choices = IMAGE_ASSETS.powerups;
-  const entry = choices[(Math.random()*choices.length)|0];
-  const f = fruitPool.get(); if(!f) return;
-  const img = images.powerups[entry.name] ?? null;
-  f.init({
-    x: rand(160,cfg.viewW-160), y: cfg.viewH+60,
-    vx: rand(-160,160), vy: -rand(700,1100),
-    radius: 36, emoji: entry.emoji, img: img,
-    type: 'power', power: entry.name, spin: rand(-4,4)
-  });
-  fruits.push(f);
-}
 
-/* ---------- Input & slicing ---------- */
-let isPointerDown = false;
-let pts = [];
-const maxTrail = cfg.trailLength;
-function addTrail(x,y){ pts.push({x,y}); if(pts.length>maxTrail) pts.shift(); }
-function onDown(x,y){ isPointerDown=true; pts=[]; addTrail(x,y); }
-function onMove(x,y){ if(isPointerDown) addTrail(x,y); }
-function onUp(){ isPointerDown=false; checkSlicing(); pts=[]; }
+  // ---------------------------
+  // Entity constructors
+  // ---------------------------
+  function createFruit(opts){
+    return {
+      alive:true,
+      x: opts.x, y: opts.y, vx: opts.vx, vy: opts.vy,
+      r: opts.r || rand(20,36),
+      emoji: opts.emoji,
+      img: opts.img || null,
+      type: opts.type || 'fruit',
+      rot: opts.rot || rand(-0.08,0.08)
+    };
+  }
 
-canvas.addEventListener('mousedown', e => { const r = canvas.getBoundingClientRect(); onDown(e.clientX - r.left, e.clientY - r.top); });
-window.addEventListener('mousemove', e => { if(!isPointerDown) return; const r = canvas.getBoundingClientRect(); onMove(e.clientX - r.left, e.clientY - r.top); });
-window.addEventListener('mouseup', () => { if(!isPointerDown) return; onUp(); });
+  function createPiece(emoji, x, y, vx, vy, r, side){
+    return { emoji, x, y, vx, vy, r, life: 30 + Math.random()*18, rot: rand(-0.12,0.12), side };
+  }
 
-canvas.addEventListener('touchstart', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); const t = e.changedTouches[0]; onDown(t.clientX - r.left, t.clientY - r.top); }, {passive:false});
-canvas.addEventListener('touchmove', e => { e.preventDefault(); if(!isPointerDown) return; const r = canvas.getBoundingClientRect(); const t = e.changedTouches[0]; onMove(t.clientX - r.left, t.clientY - r.top); }, {passive:false});
-canvas.addEventListener('touchend', e => { e.preventDefault(); onUp(); }, {passive:false});
+  function createParticle(x,y,vx,vy,life,r){
+    return { x,y,vx,vy,life,r };
+  }
 
-/* ---------- Utility functions ---------- */
-function spawnParticle(x,y,vx,vy,life,size){ const p = particlePool.get(); if(!p) return; p.init(x,y,vx,vy,life,size); particles.push(p); }
+  // ---------------------------
+  // Spawn / game logic
+  // ---------------------------
+  function spawnCluster(){
+    const baseX = rand(0.2*gameCanvas.clientWidth, 0.8*gameCanvas.clientWidth);
+    const cluster = Math.random() < 0.12 ? 2 : 1;
+    for(let i=0;i<cluster;i++){
+      const isBomb = Math.random() < 0.10;
+      const entry = isBomb ? IMAGE_ASSETS.bomb : choose(IMAGE_ASSETS.fruits);
+      const img = isBomb ? images.bomb : images.fruits[entry.name];
+      const obj = createFruit({
+        x: baseX + rand(-80,80),
+        y: gameCanvas.clientHeight + 40 + Math.random()*20,
+        vx: rand(-BASE.VX, BASE.VX),
+        vy: rand(BASE.VY_MIN, BASE.VY_MAX),
+        r: isBomb ? rand(20,36) : rand(28,44),
+        emoji: entry.emoji,
+        img: img,
+        type: isBomb ? 'bomb' : 'fruit',
+        rot: rand(-0.06,0.06)
+      });
+      fruits.push(obj);
+    }
+  }
 
-/* ---------- Pools create functions ---------- */
-function createFruit(){ return new Fruit(); }
-function createParticle(){ return new Particle(); }
+  // ---------------------------
+  // Input: trails / slicing
+  // ---------------------------
+  let pointerDown = false;
+  let bladePoints = [];
+  function addPoint(x,y){
+    bladePoints.push({x,y,t:Date.now()});
+    if(bladePoints.length > 60) bladePoints.shift();
+  }
 
-/* Recreate pools with updated sizes (in case) */
-const poolFruit = fruitPool; // already created above
-const poolParticle = particlePool;
+  function onPointerMove(e){
+    const rect = gameCanvas.getBoundingClientRect();
+    let x, y;
+    if(e.touches && e.touches[0]){ x = e.touches[0].clientX - rect.left; y = e.touches[0].clientY - rect.top; }
+    else { x = e.clientX - rect.left; y = e.clientY - rect.top; }
+    if(e.type === 'pointerdown' || e.type === 'touchstart' || e.type === 'mousedown'){ pointerDown = true; addPoint(x,y); }
+    else if(e.type === 'pointerup' || e.type === 'touchend' || e.type === 'mouseup'){ pointerDown = false; bladePoints = []; }
+    else if(pointerDown) addPoint(x,y);
+  }
 
-/* ---------- Game logic: slicing, hits ---------- */
-function checkSlicing(){
-  if(pts.length < 2) return;
-  for(let i=0;i<fruits.length;i++){
-    const f = fruits[i];
-    if(!f.alive) continue;
-    for(let s=0;s<pts.length-1;s++){
+  window.addEventListener('pointermove', onPointerMove, {passive:true});
+  window.addEventListener('pointerdown', onPointerMove);
+  window.addEventListener('pointerup', ()=> { pointerDown=false; bladePoints=[]; });
+
+  // ---------------------------
+  // Slicing detection
+  // ---------------------------
+  let lifeCooldown = 0;
+  function distToSeg(px,py,x1,y1,x2,y2){
+    const dx = x2-x1, dy = y2-y1;
+    const l2 = dx*dx + dy*dy || 1;
+    let t = ((px-x1)*dx + (py-y1)*dy)/l2; t = Math.max(0, Math.min(1,t));
+    const cx = x1 + dx*t, cy = y1 + dy*t;
+    return Math.hypot(px-cx, py-cy);
+  }
+
+  function checkSlicing(){
+    if(bladePoints.length < 2) return;
+    const pts = bladePoints.slice(-18);
+    for(let s=0; s<pts.length-1; s++){
       const a = pts[s], b = pts[s+1];
-      const dx = b.x - a.x, dy = b.y - a.y, l2 = dx*dx + dy*dy + 1e-6;
-      const t = ((f.x - a.x)*dx + (f.y - a.y)*dy) / l2;
-      const clx = a.x + dx * Math.max(0, Math.min(1, t));
-      const cly = a.y + dy * Math.max(0, Math.min(1, t));
-      const d2 = (clx - f.x)*(clx - f.x) + (cly - f.y)*(cly - f.y);
-      if(d2 <= f.radius * f.radius){
-        handleHit(f, dx*dx + dy*dy);
-        break;
+      // loop fruits
+      for(let i=fruits.length-1;i>=0;i--){
+        const f = fruits[i];
+        const d = distToSeg(f.x, f.y, a.x, a.y, b.x, b.y);
+        if(d < f.r*0.6){
+          // hit
+          if(f.type === 'bomb'){
+            if(lifeCooldown <= 0){
+              if(shopState.shieldActive){ shopState.shieldActive = false; showToast('Shield used'); }
+              else {
+                lives = Math.max(0, lives-1);
+                hitFlash.classList.add('show'); setTimeout(()=>hitFlash.classList.remove('show'), 140);
+              }
+              lifeCooldown = 0.45;
+            }
+            fruits.splice(i,1);
+            continue;
+          }
+          // normal fruit
+          fruits.splice(i,1);
+          score += 1;
+          coins += 1;
+          shopState.coins = coins;
+          // pieces + particles
+          pieces.push(createPiece(f.emoji, f.x-6, f.y, f.vx-2.2, f.vy-1.8, f.r, 'L'));
+          pieces.push(createPiece(f.emoji, f.x+6, f.y, f.vx+2.2, f.vy-1.8, f.r, 'R'));
+          for(let p=0;p<12;p++) particles.push(createParticle(f.x, f.y, rand(-3,3)*20, rand(-6,-1)*20, rand(18,36), rand(2,4)));
+          updateHUD();
+        }
       }
     }
   }
-}
 
-function handleHit(f, speedSq){
-  if(!f.alive) return;
-  if(f.type === 'bomb'){
-    if(lifeCooldown <= 0){
-      if(powerups.includes('shield')){ powerups = powerups.filter(p=>p!=='shield'); } 
-      else {
-        lives = Math.max(0, lives - 1);
-        document.getElementById('hitFlash').classList.add('show');
-        setTimeout(()=>document.getElementById('hitFlash').classList.remove('show'), 120);
-        for(let i=0;i<28;i++) spawnParticle(f.x + rand(-12,12), f.y + rand(-12,12), rand(-600,600), rand(-600,600), rand(0.35,0.8), 3);
-      }
-      lifeCooldown = 0.45;
+  // ---------------------------
+  // Update / Draw loop
+  // ---------------------------
+  function update(dt){
+    // spawn control
+    spawnTimer -= dt*60; // tick units
+    if(spawnTimer <= 0){
+      spawnCluster();
+      spawnTimer = Math.max(8, 26 - Math.floor(level*1.2) + Math.floor(Math.random()*8));
     }
-    f.alive = false; fruitPool.release(f); fruits.splice(fruits.indexOf(f),1);
-    return;
-  }
-  if(f.type === 'power'){
-    if(f.power === 'slow') slowTimer = Math.max(slowTimer, 2.6);
-    if(f.power === 'double') doubleTimer = Math.max(doubleTimer, 6.2);
-    if(f.power === 'shield') powerups.push('shield'); else if(!powerups.includes(f.power)) powerups.push(f.power);
-    showToast(f.power==='slow'?'SLOW!':f.power==='double'?'DOUBLE!':'SHIELD!');
-    f.alive=false; fruitPool.release(f); fruits.splice(fruits.indexOf(f),1);
-    return;
-  }
-  // normal fruit
-  f.alive=false; fruitPool.release(f); fruits.splice(fruits.indexOf(f),1);
-  for(let i=0;i<10;i++) spawnParticle(f.x + rand(-f.radius,f.radius), f.y + rand(-f.radius,f.radius), rand(-420,420), rand(-420,420), rand(0.35,0.9), rand(2,4));
-  const base = 10;
-  const speedBonus = Math.min(4, Math.sqrt(speedSq) / 90);
-  combo += 1; comboTimer = cfg.comboResetTime;
-  const mult = 1 + Math.floor(combo/5) * 0.5 + (doubleTimer > 0 ? 1 : 0);
-  score += Math.round(base * mult * (1 + speedBonus * 0.2));
-}
 
-/* ---------- Spawn controller ---------- */
-function spawnPattern(){
-  const patterns = ['arc','fan','single','chain','burst'];
-  const p = choose(patterns);
-  const count = Math.min(5 + Math.floor(wave/2), 10);
-  if(p==='single') spawnSingle();
-  else if(p==='arc') spawnArc(count);
-  else if(p==='fan') spawnFan(count);
-  else if(p==='chain') spawnChain(count);
-  else if(p==='b
+    // gravity and motion
+    const GRAV = BASE.GRAV/60;
+    // update fruits
+    for(let i=fruits.length-1;i>=0;i--){
+      const f = fruits[i];
+      f.vy += GRAV * dt*60;
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+      f.rot += 0.002*dt;
+      // offscreen
+      if(f.y - f.r > gameCanvas.clientHeight + 80){
+        fruits.splice(i,1);
+        lives = Math.max(0, lives-1);
+      }
+    }
+
+    // pieces physics
+    for(let i=pieces.length-1;i>=0;i--){
+      const p = pieces[i];
+      p.vy += GRAV*0.9 * dt*60;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt*60;
+      if(p.life <= 0) pieces.splice(i,1);
+    }
+
+    // particles
+    for(let i=particles.length-1;i>=0;i--){
+      const ps = particles[i];
+      ps.vy += 0.18 * dt*60;
+      ps.x += ps.vx * dt;
+      ps.y += ps.vy * dt;
+      ps.life -= dt*60;
+      if(ps.life <= 0) particles.splice(i,1);
+    }
+
+    // trails - reduce older than 220ms
+    const nowt = Date.now();
+    bladePoints = bladePoints.filter(pt => nowt - pt.t < 220);
+
+    // lifeCooldown
+    lifeCooldown = Math.max(0, lifeCooldown - dt);
+
+    // slicing detection
+    checkSlicing();
+
+    // level update
+    const newLevel = Math.floor(score/20) + 1;
+    if(newLevel !== level){ level = newLevel; levelEl.textContent = level; showToast('Level ' + level); }
+  }
+
+  function draw(){
+    // clear
+    gCtx.clearRect(0,0,gameCanvas.width/DPR, gameCanvas.height/DPR);
+    bladeCtx.clearRect(0,0,bladeCanvas.width/DPR, bladeCanvas.height/DPR);
+    pCtx.clearRect(0,0,particlesCanvas.width/DPR, particlesCanvas.height/DPR);
+
+    // draw fruits
+    for(const f of fruits){
+      gCtx.save(); gCtx.translate(f.x, f.y); gCtx.rotate(f.rot);
+      if(f.img && f.img.complete){
+        const d = f.r*2;
+        gCtx.drawImage(f.img, -d/2, -d/2, d, d);
+      } else {
+        gCtx.font = Math.floor(f.r)+'px serif';
+        gCtx.textAlign='center'; gCtx.textBaseline='middle';
+        gCtx.fillText(f.emoji, 0, 0);
+      }
+      gCtx.restore();
+    }
+
+    // draw pieces
+    for(const p of pieces){
+      pCtx.save(); pCtx.translate(p.x, p.y); pCtx.rotate(p.rot);
+      pCtx.font = Math.floor(p.r)+'px serif';
+      pCtx.textAlign='center'; pCtx.textBaseline='middle';
+      pCtx.fillText(p.emoji, 0, 0);
+      pCtx.restore();
+    }
+
+    // draw particles
+    for(const pr of particles){
+      pCtx.beginPath();
+      pCtx.globalAlpha = Math.max(0, pr.life/60);
+      pCtx.fillStyle = 'rgba(255,200,80,0.95)';
+      pCtx.arc(pr.x, pr.y, pr.r, 0, Math.PI*2);
+      pCtx.fill();
+      pCtx.globalAlpha = 1;
+    }
+
+    // blade trail
+    if(bladePoints.length > 1){
+      const blade = BLADES.find(b=>b.id === shopState.selectedBlade) || BLADES[0];
+      for(let i=0;i<bladePoints.length-1;i++){
+        const a = bladePoints[i], b = bladePoints[i+1];
+        const age = (bladePoints.length - i) / bladePoints.length;
+        bladeCtx.strokeStyle = `${blade.color}${Math.max(0.08, age*0.7)})`;
+        bladeCtx.lineWidth = 8 * age + 2;
+        bladeCtx.beginPath(); bladeCtx.moveTo(a.x, a.y); bladeCtx.lineTo(b.x, b.y); bladeCtx.stroke();
+      }
+    }
+  }
+
+  // 60FPS tick integration
+  let last = performance.now();
+  function physicsTick(){
+    const now = performance.now();
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    if(running && !paused){ update(dt); draw(); }
+    requestAnimationFrame(physicsTick);
+  }
+
+  // ---------------------------
+  // HUD / shop / save
+  // ---------------------------
+  function updateHUD(){
+    scoreEl.textContent = score;
+    livesEl.textContent = lives;
+    coinsEl.textContent = coins;
+    levelEl.textContent = level;
+    shopCoins.textContent = coins;
+  }
+
+  function saveShop(){
+    shopState.coins = coins;
+    localStorage.setItem('fc_shop_v1', JSON.stringify(shopState));
+  }
+
+  function updateShopUI(){
+    bgGrid.innerHTML = '';
+    BACKGROUNDS.forEach(b => {
+      const div = document.createElement('div'); div.className='shopItem';
+      div.innerHTML = `<div>${b.name}</div><div><button class="btn" data-bg="${b.id}">${shopState.purchasedBackgrounds.includes(b.id)?'Apply':('Buy ' + b.cost)}</button></div>`;
+      bgGrid.appendChild(div);
+    });
+    bladeGrid.innerHTML = '';
+    BLADES.forEach(bl => {
+      const div = document.createElement('div'); div.className='shopItem';
+      div.innerHTML = `<div>${bl.name}</div><div><button class="btn" data-bl="${bl.id}">${shopState.purchasedBlades.includes(bl.id)?'Equip':('Buy ' + bl.cost)}</button></div>`;
+      bladeGrid.appendChild(div);
+    });
+
+    // bg buttons
+    bgGrid.querySelectorAll('button').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.getAttribute('data-bg');
+        const item = BACKGROUNDS.find(x=>x.id===id);
+        if(shopState.purchasedBackgrounds.includes(id)){ applyBackground(id); saveShop(); showToast('Background applied'); }
+        else if(coins >= item.cost){ coins -= item.cost; shopState.purchasedBackgrounds.push(id); applyBackground(id); saveShop(); updateHUD(); updateShopUI(); showToast('Purchased'); }
+        else showToast('Not enough coins');
+      };
+    });
+    bladeGrid.querySelectorAll('button').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.getAttribute('data-bl');
+        const item = BLADES.find(x=>x.id===id);
+        if(shopState.purchasedBlades.includes(id)){ shopState.selectedBlade = id; saveShop(); showToast('Blade equipped'); }
+        else if(coins >= item.cost){ coins -= item.cost; shopState.purchasedBlades.push(id); shopState.selectedBlade = id; saveShop(); updateHUD(); updateShopUI(); showToast('Purchased'); }
+        else showToast('Not enough coins');
+      };
+    });
+  }
+
+  function applyBackground(bgId){
+    const bg = BACKGROUNDS.find(b=>b.id===bgId) || BACKGROUNDS[0];
+    gameWrapper.style.background = bg.css;
+    shopState.selectedBg = bg.id;
+    saveShop();
+  }
+
+  // ---------------------------
+  // Start / pause / restart
+  // ---------------------------
+  function startGame(auto=false){
+    if(!running){
+      running = true;
+      paused = false;
+      score = score || 0;
+    }
+    // reset if not auto resume
+    if(!auto){
+      fruits = []; pieces = []; particles = []; bladePoints = [];
+      score = 0; lives = 3; coins = shopState.coins || 0; level = 1;
+    }
+    bigStart.style.display = 'none';
+    gameOver.style.display = 'none';
+    updateHUD();
+  }
+
+  function pauseGame(){
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  }
+
+  function restartGame(){
+    running = true;
+    paused = false;
+    fruits = []; pieces = []; particles = []; bladePoints = [];
+    score = 0; lives = 3; level = 1; spawnTimer = 0; updateHUD();
+    gameOver.style.display = 'none';
+    bigStart.style.display = 'none';
+  }
+
+  function endGame(){
+    running = false;
+    gameOver.style.display = 'flex';
+    goScore.textContent = score;
+    best = Math.max(best, score);
+    goBest.textContent = best;
+    localStorage.setItem('fc_best_v1', best);
+    showToast('Game Over');
+  }
+
+  // ---------------------------
+  // Bind UI actions
+  // ---------------------------
+  startBtn.addEventListener('click', ()=> startGame(false));
+  bigStart.addEventListener('click', ()=> startGame(false));
+  pauseBtn.addEventListener('click', ()=> pauseGame());
+  restartBtn.addEventListener('click', ()=> restartGame());
+  shopBtn.addEventListener('click', ()=> { updateShopUI(); document.getElementById('shopModal').style.display='block'; });
+  closeShop.addEventListener('click', ()=> document.getElementById('shopModal').style.display='none');
+  goRestart.addEventListener('click', ()=> { document.getElementById('gameOver').style.display='none'; restartGame(); });
+
+  // ---------------------------
+  // Init + preload + start loop
+  // ---------------------------
+  function startEmojiCycle(){
+    const EMOJIS = ['🍉','🍊','🍌','🍓','🍍','🥝','🍎'];
+    let i=0;
+    window._eI = setInterval(()=>{ loadEmoji.textContent = EMOJIS[i%EMOJIS.length]; i++; }, 450);
+  }
+  function stopEmojiCycle(){ if(window._eI){ clearInterval(window._eI); window._eI = null; } }
+
+  async function init(){
+    resizeCanvases();
+    startEmojiCycle();
+    loader.style.display = 'flex';
+    try{
+      await preloadImages(3000);
+    }catch(e){
+      console.warn('preload issues', e);
+    }
+    stopEmojiCycle();
+    loader.style.display = 'none';
+    // apply saved shop bg & blade
+    if(!shopState.purchasedBackgrounds.includes(shopState.selectedBg)) shopState.purchasedBackgrounds.push(shopState.selectedBg);
+    if(!shopState.purchasedBlades.includes(shopState.selectedBlade)) shopState.purchasedBlades.push(shopState.selectedBlade);
+    applyBackground(shopState.selectedBg || BACKGROUNDS[0].id);
+    updateShopUI();
+    updateHUD();
+    // start tick
+    last = performance.now();
+    physicsTick();
+    // auto start a small delay
+    setTimeout(()=>{ if(!running) startGame(true); }, 300);
+  }
+
+  // trigger init on load
+  window.addEventListener('load', init);
+
+  // small API
+  window.FruitCut = { start: ()=>startGame(false), pause: ()=>pauseGame(), restart: ()=>restartGame(), shop: ()=> { updateShopUI(); document.getElementById('shopModal').style.display='block'; } };
+
+  // expose debug for console
+  window._fc = { fruits, particles, pieces, shopState, images };
+})();
+</script>
+</body>
+</html>
