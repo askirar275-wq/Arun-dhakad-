@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Fruit Cut — Final All-in-One (Updated)</title>
+<title>Fruit Cut — Smooth Cut Line</title>
 <style>
 :root{
   --ui:#f4f7fb; --panel:#efe9e1; --btn:#111; --accent:#22c55e;
@@ -172,14 +172,9 @@ canvas{position:absolute;inset:0;z-index:6}
   const closeShop = document.getElementById('closeShop');
 
   // canvases and contexts
-  const gCtx = gameCanvas.getContext('2d', { alpha:true });
-  const bladeCtx = bladeCanvas.getContext('2d', { alpha:true });
-  const pCtx = particlesCanvas.getContext('2d', { alpha:true });
-
-  // device pixel
   let DPR = Math.min(window.devicePixelRatio || 1, 2);
-
-  function resizeCanvases(){
+  let gCtx, bladeCtx, pCtx;
+  function initContexts(){
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     const rect = gameWrapper.getBoundingClientRect();
     [gameCanvas, bladeCanvas, particlesCanvas].forEach(c => {
@@ -188,11 +183,16 @@ canvas{position:absolute;inset:0;z-index:6}
       c.style.width = rect.width + 'px';
       c.style.height = rect.height + 'px';
     });
+    gCtx = gameCanvas.getContext('2d', { alpha:true });
+    bladeCtx = bladeCanvas.getContext('2d', { alpha:true });
+    pCtx = particlesCanvas.getContext('2d', { alpha:true });
     gCtx.setTransform(DPR,0,0,DPR,0,0);
     bladeCtx.setTransform(DPR,0,0,DPR,0,0);
     pCtx.setTransform(DPR,0,0,DPR,0,0);
   }
-  window.addEventListener('resize', resizeCanvases);
+  window.addEventListener('resize', () => initContexts());
+
+  initContexts();
 
   // ---------------------------
   // Game state
@@ -215,7 +215,9 @@ canvas{position:absolute;inset:0;z-index:6}
   let fruits = [];
   let pieces = [];
   let particles = [];
-  let trails = [];
+  // blade raw points and smoothed path
+  let bladePoints = []; // {x,y,t}
+  let smoothPoints = []; // smoothed for drawing
 
   // preloaded images
   const images = { fruits: {}, bomb: null, powerups: {} };
@@ -237,8 +239,7 @@ canvas{position:absolute;inset:0;z-index:6}
   if(!shopState.selectedBg) shopState.selectedBg = BACKGROUNDS[0].id;
   if(!shopState.selectedBlade) shopState.selectedBlade = BLADES[0].id;
   if(shopState.coins == null) shopState.coins = 0;
-
-  // load from shop state
+  if(shopState.shieldActive == null) shopState.shieldActive = false;
   coins = shopState.coins || coins;
 
   // ---------------------------
@@ -251,17 +252,18 @@ canvas{position:absolute;inset:0;z-index:6}
   // ---------------------------
   // Preload images from IMAGE_ASSETS
   // ---------------------------
-  async function loadImage(src){
+  async function loadImage(src, timeoutMs=3000){
     return new Promise((res, rej)=>{
       const img = new Image();
       img.onload = ()=>res(img);
       img.onerror = ()=>rej(new Error('load failed ' + src));
       img.src = src;
+      // timeout fallback
+      setTimeout(()=>{ if(!img.complete) rej(new Error('timeout ' + src)); }, timeoutMs);
     });
   }
 
-  async function preloadImages(timeoutMs = 5000){
-    // build list
+  async function preloadImages(timeoutMs = 3000){
     const list = [];
     IMAGE_ASSETS.fruits.forEach(it => list.push({type:'fruit', key:it.name, file:it.file, emoji:it.emoji}));
     list.push({type:'bomb', key:'bomb', file:IMAGE_ASSETS.bomb.file, emoji:IMAGE_ASSETS.bomb.emoji});
@@ -270,19 +272,14 @@ canvas{position:absolute;inset:0;z-index:6}
     progressCount.textContent = `0 / ${list.length}`;
     progressFill.style.width = '0%';
     loadEmoji.textContent = '🍉';
-
     let loaded = 0;
     for(const item of list){
       try{
-        const img = await Promise.race([
-          loadImage(item.file),
-          new Promise((_,rej)=> setTimeout(()=> rej(new Error('timeout')), timeoutMs))
-        ]);
+        const img = await loadImage(item.file, timeoutMs);
         if(item.type === 'fruit') images.fruits[item.key] = img;
         else if(item.type === 'bomb') images.bomb = img;
         else if(item.type === 'power') images.powerups[item.key] = img;
       }catch(e){
-        // fallback — leave null so emoji used
         if(item.type === 'fruit') images.fruits[item.key] = null;
         else if(item.type === 'bomb') images.bomb = null;
         else if(item.type === 'power') images.powerups[item.key] = null;
@@ -291,9 +288,8 @@ canvas{position:absolute;inset:0;z-index:6}
       loaded++;
       progressCount.textContent = `${loaded} / ${list.length}`;
       progressFill.style.width = `${Math.round(loaded/list.length*100)}%`;
-      // animate emoji
       loadEmoji.textContent = choose(IMAGE_ASSETS.fruits.map(f=>f.emoji));
-      await new Promise(r=>setTimeout(r, 80));
+      await new Promise(r=>setTimeout(r, 60));
     }
   }
 
@@ -308,12 +304,12 @@ canvas{position:absolute;inset:0;z-index:6}
       emoji: opts.emoji,
       img: opts.img || null,
       type: opts.type || 'fruit',
-      rot: opts.rot || rand(-0.08,0.08)
+      rot: opts.rot || rand(-0.06,0.06)
     };
   }
 
-  function createPiece(emoji, x, y, vx, vy, r, side){
-    return { emoji, x, y, vx, vy, r, life: 30 + Math.random()*18, rot: rand(-0.12,0.12), side };
+  function createPiece(emoji, x, y, vx, vy, r){
+    return { emoji, x, y, vx, vy, r, life: 30 + Math.random()*18, rot: rand(-0.12,0.12) };
   }
 
   function createParticle(x,y,vx,vy,life,r){
@@ -324,7 +320,8 @@ canvas{position:absolute;inset:0;z-index:6}
   // Spawn / game logic
   // ---------------------------
   function spawnCluster(){
-    const baseX = rand(0.2*gameCanvas.clientWidth, 0.8*gameCanvas.clientWidth);
+    const rect = gameCanvas.getBoundingClientRect();
+    const baseX = rand(0.2*rect.width, 0.8*rect.width);
     const cluster = Math.random() < 0.12 ? 2 : 1;
     for(let i=0;i<cluster;i++){
       const isBomb = Math.random() < 0.10;
@@ -332,7 +329,7 @@ canvas{position:absolute;inset:0;z-index:6}
       const img = isBomb ? images.bomb : images.fruits[entry.name];
       const obj = createFruit({
         x: baseX + rand(-80,80),
-        y: gameCanvas.clientHeight + 40 + Math.random()*20,
+        y: rect.height + 40 + Math.random()*20,
         vx: rand(-BASE.VX, BASE.VX),
         vy: rand(BASE.VY_MIN, BASE.VY_MAX),
         r: isBomb ? rand(20,36) : rand(28,44),
@@ -346,13 +343,12 @@ canvas{position:absolute;inset:0;z-index:6}
   }
 
   // ---------------------------
-  // Input: trails / slicing
+  // Input: trails / smoothing
   // ---------------------------
   let pointerDown = false;
-  let bladePoints = [];
   function addPoint(x,y){
     bladePoints.push({x,y,t:Date.now()});
-    if(bladePoints.length > 60) bladePoints.shift();
+    if(bladePoints.length > 80) bladePoints.shift();
   }
 
   function onPointerMove(e){
@@ -361,13 +357,13 @@ canvas{position:absolute;inset:0;z-index:6}
     if(e.touches && e.touches[0]){ x = e.touches[0].clientX - rect.left; y = e.touches[0].clientY - rect.top; }
     else { x = e.clientX - rect.left; y = e.clientY - rect.top; }
     if(e.type === 'pointerdown' || e.type === 'touchstart' || e.type === 'mousedown'){ pointerDown = true; addPoint(x,y); }
-    else if(e.type === 'pointerup' || e.type === 'touchend' || e.type === 'mouseup'){ pointerDown = false; bladePoints = []; }
+    else if(e.type === 'pointerup' || e.type === 'touchend' || e.type === 'mouseup'){ pointerDown = false; bladePoints = []; smoothPoints = []; }
     else if(pointerDown) addPoint(x,y);
   }
 
   window.addEventListener('pointermove', onPointerMove, {passive:true});
   window.addEventListener('pointerdown', onPointerMove);
-  window.addEventListener('pointerup', ()=> { pointerDown=false; bladePoints=[]; });
+  window.addEventListener('pointerup', ()=> { pointerDown=false; bladePoints=[]; smoothPoints=[]; });
 
   // ---------------------------
   // Slicing detection
@@ -383,35 +379,26 @@ canvas{position:absolute;inset:0;z-index:6}
 
   function checkSlicing(){
     if(bladePoints.length < 2) return;
-    const pts = bladePoints.slice(-18);
+    const pts = bladePoints.slice(-20);
     for(let s=0; s<pts.length-1; s++){
       const a = pts[s], b = pts[s+1];
-      // loop fruits
       for(let i=fruits.length-1;i>=0;i--){
         const f = fruits[i];
         const d = distToSeg(f.x, f.y, a.x, a.y, b.x, b.y);
         if(d < f.r*0.6){
-          // hit
           if(f.type === 'bomb'){
             if(lifeCooldown <= 0){
               if(shopState.shieldActive){ shopState.shieldActive = false; showToast('Shield used'); }
-              else {
-                lives = Math.max(0, lives-1);
-                hitFlash.classList.add('show'); setTimeout(()=>hitFlash.classList.remove('show'), 140);
-              }
+              else { lives = Math.max(0, lives-1); hitFlash.classList.add('show'); setTimeout(()=>hitFlash.classList.remove('show'), 140); }
               lifeCooldown = 0.45;
             }
             fruits.splice(i,1);
             continue;
           }
-          // normal fruit
           fruits.splice(i,1);
-          score += 1;
-          coins += 1;
-          shopState.coins = coins;
-          // pieces + particles
-          pieces.push(createPiece(f.emoji, f.x-6, f.y, f.vx-2.2, f.vy-1.8, f.r, 'L'));
-          pieces.push(createPiece(f.emoji, f.x+6, f.y, f.vx+2.2, f.vy-1.8, f.r, 'R'));
+          score += 1; coins += 1; shopState.coins = coins;
+          pieces.push(createPiece(f.emoji, f.x-6, f.y, f.vx-2.2, f.vy-1.8, f.r));
+          pieces.push(createPiece(f.emoji, f.x+6, f.y, f.vx+2.2, f.vy-1.8, f.r));
           for(let p=0;p<12;p++) particles.push(createParticle(f.x, f.y, rand(-3,3)*20, rand(-6,-1)*20, rand(18,36), rand(2,4)));
           updateHUD();
         }
@@ -420,36 +407,138 @@ canvas{position:absolute;inset:0;z-index:6}
   }
 
   // ---------------------------
+  // Trail smoothing algorithm
+  // - We'll build smoothPoints from bladePoints by:
+  //   1) downsampling to at most N points
+  //   2) applying exponential smoothing (lerp) to reduce jitter
+  //   3) drawing a smooth quadratic path using midpoints (catmull-like)
+  // ---------------------------
+  const MAX_DRAW_POINTS = 28;        // max points used to draw curve
+  const SMOOTHING_FACTOR = 0.22;     // lerp factor for smoothing (0..1) lower = more inertia
+  function buildSmoothPoints(){
+    // downsample raw points by picking equidistant indices (latest points)
+    if(bladePoints.length === 0){ smoothPoints = []; return; }
+    const raw = bladePoints.slice(-Math.min(bladePoints.length, 60));
+    const step = Math.max(1, Math.floor(raw.length / MAX_DRAW_POINTS));
+    const sampled = [];
+    for(let i=0;i<raw.length;i+=step){
+      sampled.push({x: raw[i].x, y: raw[i].y});
+    }
+    // ensure last is present
+    if(sampled.length === 0 && raw.length) sampled.push({x:raw[raw.length-1].x, y:raw[raw.length-1].y});
+    else if(raw.length) sampled[sampled.length-1] = {x: raw[raw.length-1].x, y: raw[raw.length-1].y};
+
+    // apply exponential smoothing: smoothPoints morphs towards sampled
+    if(smoothPoints.length === 0){
+      // initialize
+      smoothPoints = sampled.map(p => ({x:p.x, y:p.y}));
+    } else {
+      // if sizes differ, align by keeping tail
+      const targetLen = sampled.length;
+      if(smoothPoints.length > targetLen) smoothPoints = smoothPoints.slice(smoothPoints.length - targetLen);
+      else if(smoothPoints.length < targetLen){
+        // prepend copies of first to match length
+        const need = targetLen - smoothPoints.length;
+        const first = smoothPoints[0] || sampled[0];
+        for(let k=0;k<need;k++) smoothPoints.unshift({x:first.x, y:first.y});
+      }
+      // now lerp each
+      for(let i=0;i<targetLen;i++){
+        const s = sampled[i];
+        smoothPoints[i].x += (s.x - smoothPoints[i].x) * SMOOTHING_FACTOR;
+        smoothPoints[i].y += (s.y - smoothPoints[i].y) * SMOOTHING_FACTOR;
+      }
+    }
+  }
+
+  // function to draw smooth trail (multi-layer glow)
+  function drawSmoothTrail(ctx){
+    if(smoothPoints.length < 2) return;
+    // create path via quadratic midpoints:
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // glow layers: from wide faint to narrow bright
+    const layers = [
+      { width: 22, alpha: 0.08, blur: 18 },
+      { width: 12, alpha: 0.13, blur: 8 },
+      { width: 6, alpha: 0.9, blur: 0 }
+    ];
+    const blade = BLADES.find(b=>b.id === shopState.selectedBlade) || BLADES[0];
+    const colorBase = blade.color || 'rgba(34,197,94,';
+    for(const L of layers){
+      ctx.strokeStyle = colorBase + L.alpha + ')';
+      ctx.lineWidth = L.width;
+      if(L.blur){
+        ctx.shadowColor = colorBase + (L.alpha*0.9) + ')';
+        ctx.shadowBlur = L.blur;
+      } else {
+        ctx.shadowBlur = 0;
+      }
+      ctx.beginPath();
+      const pts = smoothPoints;
+      // move to first
+      ctx.moveTo(pts[0].x, pts[0].y);
+      // for each middle point, draw quadratic curve to midpoint
+      for(let i=1;i<pts.length;i++){
+        const prev = pts[i-1], cur = pts[i];
+        const midx = (prev.x + cur.x) / 2;
+        const midy = (prev.y + cur.y) / 2;
+        ctx.quadraticCurveTo(prev.x, prev.y, midx, midy);
+      }
+      // final curve to last point
+      const last = pts[pts.length-1];
+      ctx.lineTo(last.x, last.y);
+      ctx.stroke();
+    }
+    // crisp core line
+    ctx.strokeStyle = 'rgba(255,255,255,0.66)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(smoothPoints[0].x, smoothPoints[0].y);
+    for(let i=1;i<smoothPoints.length;i++){
+      const prev = smoothPoints[i-1], cur = smoothPoints[i];
+      const midx = (prev.x + cur.x) / 2;
+      const midy = (prev.y + cur.y) / 2;
+      ctx.quadraticCurveTo(prev.x, prev.y, midx, midy);
+    }
+    ctx.lineTo(smoothPoints[smoothPoints.length-1].x, smoothPoints[smoothPoints.length-1].y);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // ---------------------------
   // Update / Draw loop
   // ---------------------------
   function update(dt){
-    // spawn control
-    spawnTimer -= dt*60; // tick units
+    // spawn control (frame-based)
+    spawnTimer -= dt * 60;
     if(spawnTimer <= 0){
       spawnCluster();
-      spawnTimer = Math.max(8, 26 - Math.floor(level*1.2) + Math.floor(Math.random()*8));
+      spawnTimer = Math.max(6, 22 - Math.floor(level*1.1) + Math.floor(Math.random()*8));
     }
 
-    // gravity and motion
+    // gravity (frame normalized)
     const GRAV = BASE.GRAV/60;
+
     // update fruits
+    const rect = gameCanvas.getBoundingClientRect();
     for(let i=fruits.length-1;i>=0;i--){
       const f = fruits[i];
-      f.vy += GRAV * dt*60;
+      f.vy += GRAV * dt * 60;
       f.x += f.vx * dt;
       f.y += f.vy * dt;
-      f.rot += 0.002*dt;
-      // offscreen
-      if(f.y - f.r > gameCanvas.clientHeight + 80){
+      f.rot += 0.001*dt;
+      if(f.y - f.r > rect.height + 80){
         fruits.splice(i,1);
         lives = Math.max(0, lives-1);
       }
     }
 
-    // pieces physics
+    // pieces
     for(let i=pieces.length-1;i>=0;i--){
       const p = pieces[i];
-      p.vy += GRAV*0.9 * dt*60;
+      p.vy += (GRAV*0.9) * dt * 60;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.life -= dt*60;
@@ -458,20 +547,23 @@ canvas{position:absolute;inset:0;z-index:6}
 
     // particles
     for(let i=particles.length-1;i>=0;i--){
-      const ps = particles[i];
-      ps.vy += 0.18 * dt*60;
-      ps.x += ps.vx * dt;
-      ps.y += ps.vy * dt;
-      ps.life -= dt*60;
-      if(ps.life <= 0) particles.splice(i,1);
+      const pr = particles[i];
+      pr.vy += 0.18 * dt * 60;
+      pr.x += pr.vx * dt;
+      pr.y += pr.vy * dt;
+      pr.life -= dt*60;
+      if(pr.life <= 0) particles.splice(i,1);
     }
 
-    // trails - reduce older than 220ms
+    // prune old bladePoints (>220ms)
     const nowt = Date.now();
     bladePoints = bladePoints.filter(pt => nowt - pt.t < 220);
 
-    // lifeCooldown
+    // life cooldown
     lifeCooldown = Math.max(0, lifeCooldown - dt);
+
+    // build smooth points from bladePoints
+    buildSmoothPoints();
 
     // slicing detection
     checkSlicing();
@@ -482,35 +574,35 @@ canvas{position:absolute;inset:0;z-index:6}
   }
 
   function draw(){
-    // clear
-    gCtx.clearRect(0,0,gameCanvas.width/DPR, gameCanvas.height/DPR);
-    bladeCtx.clearRect(0,0,bladeCanvas.width/DPR, bladeCanvas.height/DPR);
-    pCtx.clearRect(0,0,particlesCanvas.width/DPR, particlesCanvas.height/DPR);
+    const rect = gameCanvas.getBoundingClientRect();
+    gCtx.clearRect(0,0,rect.width, rect.height);
+    bladeCtx.clearRect(0,0,rect.width, rect.height);
+    pCtx.clearRect(0,0,rect.width, rect.height);
 
-    // draw fruits
+    // fruits
     for(const f of fruits){
       gCtx.save(); gCtx.translate(f.x, f.y); gCtx.rotate(f.rot);
       if(f.img && f.img.complete){
         const d = f.r*2;
         gCtx.drawImage(f.img, -d/2, -d/2, d, d);
       } else {
-        gCtx.font = Math.floor(f.r)+'px serif';
+        gCtx.font = Math.floor(f.r) + 'px serif';
         gCtx.textAlign='center'; gCtx.textBaseline='middle';
         gCtx.fillText(f.emoji, 0, 0);
       }
       gCtx.restore();
     }
 
-    // draw pieces
+    // pieces
     for(const p of pieces){
       pCtx.save(); pCtx.translate(p.x, p.y); pCtx.rotate(p.rot);
-      pCtx.font = Math.floor(p.r)+'px serif';
+      pCtx.font = Math.floor(p.r) + 'px serif';
       pCtx.textAlign='center'; pCtx.textBaseline='middle';
       pCtx.fillText(p.emoji, 0, 0);
       pCtx.restore();
     }
 
-    // draw particles
+    // particles
     for(const pr of particles){
       pCtx.beginPath();
       pCtx.globalAlpha = Math.max(0, pr.life/60);
@@ -520,20 +612,11 @@ canvas{position:absolute;inset:0;z-index:6}
       pCtx.globalAlpha = 1;
     }
 
-    // blade trail
-    if(bladePoints.length > 1){
-      const blade = BLADES.find(b=>b.id === shopState.selectedBlade) || BLADES[0];
-      for(let i=0;i<bladePoints.length-1;i++){
-        const a = bladePoints[i], b = bladePoints[i+1];
-        const age = (bladePoints.length - i) / bladePoints.length;
-        bladeCtx.strokeStyle = `${blade.color}${Math.max(0.08, age*0.7)})`;
-        bladeCtx.lineWidth = 8 * age + 2;
-        bladeCtx.beginPath(); bladeCtx.moveTo(a.x, a.y); bladeCtx.lineTo(b.x, b.y); bladeCtx.stroke();
-      }
-    }
+    // draw smooth blade trail (bladeCtx)
+    drawSmoothTrail(bladeCtx);
   }
 
-  // 60FPS tick integration
+  // physics tick
   let last = performance.now();
   function physicsTick(){
     const now = performance.now();
@@ -563,13 +646,13 @@ canvas{position:absolute;inset:0;z-index:6}
     bgGrid.innerHTML = '';
     BACKGROUNDS.forEach(b => {
       const div = document.createElement('div'); div.className='shopItem';
-      div.innerHTML = `<div>${b.name}</div><div><button class="btn" data-bg="${b.id}">${shopState.purchasedBackgrounds.includes(b.id)?'Apply':('Buy ' + b.cost)}</button></div>`;
+      div.innerHTML = `<div>${b.name}</div><div><button class="btn" data-bg="${b.id}">${shopState.purchasedBackgrounds && shopState.purchasedBackgrounds.includes(b.id)?'Apply':('Buy ' + b.cost)}</button></div>`;
       bgGrid.appendChild(div);
     });
     bladeGrid.innerHTML = '';
     BLADES.forEach(bl => {
       const div = document.createElement('div'); div.className='shopItem';
-      div.innerHTML = `<div>${bl.name}</div><div><button class="btn" data-bl="${bl.id}">${shopState.purchasedBlades.includes(bl.id)?'Equip':('Buy ' + bl.cost)}</button></div>`;
+      div.innerHTML = `<div>${bl.name}</div><div><button class="btn" data-bl="${bl.id}">${shopState.purchasedBlades && shopState.purchasedBlades.includes(bl.id)?'Equip':('Buy ' + bl.cost)}</button></div>`;
       bladeGrid.appendChild(div);
     });
 
@@ -578,7 +661,7 @@ canvas{position:absolute;inset:0;z-index:6}
       btn.onclick = ()=>{
         const id = btn.getAttribute('data-bg');
         const item = BACKGROUNDS.find(x=>x.id===id);
-        if(shopState.purchasedBackgrounds.includes(id)){ applyBackground(id); saveShop(); showToast('Background applied'); }
+        if(shopState.purchasedBackgrounds && shopState.purchasedBackgrounds.includes(id)){ applyBackground(id); saveShop(); showToast('Background applied'); }
         else if(coins >= item.cost){ coins -= item.cost; shopState.purchasedBackgrounds.push(id); applyBackground(id); saveShop(); updateHUD(); updateShopUI(); showToast('Purchased'); }
         else showToast('Not enough coins');
       };
@@ -587,7 +670,7 @@ canvas{position:absolute;inset:0;z-index:6}
       btn.onclick = ()=>{
         const id = btn.getAttribute('data-bl');
         const item = BLADES.find(x=>x.id===id);
-        if(shopState.purchasedBlades.includes(id)){ shopState.selectedBlade = id; saveShop(); showToast('Blade equipped'); }
+        if(shopState.purchasedBlades && shopState.purchasedBlades.includes(id)){ shopState.selectedBlade = id; saveShop(); showToast('Blade equipped'); }
         else if(coins >= item.cost){ coins -= item.cost; shopState.purchasedBlades.push(id); shopState.selectedBlade = id; saveShop(); updateHUD(); updateShopUI(); showToast('Purchased'); }
         else showToast('Not enough coins');
       };
@@ -608,11 +691,9 @@ canvas{position:absolute;inset:0;z-index:6}
     if(!running){
       running = true;
       paused = false;
-      score = score || 0;
     }
-    // reset if not auto resume
     if(!auto){
-      fruits = []; pieces = []; particles = []; bladePoints = [];
+      fruits = []; pieces = []; particles = []; bladePoints = []; smoothPoints = [];
       score = 0; lives = 3; coins = shopState.coins || 0; level = 1;
     }
     bigStart.style.display = 'none';
@@ -628,7 +709,7 @@ canvas{position:absolute;inset:0;z-index:6}
   function restartGame(){
     running = true;
     paused = false;
-    fruits = []; pieces = []; particles = []; bladePoints = [];
+    fruits = []; pieces = []; particles = []; bladePoints = []; smoothPoints = [];
     score = 0; lives = 3; level = 1; spawnTimer = 0; updateHUD();
     gameOver.style.display = 'none';
     bigStart.style.display = 'none';
@@ -666,7 +747,7 @@ canvas{position:absolute;inset:0;z-index:6}
   function stopEmojiCycle(){ if(window._eI){ clearInterval(window._eI); window._eI = null; } }
 
   async function init(){
-    resizeCanvases();
+    initContexts();
     startEmojiCycle();
     loader.style.display = 'flex';
     try{
@@ -676,27 +757,22 @@ canvas{position:absolute;inset:0;z-index:6}
     }
     stopEmojiCycle();
     loader.style.display = 'none';
-    // apply saved shop bg & blade
-    if(!shopState.purchasedBackgrounds.includes(shopState.selectedBg)) shopState.purchasedBackgrounds.push(shopState.selectedBg);
-    if(!shopState.purchasedBlades.includes(shopState.selectedBlade)) shopState.purchasedBlades.push(shopState.selectedBlade);
+    if(!shopState.purchasedBackgrounds) shopState.purchasedBackgrounds = [shopState.selectedBg];
+    if(!shopState.purchasedBlades) shopState.purchasedBlades = [shopState.selectedBlade];
     applyBackground(shopState.selectedBg || BACKGROUNDS[0].id);
     updateShopUI();
     updateHUD();
-    // start tick
     last = performance.now();
     physicsTick();
-    // auto start a small delay
     setTimeout(()=>{ if(!running) startGame(true); }, 300);
   }
 
-  // trigger init on load
   window.addEventListener('load', init);
 
-  // small API
+  // small API & debug
   window.FruitCut = { start: ()=>startGame(false), pause: ()=>pauseGame(), restart: ()=>restartGame(), shop: ()=> { updateShopUI(); document.getElementById('shopModal').style.display='block'; } };
-
-  // expose debug for console
   window._fc = { fruits, particles, pieces, shopState, images };
+
 })();
 </script>
 </body>
