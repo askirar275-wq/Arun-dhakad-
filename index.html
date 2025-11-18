@@ -3,76 +3,59 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Sky Shot — Visible Bullets & Immediate Enemies</title>
+<title>Sky Shot — Image bullets (preloaded + burst)</title>
 <style>
   :root{--accent:#3ec7ff;--accent2:#7b61ff}
   *{box-sizing:border-box}
   html,body{height:100%;margin:0;background:#031229;color:#fff;font-family:Inter,Arial,Helvetica,sans-serif;overflow:hidden}
   #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;touch-action:none}
 
-  .stars{position:absolute;inset:0;z-index:0;opacity:.95}
-  .clouds{position:absolute;inset:0;pointer-events:none;z-index:5;opacity:0.6}
-  .cloud{position:absolute;border-radius:80px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));}
-
-  /* HUD above everything */
-  #hud{position:absolute;left:12px;top:12px;z-index:120;display:flex;gap:10px;align-items:center}
+  /* HUD */
+  #hud{position:absolute;left:12px;top:12px;z-index:200;display:flex;gap:10px;align-items:center}
   .panel{background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);font-weight:700}
 
-  /* player above enemies */
-  #player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:66px;height:66px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 30px rgba(62,199,255,0.14);z-index:110;display:flex;align-items:center;justify-content:center}
+  #player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:66px;height:66px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 8px 30px rgba(62,199,255,0.14);z-index:150;display:flex;align-items:center;justify-content:center}
 
-  /* BULLET: larger + rotate-able image. If image missing, background-color shows */
-  .bullet{
+  /* bullet as <img> */
+  .bullet {
     position:absolute;
-    width:64px;                 /* increased size */
-    height:64px;
-    background: url("image/bullet.png") no-repeat center/contain;
-    z-index:130;
+    width:48px; height:48px;
     pointer-events:none;
+    z-index:220;
     transform-origin:center center;
+    will-change:transform,opacity;
+    user-select:none;
   }
-  /* fallback style if image fails to load (visible colored dot) */
+  /* fallback dot when image missing */
   .bullet.missing {
-    background:none;
     width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 6px 18px rgba(62,199,255,0.22);
   }
 
-  .powerBullet{position:absolute;width:72px;height:72px;border-radius:10px;background:linear-gradient(180deg,#ffd36b,#ff7b6b);box-shadow:0 12px 36px rgba(255,120,80,0.24);z-index:131;pointer-events:none}
+  .enemy{position:absolute;width:50px;height:50px;border-radius:12px;background:linear-gradient(180deg,#ff6666,#cc0033);box-shadow:0 8px 22px rgba(204,0,51,0.16);z-index:140;border:1px solid rgba(0,0,0,0.12)}
 
-  .enemy{position:absolute;width:50px;height:50px;border-radius:12px;background:linear-gradient(180deg,#ff6666,#cc0033);box-shadow:0 8px 22px rgba(204,0,51,0.16);z-index:100;border:1px solid rgba(0,0,0,0.12)}
-  .boss{position:absolute;width:160px;height:120px;border-radius:16px;background:linear-gradient(180deg,#ffb86b,#ff6b6b);z-index:105;border:2px solid rgba(255,255,255,0.04)}
-  .hpBar{position:absolute;left:50%;transform:translateX(-50%);bottom:-12px;height:8px;border-radius:8px;background:rgba(255,255,255,0.12);width:84%;overflow:hidden;border:1px solid rgba(0,0,0,0.12)}
-  .hpFill{height:100%;background:linear-gradient(90deg,#2effa7,#00d2ff);width:100%}
-
-  #controls{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:120;display:flex;gap:12px;align-items:center}
+  #controls{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:200;display:flex;gap:12px;align-items:center}
   .btn{background:transparent;border-radius:14px;padding:10px 14px;border:2px solid rgba(255,255,255,0.12);color:#fff;cursor:pointer}
-  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:linear-gradient(180deg, rgba(2,6,23,0.5), rgba(1,3,10,0.6));z-index:150}
+
+  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:linear-gradient(180deg, rgba(2,6,23,0.5), rgba(1,3,10,0.6));z-index:260}
   .bigBtn{padding:12px 28px;border-radius:16px;border:0;font-weight:900;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001}
 
-  .hitFlash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .08s;background:rgba(255,255,255,0.04);z-index:140}
-  @media (max-width:420px){ .bullet{width:52px;height:52px} .powerBullet{width:60px;height:60px} }
+  @media (max-width:420px){ .bullet{width:40px;height:40px} .enemy{width:44px;height:44px} }
 </style>
 </head>
 <body>
 <div id="gameArea">
-  <div class="stars"></div>
-  <div class="clouds" id="cloudLayer"></div>
-
   <div id="hud">
     <div class="panel">Score: <span id="score">0</span></div>
     <div class="panel">High: <span id="highscore">0</span></div>
     <div class="panel">Power: <span id="powerTxt">0%</span></div>
   </div>
 
-  <div id="player">
-    <!-- player icon -->
+  <div id="player" aria-hidden="true">
     <svg viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
       <path d="M32 6 L44 28 L32 22 L20 28 Z" fill="#fff" opacity=".16"/>
       <circle cx="32" cy="38" r="10" fill="#00141a" opacity=".12"/>
     </svg>
   </div>
-
-  <div class="hitFlash" id="hitFlash"></div>
 
   <div id="controls">
     <button class="btn" id="btnPause">PAUSE</button>
@@ -81,115 +64,195 @@
 
   <div id="overlay">
     <h1 style="margin:0">Sky Shot</h1>
-    <p style="margin:0;opacity:.9">Tap anywhere to start — enemies spawn immediately for visibility.</p>
+    <p style="margin:0;opacity:.9">Tap to start — bullets use image/bullet.png (preloaded). Burst fire prevents stacking.</p>
     <button class="bigBtn" id="startBtn">Start</button>
   </div>
 </div>
 
 <script>
-/* --- minimal visible tweaks + immediate spawn --- */
+/* ======== CONFIG ======== */
+const BULLET_IMG = 'image/bullet.png'; // <-- ensure file exactly at this path
+const AUTO_FIRE_INTERVAL = 300;         // ms between bursts
+const BURST_COUNT = 3;                 // bullets per burst
+const BURST_SPREAD = 12;               // horizontal spread in px between bullets
+const MAX_BULLETS = 18;                // safety cap
+
+/* ======== STATE ======== */
 const gameArea = document.getElementById('gameArea');
 const player = document.getElementById('player');
 const scoreEl = document.getElementById('score');
 const highEl = document.getElementById('highscore');
+const powerTxt = document.getElementById('powerTxt');
 const overlay = document.getElementById('overlay');
-const hitFlash = document.getElementById('hitFlash');
 const startBtn = document.getElementById('startBtn');
 
-let state = {running:false, score:0, lives:3, enemies:[], bullets:[], particles:[], lastSpawn:0, spawnInterval:700, maxEnemies:6, bossActive:false};
+let state = {
+  running:false,
+  score:0,
+  bullets:[], // {el,x,y,vx,vy}
+  enemies:[],
+  lastFire:0,
+  lastSpawn:0,
+  spawnInterval:700
+};
 
+/* ======== PRELOAD BULLET IMAGE ======== */
+let bulletImageLoaded = false;
+const bulletImgCheck = new Image();
+bulletImgCheck.src = BULLET_IMG;
+bulletImgCheck.onload = ()=> { bulletImageLoaded = true; console.log('bullet image loaded'); };
+bulletImgCheck.onerror = ()=> { bulletImageLoaded = false; console.warn('bullet image failed to load:', BULLET_IMG); };
+
+/* ======== HELPERS ======== */
 function placePlayerCenter(){ const r = gameArea.getBoundingClientRect(); player.style.left = Math.max(8, (r.width/2 - player.offsetWidth/2)) + 'px'; }
 window.addEventListener('resize', placePlayerCenter);
-setTimeout(placePlayerCenter,50);
+setTimeout(placePlayerCenter,60);
 
-/* spawn enemy simple */
-function spawnEnemy(){
-  if(!state.running || state.bossActive) return;
-  if(state.enemies.length >= state.maxEnemies) return;
+function spawnEnemy(){ if(!state.running) return; if(state.enemies.length > 8) return;
   const e = document.createElement('div'); e.className='enemy';
   const w = gameArea.clientWidth; const margin = 20;
   const x = margin + Math.random()*(w - margin*2 - 50);
   e.style.left = x + 'px'; e.style.top = '-70px';
-  e._vy = 1.6 + Math.random()*1.6; e._phase = Math.random()*Math.PI*2; e._wobble = 0.6 + Math.random()*1.2;
+  e._vy = 1.6 + Math.random()*1.4; e._phase = Math.random()*Math.PI*2; e._wobble = 0.6 + Math.random()*1.2;
   gameArea.appendChild(e); state.enemies.push(e);
 }
 
-/* create bullet using image (CSS handles image path). Rotate toward vx/vy */
-function createBullet(power=false, sx=null, sy=null, vx=0, vy=-12){
-  const b = document.createElement('div'); b.className = power ? 'powerBullet' : 'bullet';
-  // if image not found, browser still shows nothing — fallback detect via Image()
-  const img = new Image(); img.src = 'image/bullet.png';
-  img.onerror = ()=>{ b.classList.add('missing'); } // show small dot fallback
-  // position
-  const left = (sx!==null)? sx : (player.offsetLeft + player.offsetWidth/2 - (parseInt(getComputedStyle(b).width)||32)/2);
-  const top = (sy!==null)? sy : (player.offsetTop - 40);
-  b.style.left = left + 'px'; b.style.top = top + 'px';
-  // rotation based on velocity
-  if(vx !== 0 || vy !== 0){
-    const angle = Math.atan2(vy, vx) * 180/Math.PI + 90;
-    b.style.transform = `rotate(${angle}deg)`;
+/* ======== CREATE BULLET (burst uses this) ======== */
+function spawnSingleBullet(x, y, vx, vy){
+  // enforce safety cap
+  if(state.bullets.length >= MAX_BULLETS){
+    // remove oldest
+    const old = state.bullets.shift();
+    if(old && old.el && old.el.parentNode) old.el.remove();
   }
-  gameArea.appendChild(b);
-  state.bullets.push({el:b, vx:vx, vy:vy});
+
+  let el = document.createElement('img');
+  el.className = 'bullet';
+  el.draggable = false;
+  // apply src only if preloaded; otherwise will attempt to load (onerror fallback)
+  el.src = bulletImageLoaded ? BULLET_IMG : BULLET_IMG;
+  el.onerror = () => el.classList.add('missing');
+
+  // starting numeric pos
+  const startX = x;
+  const startY = y;
+
+  // set initial transform (translate)
+  el.style.left = '0px'; el.style.top = '0px';
+  el.style.transform = `translate(${startX}px, ${startY}px)`;
+
+  gameArea.appendChild(el);
+  state.bullets.push({el, x:startX, y:startY, vx, vy});
 }
 
-/* simple auto-fire and immediate visible spawn on start */
-let lastAuto = 0;
-function autoFire(ts){
-  if(!state.running) return;
-  if(ts - lastAuto > 160){ createBullet(false, null, null, 0, -14); lastAuto = ts; }
+/* Burst fire centered on player with small horizontal offsets */
+function fireBurst(){
+  const px = player.offsetLeft + player.offsetWidth/2;
+  const py = player.offsetTop;
+  const centerX = px;
+  const baseY = py - 44;
+  for(let i=0;i<BURST_COUNT;i++){
+    const offset = (i - Math.floor(BURST_COUNT/2)) * BURST_SPREAD + (Math.random()-0.5)*4;
+    // slight upward angle randomness
+    const vx = offset * 0.03; // small sideways velocity
+    const vy = -14 + (Math.random()-0.5)*1.8;
+    spawnSingleBullet(centerX - 24 + offset, baseY + (Math.random()-0.5)*6, vx, vy);
+  }
 }
 
+/* ======== GAME LOOP ======== */
 let lastFrame = performance.now();
 function loop(ts){
-  const dt = Math.min(40, ts - lastFrame);
-  lastFrame = ts;
+  const dt = Math.min(40, ts - lastFrame); lastFrame = ts;
   if(state.running){
-    autoFire(ts);
-    if(ts - state.lastSpawn > state.spawnInterval){
-      state.lastSpawn = ts;
-      if(state.enemies.length < state.maxEnemies) spawnEnemy();
-    }
-    // update bullets
-    for(let i=state.bullets.length-1;i>=0;i--){
+    // auto-fire bursts
+    if(ts - state.lastFire > AUTO_FIRE_INTERVAL){ state.lastFire = ts; fireBurst(); }
+
+    // spawn enemies periodically
+    if(ts - state.lastSpawn > state.spawnInterval){ state.lastSpawn = ts; spawnEnemy(); }
+
+    // update bullets (numeric pos -> transform)
+    for(let i = state.bullets.length-1; i >= 0; i--){
       const b = state.bullets[i];
-      b.el.style.left = (b.el.offsetLeft + b.vx) + 'px';
-      b.el.style.top = (b.el.offsetTop + b.vy) + 'px';
-      if(b.el.offsetTop < -120) { if(b.el.parentNode) b.el.remove(); state.bullets.splice(i,1); }
+      b.x += b.vx * (dt/16.67);
+      b.y += b.vy * (dt/16.67);
+      b.el.style.transform = `translate(${b.x}px, ${b.y}px)`;
+      b.el.style.opacity = 1;
+      // remove offscreen
+      if(b.y < -120 || b.x < -300 || b.x > window.innerWidth + 300){
+        if(b.el.parentNode) b.el.remove();
+        state.bullets.splice(i,1);
+      }
     }
-    // update enemies (move down)
-    for(let i=state.enemies.length-1;i>=0;i--){
+
+    // update enemies
+    for(let i = state.enemies.length-1; i>=0; i--){
       const e = state.enemies[i];
       e._phase += 0.04;
       e.style.top = (e.offsetTop + e._vy) + 'px';
       e.style.left = (parseFloat(e.style.left) + Math.sin(e._phase) * e._wobble) + 'px';
       if(e.offsetTop > window.innerHeight - 110){ if(e.parentNode) e.remove(); state.enemies.splice(i,1); }
     }
+
+    // collisions: bullet vs enemy (AABB)
+    for(let ei = state.enemies.length-1; ei >= 0; ei--){
+      const e = state.enemies[ei];
+      const er = e.getBoundingClientRect();
+      for(let bi = state.bullets.length-1; bi >= 0; bi--){
+        const b = state.bullets[bi];
+        const br = b.el.getBoundingClientRect();
+        if(!(br.bottom < er.top || br.top > er.bottom || br.right < er.left || br.left > er.right)){
+          // hit
+          if(e.parentNode) e.remove();
+          if(b.el.parentNode) b.el.remove();
+          state.enemies.splice(ei,1);
+          state.bullets.splice(bi,1);
+          state.score += 1;
+          break;
+        }
+      }
+    }
+
     scoreEl.textContent = state.score;
   }
   requestAnimationFrame(loop);
 }
 
-/* Start game: spawn several enemies immediately for visible action */
+/* ======== START / UI ======== */
 function startGame(){
   overlay.style.display = 'none';
-  state.running = true; state.score = 0; state.enemies = []; state.bullets = [];
-  document.querySelectorAll('.enemy,.bullet,.powerBullet').forEach(n=>n.remove());
+  state.running = true;
+  state.score = 0;
+  // cleanup
+  document.querySelectorAll('.enemy,.bullet').forEach(n=>n.remove());
+  state.enemies = []; state.bullets = [];
   placePlayerCenter();
+  state.lastFire = performance.now() - 200;
   state.lastSpawn = performance.now();
-  // immediate visible spawn burst (4 enemies)
+  // immediate visible enemies
   for(let i=0;i<4;i++) setTimeout(spawnEnemy, i*80);
   requestAnimationFrame(loop);
 }
 
-/* overlay gesture to start as well */
-function onFirst(e){ document.removeEventListener('pointerdown', onFirst); startGame(); }
-document.addEventListener('pointerdown', onFirst, {passive:true});
-startBtn.addEventListener('click', startGame);
+startBtn.addEventListener('click', ()=> {
+  // ensure image has time to start loading on user gesture
+  if(!bulletImageLoaded){
+    // try to reinstantiate preload quickly
+    const tmp = new Image(); tmp.src = BULLET_IMG;
+    tmp.onload = ()=> bulletImageLoaded = true;
+    tmp.onerror = ()=> bulletImageLoaded = false;
+  }
+  startGame();
+});
+document.addEventListener('pointerdown', function first(){ document.removeEventListener('pointerdown', first); startGame(); }, {passive:true});
 
-/* quick debug: if nothing shows, ensure image exists at image/bullet.png */
-/* (we added fallback .missing class via onerror) */
-
+/* ======== NOTES for you ========
+Place your rocket image at:
+  image/bullet.png
+Filename and folder must match exactly (lowercase).
+Recommended PNG size 256x256 or 512x512 with transparent background.
+If image still doesn't show: open browser inspector (or re-check path).
+*/
 </script>
 </body>
-  </html>
+</html>
