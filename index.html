@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Sky Shot — Full Build (Particles / Powerups / Boss / Controls)</title>
+<title>Sky Shot — Enemies as Images</title>
 <style>
   :root{
     --bg:#031229; --accent:#3ec7ff; --accent2:#7b61ff; --danger:#ff6b6b;
@@ -13,66 +13,50 @@
   html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,Arial;overflow:hidden;-webkit-tap-highlight-color:transparent}
   #gameWrap{position:relative;width:100vw;height:100vh;overflow:hidden;touch-action:none}
 
-  /* Background subtle */
   .bg{position:absolute;inset:0;z-index:0;background:
     radial-gradient(circle at 15% 20%, rgba(255,255,255,0.02) 0, transparent 12%),
     radial-gradient(circle at 75% 50%, rgba(255,255,255,0.015) 0, transparent 14%);}
   #clouds{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.55}
 
-  /* HUD */
+  #particleCanvas{position:absolute;inset:0;z-index:205;pointer-events:none}
+
   #hud{position:absolute;left:12px;top:12px;z-index:220;display:flex;gap:10px;align-items:center}
   .panel{background:var(--panel);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
   #powerBar{width:110px;height:12px;border-radius:12px;background:rgba(255,255,255,0.03);overflow:hidden;border:1px solid rgba(255,255,255,0.05)}
   #powerFill{height:100%;width:0%;background:linear-gradient(90deg,#ffd36b,#ff7b6b)}
 
-  /* Player */
   #player{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));z-index:200;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 40px rgba(62,199,255,0.12);border:2px solid rgba(255,255,255,0.04)}
   #player svg{width:46px;height:46px}
 
-  /* Bullets */
+  /* bullets */
   .bullet{position:absolute;left:0;top:0;width:48px;height:48px;pointer-events:none;z-index:260;transform-origin:center center;will-change:transform,opacity}
   .powerBullet{position:absolute;left:0;top:0;width:64px;height:64px;pointer-events:none;z-index:265}
 
-  /* Enemies */
-  .enemy{position:absolute;border-radius:12px;background:linear-gradient(180deg,#ff6b6b,#d93c50);box-shadow:0 12px 30px rgba(204,0,51,0.12);z-index:210;border:1px solid rgba(0,0,0,0.08)}
-  .enemy.small{width:40px;height:40px}
-  .enemy.medium{width:56px;height:56px}
-  .enemy.large{width:90px;height:90px;border-radius:16px}
+  /* enemies rendered as <img> with classes for sizes */
+  .enemyImg{position:absolute;left:0;top:0;pointer-events:none;z-index:210;will-change:transform}
+  .enemyImg.small{width:64px;height:64px}
+  .enemyImg.medium{width:96px;height:96px}
+  .enemyImg.large{width:160px;height:110px}
 
-  /* Boss */
-  .boss{position:absolute;border-radius:18px;background:linear-gradient(180deg,#ffb86b,#ff7b6b);box-shadow:0 30px 90px rgba(255,100,60,0.12);z-index:215;border:2px solid rgba(255,255,255,0.04)}
-  .hpBar{position:absolute;left:50%;transform:translateX(-50%);bottom:-16px;height:10px;border-radius:12px;background:rgba(0,0,0,0.18);width:86%;overflow:hidden;border:1px solid rgba(255,255,255,0.06)}
-  .hpFill{height:100%;width:100%;background:linear-gradient(90deg,#2effa7,#00d2ff)}
+  /* fallback styled enemy box if image missing */
+  .enemyFallback{position:absolute;background:linear-gradient(180deg,#ff6b6b,#d93c50);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;z-index:210}
 
-  /* Particle canvas sits above background but below actors */
-  #particleCanvas{position:absolute;inset:0;z-index:205;pointer-events:none}
+  /* powerups as img */
+  .powerupImg{position:absolute;left:0;top:0;width:34px;height:34px;pointer-events:none;z-index:230}
+  .powerupFallback{position:absolute;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#001;z-index:230}
 
-  /* Controls (on-screen mobile) */
+  /* UI controls same as before */
+  #topControls{position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:480;display:flex;gap:10px;align-items:center}
+  .smallBtn{padding:8px 12px;border-radius:14px;background:transparent;border:2px solid rgba(255,255,255,0.06);color:#fff;font-weight:800}
   #controls{position:absolute;left:10px;bottom:10px;z-index:480;display:flex;gap:12px;align-items:center}
-  /* joystick container */
   #joystick{width:120px;height:120px;border-radius:999px;background:rgba(255,255,255,0.03);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;touch-action:none}
   #stick{width:48px;height:48px;border-radius:50%;background:linear-gradient(90deg,#cfefff,#95baff);box-shadow:0 10px 30px rgba(62,199,255,0.12)}
-  /* action buttons right */
   #buttons{position:absolute;right:12px;bottom:12px;z-index:480;display:flex;gap:12px;align-items:center}
   .actionBtn{width:72px;height:72px;border-radius:18px;background:linear-gradient(90deg,#ffffff10,#ffffff06);border:2px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;backdrop-filter:blur(6px)}
   .actionBtn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001}
-
-  /* top controls (pause/mode/mute) */
-  #topControls{position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:480;display:flex;gap:10px;align-items:center}
-  .smallBtn{padding:8px 12px;border-radius:14px;background:transparent;border:2px solid rgba(255,255,255,0.06);color:#fff;font-weight:800}
-
-  /* overlay */
   #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:520;background:linear-gradient(180deg,rgba(0,0,0,0.35),rgba(0,0,0,0.65))}
   .bigBtn{padding:12px 28px;border-radius:16px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;font-weight:900}
-
-  /* Game over mini */
   #infoBox{position:absolute;right:12px;top:12px;z-index:480;display:flex;gap:8px;align-items:center;flex-direction:column}
-
-  @media (max-width:420px){
-    #joystick{width:100px;height:100px} #stick{width:44px;height:44px}
-    .actionBtn{width:64px;height:64px}
-    .boss{width:160px;height:100px}
-  }
 </style>
 </head>
 <body>
@@ -106,9 +90,7 @@
   </div>
 
   <div id="controls">
-    <div id="joystick" aria-hidden="true">
-      <div id="stick"></div>
-    </div>
+    <div id="joystick" aria-hidden="true"><div id="stick"></div></div>
   </div>
 
   <div id="buttons">
@@ -116,38 +98,39 @@
     <div class="actionBtn" id="btnPower">POWER</div>
   </div>
 
-  <div id="infoBox">
-    <div class="panel">Tap to start</div>
-  </div>
+  <div id="infoBox"><div class="panel">Tap to start</div></div>
 
   <div id="overlay">
-    <h1 style="margin:0">Sky Shot — Full Build</h1>
-    <p style="margin:0;opacity:.9">Use joystick to move, FIRE to shoot, POWER to big-shot. Keep <code>image/bullet.png</code>.</p>
+    <h1 style="margin:0">Sky Shot — Image Enemies</h1>
+    <p style="margin:0;opacity:.9">Now enemies and powerups use image sprites. Put images in <code>image/</code> folder.</p>
     <button class="bigBtn" id="startBtn">Start Game</button>
-    <div style="font-size:13px;margin-top:8px;opacity:.8">Optional power image: <code>image/power.png</code></div>
+    <div style="font-size:13px;margin-top:8px;opacity:.8">Required: <code>image/enemy_small.png</code>, <code>image/enemy_medium.png</code>, <code>image/enemy_large.png</code>, <code>image/bullet.png</code></div>
   </div>
 </div>
 
 <script>
-/* ================= CONFIG ================= */
+/* ---------- CONFIG ---------- */
 const CONFIG = {
   BULLET_IMG: 'image/bullet.png',
-  POWER_IMG: 'image/power.png', // optional
+  ENEMY_SMALL_IMG: 'image/enemy_small.png',
+  ENEMY_MED_IMG: 'image/enemy_medium.png',
+  ENEMY_LARGE_IMG: 'image/enemy_large.png',
+  POWER_IMG_PREFIX: 'image/powerup_', // will append kind suffix like double.png etc.
   AUTO_INTERVAL: 300,
   BURST_COUNT: 3,
   BURST_SPREAD: 12,
   MAX_BULLETS: 28,
   ENEMY_BASE: 900,
   MAX_ENEMIES: 7,
-  HIGH_KEY: 'skyshot_full_high_v1',
-  MUTE_KEY: 'skyshot_full_mute_v1',
-  DIFF_KEY: 'skyshot_full_diff_v1',
-  PARTICLE_QUALITY: 1.0 // 0.0 low .. 1.0 high (we will check device)
+  HIGH_KEY: 'skyshot_img_high_v1',
+  MUTE_KEY: 'skyshot_img_mute_v1',
+  DIFF_KEY: 'skyshot_img_diff_v1'
 };
 
-/* ============== DOM =============== */
+/* ---------- DOM ---------- */
 const gameWrap = document.getElementById('gameWrap');
-const gameArea = document.getElementById('gameWrap'); // same
+const canvas = document.getElementById('particleCanvas');
+const ctx = canvas.getContext('2d');
 const player = document.getElementById('player');
 const scoreEl = document.getElementById('score');
 const highEl = document.getElementById('highscore');
@@ -166,10 +149,7 @@ const btnPower = document.getElementById('btnPower');
 const joystick = document.getElementById('joystick');
 const stick = document.getElementById('stick');
 
-const canvas = document.getElementById('particleCanvas');
-const ctx = canvas.getContext('2d');
-
-/* ============== State ============== */
+/* ---------- STATE ---------- */
 let state = {
   running:false,
   score:0,
@@ -178,524 +158,308 @@ let state = {
   power:0,
   powerMax:100,
   bullets:[], // {el,x,y,vx,vy,power,fromEnemy}
-  enemies:[], // DOM nodes with custom props
-  boss:null, // {el, hp, hpMax, phase}
+  enemies:[], // mix of DOM images or powerup objects stored here
+  boss:null,
   lastFire:0,
   lastSpawn:0,
-  mode:'AUTO', // AUTO or MANUAL
+  mode:'AUTO',
   muted: localStorage.getItem(CONFIG.MUTE_KEY) === '1',
   difficulty: parseInt(localStorage.getItem(CONFIG.DIFF_KEY) || difficultyInput.value || '40',10) || 40,
-  particleBuffer: []
+  particleBuffer:[]
 };
 
-/* show persisted values */
-scoreEl.textContent = 0;
-highEl.textContent = state.high;
-livesEl.textContent = state.lives;
-difficultyInput.value = state.difficulty;
-btnMute.textContent = state.muted ? 'UNMUTE' : 'MUTE';
-btnMode.textContent = state.mode;
+scoreEl.textContent = 0; highEl.textContent = state.high; livesEl.textContent = state.lives;
+difficultyInput.value = state.difficulty; btnMute.textContent = state.muted ? 'UNMUTE':'MUTE'; btnMode.textContent = state.mode;
 
 /* responsive canvas */
-function resizeCanvas(){
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+function resizeCanvas(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
-/* ================= AUDIO (lightweight synth) ================= */
+/* ---------- AUDIO (lightweight) ---------- */
 let audioCtx=null, masterGain=null;
-function ensureAudio(){
-  if(audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = state.muted ? 0 : 1;
-  masterGain.connect(audioCtx.destination);
-}
-function toggleMute(){
-  state.muted = !state.muted;
-  localStorage.setItem(CONFIG.MUTE_KEY, state.muted ? '1':'0');
-  if(!audioCtx) ensureAudio();
-  masterGain.gain.value = state.muted ? 0 : 1;
-  btnMute.textContent = state.muted ? 'UNMUTE' : 'MUTE';
-}
+function ensureAudio(){ if(audioCtx) return; audioCtx = new (window.AudioContext || window.webkitAudioContext)(); masterGain = audioCtx.createGain(); masterGain.gain.value = state.muted ? 0 : 1; masterGain.connect(audioCtx.destination); }
+function toggleMute(){ state.muted = !state.muted; localStorage.setItem(CONFIG.MUTE_KEY, state.muted ? '1':'0'); if(!audioCtx) ensureAudio(); masterGain.gain.value = state.muted ? 0 : 1; btnMute.textContent = state.muted ? 'UNMUTE':'MUTE'; }
 function sfxShot(){ if(!audioCtx || state.muted) return; const t=audioCtx.currentTime; const o=audioCtx.createOscillator(); o.type='triangle'; o.frequency.value=900+Math.random()*120; const g=audioCtx.createGain(); g.gain.value=0.0001; o.connect(g); g.connect(masterGain); g.gain.exponentialRampToValueAtTime(0.8,t+0.005); g.gain.exponentialRampToValueAtTime(0.0001,t+0.08); o.start(t); o.stop(t+0.1); }
 function sfxPower(){ if(!audioCtx || state.muted) return; const t=audioCtx.currentTime; const o=audioCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=520; const g=audioCtx.createGain(); g.gain.value=0.0001; o.connect(g); g.connect(masterGain); g.gain.exponentialRampToValueAtTime(0.8,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.26); o.start(t); o.stop(t+0.3); }
 function sfxExplode(){ if(!audioCtx || state.muted) return; const t=audioCtx.currentTime; const buf=audioCtx.createBuffer(1, audioCtx.sampleRate*0.15, audioCtx.sampleRate); const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(d.length*0.6)); const s=audioCtx.createBufferSource(); s.buffer=buf; const g=audioCtx.createGain(); g.gain.value=0.0001; s.connect(g); g.connect(masterGain); g.gain.exponentialRampToValueAtTime(0.6,t+0.002); g.gain.exponentialRampToValueAtTime(0.0001,t+0.18); s.start(t); s.stop(t+0.18); }
 
-/* ================= IMAGE PRELOAD ================= */
-let bulletLoaded=false, powerLoaded=false;
-const bimg = new Image(); bimg.src = CONFIG.BULLET_IMG;
-bimg.onload = ()=> bulletLoaded=true; bimg.onerror = ()=> bulletLoaded=false;
-if(CONFIG.POWER_IMG){
-  const pimg = new Image(); pimg.src = CONFIG.POWER_IMG; pimg.onload = ()=> powerLoaded=true; pimg.onerror = ()=> powerLoaded=false;
+/* ---------- IMAGE PRELOAD ---------- */
+let imgs = {};
+function loadImage(key, src){
+  const i = new Image();
+  i.src = src;
+  i.onload = ()=> { imgs[key] = i; };
+  i.onerror = ()=> { imgs[key] = null; console.warn('Image not loaded:', src); };
 }
+loadImage('bullet', CONFIG.BULLET_IMG);
+loadImage('enemy_small', CONFIG.ENEMY_SMALL_IMG);
+loadImage('enemy_med', CONFIG.ENEMY_MED_IMG);
+loadImage('enemy_large', CONFIG.ENEMY_LARGE_IMG);
+// powerups: double, rapid, shield, life, power
+loadImage('powerup_double', CONFIG.POWER_IMG_PREFIX + 'double.png');
+loadImage('powerup_rapid', CONFIG.POWER_IMG_PREFIX + 'rapid.png');
+loadImage('powerup_shield', CONFIG.POWER_IMG_PREFIX + 'shield.png');
+loadImage('powerup_life', CONFIG.POWER_IMG_PREFIX + 'life.png');
+loadImage('powerup_power', CONFIG.POWER_IMG_PREFIX + 'power.png');
 
-/* ================ JOYSTICK (mobile) ================ */
-let joy = { active:false, startX:0, startY:0, x:0, y:0, dx:0, dy:0 };
-function stickToPlayer(){
-  // map joystick dx to player left position
-  if(!joy.active) return;
-  const rect = gameWrap.getBoundingClientRect();
-  const centerX = rect.left + rect.width/2;
-  const moveX = joy.dx; // px
-  const curLeft = player.offsetLeft;
-  const target = curLeft + moveX * 0.08; // scale factor for sensitivity
-  const clamped = Math.max(6, Math.min(gameWrap.clientWidth - player.offsetWidth - 6, target));
-  player.style.left = clamped + 'px';
-  // reset small movements to avoid drift
-  joy.dx *= 0.75;
-}
-stick.style.transform = 'translate(0px,0px)';
+/* ---------- JOYSTICK (mobile) ---------- */
+let joy = { active:false, startX:0, startY:0, dx:0, dy:0 };
+function stickToPlayer(){ if(!joy.active) return; const moveX = joy.dx; const curLeft = player.offsetLeft; const target = curLeft + moveX * 0.08; const clamp = Math.max(6, Math.min(gameWrap.clientWidth - player.offsetWidth - 6, target)); player.style.left = clamp + 'px'; joy.dx *= 0.75; }
+joystick.addEventListener('pointerdown', (e)=>{ joy.active=true; joy.startX=e.clientX; joy.dx=0; joystick.setPointerCapture(e.pointerId); });
+joystick.addEventListener('pointermove', (e)=>{ if(!joy.active) return; joy.dx = e.clientX - joy.startX; const limit=36; const sx = Math.max(-limit, Math.min(limit, joy.dx)); stick.style.transform = `translate(${sx}px,0)`; stickToPlayer(); });
+joystick.addEventListener('pointerup', (e)=>{ joy.active=false; stick.style.transform='translate(0px,0px)'; });
 
-joystick.addEventListener('pointerdown', (e)=>{
-  joy.active = true;
-  joy.startX = e.clientX; joy.startY = e.clientY; joy.dx = 0; joy.dy = 0;
-  stick.setPointerCapture(e.pointerId);
-});
-joystick.addEventListener('pointermove', (e)=>{
-  if(!joy.active) return;
-  joy.x = e.clientX; joy.y = e.clientY;
-  joy.dx = e.clientX - joy.startX; joy.dy = e.clientY - joy.startY;
-  const limit = 36;
-  const sx = Math.max(-limit, Math.min(limit, joy.dx));
-  const sy = Math.max(-limit, Math.min(limit, joy.dy));
-  stick.style.transform = `translate(${sx}px, ${sy}px)`;
-  stickToPlayer();
-});
-joystick.addEventListener('pointerup', (e)=>{
-  joy.active = false; stick.style.transform = 'translate(0px,0px)';
-});
+/* ---------- BULLETS: spawn & move (rotate) ---------- */
+function angleDegFromVector(vx, vy){ const rad = Math.atan2(vy, vx); const deg = rad * 180 / Math.PI; return deg + 90; }
 
-/* also allow left/right screen drag to move player for desktop */
-let mouseDown = false;
-window.addEventListener('pointerdown', (e)=>{ if(e.target.closest('#joystick')) return; mouseDown = true; });
-window.addEventListener('pointerup', ()=> mouseDown = false);
-window.addEventListener('pointermove', (e)=>{ if(mouseDown && !e.target.closest('.actionBtn')) setPlayerXFromClient(e.clientX); });
-
-function setPlayerXFromClient(clientX){
-  const rect = gameWrap.getBoundingClientRect();
-  const px = clientX - rect.left - player.offsetWidth/2;
-  const clamped = Math.max(6, Math.min(gameWrap.clientWidth - player.offsetWidth - 6, px));
-  player.style.left = clamped + 'px';
-}
-
-/* ============== BULLETS (spawn & movement & rotate) ============== */
-function angleDegFromVector(vx, vy){
-  const rad = Math.atan2(vy, vx);
-  const deg = rad * 180 / Math.PI;
-  return deg + 90; // so vy<0 -> angle ~0 (up)
-}
-
-function spawnSingleBulletAt(x, y, vx=0, vy=-14, power=false, fromEnemy=false){
+function spawnSingleBulletAt(x,y,vx=0,vy=-14,power=false,fromEnemy=false){
   if(state.bullets.length >= CONFIG.MAX_BULLETS){
-    const old = state.bullets.shift();
-    if(old && old.el && old.el.parentNode) old.el.remove();
+    const old = state.bullets.shift(); if(old && old.el && old.el.parentNode) old.el.remove();
   }
   const el = document.createElement('img');
   el.className = power ? 'powerBullet' : 'bullet';
   el.draggable = false;
-  el.src = power && CONFIG.POWER_IMG ? CONFIG.POWER_IMG : CONFIG.BULLET_IMG;
+  // choose image if loaded, else fallback to bullet path (browser will try)
+  el.src = imgs['bullet'] ? imgs['bullet'].src : CONFIG.BULLET_IMG;
   el.onerror = ()=> el.classList.add('missing');
-
   const w = power ? 64 : 48, h = power ? 64 : 48;
-  const sx = x - w/2; const sy = y - h - 6;
+  const sx = x - w/2, sy = y - h - 6;
   const ang = angleDegFromVector(vx, vy);
-  el.style.left='0px'; el.style.top='0px';
-  el.style.transform = `translate(${sx}px, ${sy}px) rotate(${ang}deg)`;
+  el.style.left='0px'; el.style.top='0px'; el.style.transform = `translate(${sx}px, ${sy}px) rotate(${ang}deg)`;
   gameWrap.appendChild(el);
   state.bullets.push({el, x:sx, y:sy, vx, vy, power, fromEnemy});
   if(!power) sfxShot(); else sfxPower();
 }
 
-/* burst centered on player (with small jitter) */
-function fireBurst(centerOffset=0, power=false){
+/* burst */
+function fireBurst(centerOffset=0,power=false){
   const origin = getPlayerOriginOffsets();
   const count = power ? 5 : CONFIG.BURST_COUNT;
   const spread = power ? CONFIG.BURST_SPREAD*2 : CONFIG.BURST_SPREAD;
   for(let i=0;i<count;i++){
-    const offset = (i - Math.floor(count/2)) * spread + (Math.random()-0.5)*6 + centerOffset;
+    const offset = (i - Math.floor(count/2))*spread + (Math.random()-0.5)*6 + centerOffset;
     const vx = offset * 0.03;
     const vy = (power ? -20 : -14) + (Math.random()-0.5)*2;
     spawnSingleBulletAt(origin.x + offset, origin.y + (Math.random()-0.5)*6, vx, vy, power, false);
   }
 }
 
-/* get player origin using offsetLeft/offsetTop for reliable coords */
-function getPlayerOriginOffsets(){
-  const cx = player.offsetLeft + player.offsetWidth/2;
-  const topY = player.offsetTop;
-  return {x: Math.round(cx), y: Math.round(topY)};
-}
-
-/* ======== ENEMIES (spawn, movement, behaviors) ======== */
+/* ---------- ENEMY: spawn as images ---------- */
 function spawnEnemy(type='medium'){
   if(!state.running) return;
   if(state.enemies.length >= CONFIG.MAX_ENEMIES) return;
-  const el = document.createElement('div'); el.className='enemy ' + (type==='small'?'small':type==='large'?'large':'medium');
+  // choose image key & CSS size class
+  let key = 'enemy_med', cls='medium', hp=2, w=96, h=96;
+  if(type === 'small'){ key='enemy_small'; cls='small'; hp=1; w=64; h=64; }
+  if(type === 'large'){ key='enemy_large'; cls='large'; hp=6; w=160; h=110; }
+  const img = imgs[key];
+  const el = document.createElement('img');
+  el.className = 'enemyImg ' + cls;
+  el.draggable = false;
+  if(img){ el.src = img.src; } else {
+    // fallback to styled div if sprite missing
+    const f = document.createElement('div');
+    f.className = 'enemyFallback ' + cls;
+    f.style.width = (cls==='small'?64:cls==='large'?160:96) + 'px';
+    f.style.height = (cls==='small'?64:cls==='large'?110:96) + 'px';
+    f.textContent = 'EN';
+    gameWrap.appendChild(f);
+    // attach props to fallback node
+    f._vy = 1.2 + Math.random()*1.8; f._phase = Math.random()*Math.PI*2; f._wobble = 0.6 + Math.random()*1.6; f._hp = hp; f._type = type;
+    state.enemies.push(f);
+    return;
+  }
+  // position and props
   const margin=10;
-  const x = margin + Math.random() * (gameWrap.clientWidth - margin*2 - 90);
-  el.style.left = x + 'px'; el.style.top = '-120px';
-  // properties
+  const x = margin + Math.random()*(gameWrap.clientWidth - margin*2 - w);
+  el.style.left = x + 'px';
+  el.style.top = '-120px';
   el._vy = 1.2 + Math.random()*1.8;
   el._phase = Math.random()*Math.PI*2;
   el._wobble = 0.6 + Math.random()*1.6;
-  el._hp = (type==='small'?1:type==='medium'?2:6);
-  el._type = type;
+  el._hp = hp; el._type = type; el._w = w; el._h = h;
   gameWrap.appendChild(el);
   state.enemies.push(el);
 }
 
-/* enemy special: drop powerup */
-function enemyDropPowerup(x,y){
-  const types = ['double','rapid','shield','life','power'];
-  const t = types[Math.floor(Math.random()*types.length)];
-  spawnPowerup(t, x, y);
-}
-
-/* spawn boss */
-function spawnBoss(){
-  if(state.boss) return;
-  const b = document.createElement('div'); b.className='boss';
-  b.style.width = '200px'; b.style.height='120px';
-  b.style.left = (gameWrap.clientWidth/2 - 100) + 'px';
-  b.style.top = '-160px';
-  const hpWrap = document.createElement('div'); hpWrap.className='hpBar';
-  const hpFill = document.createElement('div'); hpFill.className='hpFill'; hpWrap.appendChild(hpFill);
-  b.appendChild(hpWrap);
-  gameWrap.appendChild(b);
-  state.boss = { el: b, hp: 120, hpMax: 120, phase:1, vx:2 };
-}
-
-/* boss attack: shoot aimed bullets */
-function bossShoot(){
-  if(!state.boss) return;
-  const be = state.boss.el;
-  const shots = 5;
-  for(let i=0;i<shots;i++){
-    const bx = be.offsetLeft + be.clientWidth/2 + (i - (shots-1)/2) * 18;
-    const by = be.offsetTop + be.clientHeight - 10;
-    // aim to player
-    const p = getPlayerOriginOffsets();
-    let vx = (p.x - bx), vy = (p.y - by);
-    const mag = Math.max(1, Math.sqrt(vx*vx + vy*vy));
-    vx = vx/mag * 3.2; vy = vy/mag * 3.2;
-    spawnSingleBulletAt(bx, by, vx, vy, false, true);
+/* drop powerup as image (if exists) otherwise fallback box) */
+function spawnPowerup(kind, x, y){
+  const imgKey = 'powerup_' + kind;
+  const img = imgs[imgKey];
+  if(img){
+    const el = document.createElement('img');
+    el.className = 'powerupImg';
+    el.draggable = false; el.src = img.src;
+    el.style.left = (x - 16) + 'px'; el.style.top = (y - 16) + 'px';
+    el.dataset.kind = kind;
+    gameWrap.appendChild(el);
+    state.enemies.push({ el, kind, vy:1.2 });
+  } else {
+    const el = document.createElement('div');
+    el.className = 'powerupFallback';
+    el.style.left = (x - 16) + 'px'; el.style.top = (y - 16) + 'px';
+    el.dataset.kind = kind;
+    // style text based on kind
+    const label = kind==='double'?'2x':(kind==='rapid'?'R':kind==='shield'?'S':(kind==='life'?'+1':'P'));
+    el.style.background = kind==='double'?'linear-gradient(90deg,#ffd36b,#ff7b6b)': kind==='rapid'?'linear-gradient(90deg,#b3ffb9,#7ee6ff)': kind==='shield'?'linear-gradient(90deg,#fff1a9,#ffd36b)': kind==='life'?'linear-gradient(90deg,#a8ffb1,#74d49b)':'linear-gradient(90deg,#d3b3ff,#9bd0ff)';
+    el.textContent = label;
+    gameWrap.appendChild(el);
+    state.enemies.push({ el, kind, vy:1.2 });
   }
 }
 
-/* =========== POWERUPS =========== */
-let powerupId = 0;
-function spawnPowerup(kind, x, y){
-  const el = document.createElement('div'); el.className = 'powerup';
-  el.dataset.kind = kind;
-  el.style.position='absolute'; el.style.left = x + 'px'; el.style.top = y + 'px';
-  el.style.zIndex = 230;
-  el.style.width = '34px'; el.style.height = '34px'; el.style.borderRadius='8px';
-  el.style.display='flex'; el.style.alignItems='center'; el.style.justifyContent='center';
-  el.style.color='#001'; el.style.fontWeight='800';
-  if(kind==='double'){ el.style.background='linear-gradient(90deg,#ffd36b,#ff7b6b)'; el.textContent='2x'; }
-  if(kind==='rapid'){ el.style.background='linear-gradient(90deg,#b3ffb9,#7ee6ff)'; el.textContent='R'; }
-  if(kind==='shield'){ el.style.background='linear-gradient(90deg,#fff1a9,#ffd36b)'; el.textContent='S'; }
-  if(kind==='life'){ el.style.background='linear-gradient(90deg,#a8ffb1,#74d49b)'; el.textContent='+1'; }
-  if(kind==='power'){ el.style.background='linear-gradient(90deg,#d3b3ff,#9bd0ff)'; el.textContent='P'; }
-  el.style.left = (x - 12) + 'px';
-  gameWrap.appendChild(el);
-  // animate downward
-  const pu = { id: 'pu' + (++powerupId), el, kind, vy:1.2 };
-  state.enemies.push(pu); // reuse enemies array for moving things; we will check dataset.kind to handle
-}
+/* helper enemyDropPowerup uses spawnPowerup */
+function enemyDropPowerup(x,y){ const types=['double','rapid','shield','life','power']; const t = types[Math.floor(Math.random()*types.length)]; spawnPowerup(t,x,y); }
 
-/* ========== PARTICLES (canvas) ========== */
+/* ---------- PARTICLES ---------- */
 function emitParticles(x,y,color,count=16){
-  const q = CONFIG.PARTICLE_QUALITY;
-  const actual = Math.max(6, Math.floor(count * q));
+  const actual = Math.max(6, Math.floor(count));
   for(let i=0;i<actual;i++){
-    const p = {
-      x, y,
-      vx: (Math.random()-0.5) * (4 + Math.random()*8),
-      vy: (Math.random()-0.5) * (4 + Math.random()*8),
-      life: 40 + Math.random()*30,
-      size: 2 + Math.random()*4,
-      color: color || `hsl(${Math.random()*60},80%,65%)`
-    };
+    const p = { x,y, vx:(Math.random()-0.5)*(4+Math.random()*8), vy:(Math.random()-0.5)*(4+Math.random()*8), life:40+Math.random()*30, size:2+Math.random()*4, color: color || `hsl(${Math.random()*60},80%,65%)` };
     state.particleBuffer.push(p);
   }
   sfxExplode();
 }
 function drawParticles(){
-  const buf = state.particleBuffer;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const buf = state.particleBuffer; ctx.clearRect(0,0,canvas.width,canvas.height);
   for(let i=buf.length-1;i>=0;i--){
-    const p = buf[i];
-    p.x += p.vx; p.y += p.vy;
-    p.vy += 0.12;
-    p.life -= 1;
-    ctx.globalAlpha = Math.max(0, p.life / 80);
-    ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+    const p = buf[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.life -= 1;
+    ctx.globalAlpha = Math.max(0, p.life / 80); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
     if(p.life <= 0) buf.splice(i,1);
   }
 }
 
-/* ========== COLLISIONS & HITS ========== */
-function rectsIntersect(A,B){
-  return !(A.bottom < B.top || A.top > B.bottom || A.right < B.left || A.left > B.right);
-}
+/* ---------- COLLISION ---------- */
+function rectsIntersect(A,B){ return !(A.bottom < B.top || A.top > B.bottom || A.right < B.left || A.left > B.right); }
 
-/* player hit */
-function hitPlayer(dmg=1){
-  // flash
-  const f = document.createElement('div');
-  f.style.position='absolute'; f.style.left=0; f.style.top=0; f.style.right=0; f.style.bottom=0;
-  f.style.background='rgba(255,255,255,0.06)'; f.style.zIndex=490;
-  gameWrap.appendChild(f); setTimeout(()=>f.remove(),90);
-  state.lives -= dmg; if(state.lives < 0) state.lives = 0;
-  livesEl.textContent = state.lives;
-  if(state.lives === 0) gameOver();
-}
+/* ---------- PLAYER UTIL ---------- */
+function getPlayerOriginOffsets(){ const cx = player.offsetLeft + player.offsetWidth/2; const ty = player.offsetTop; return { x: Math.round(cx), y: Math.round(ty) }; }
+function hitPlayer(dmg=1){ const f = document.createElement('div'); f.style.position='absolute'; f.style.left=0; f.style.top=0; f.style.right=0; f.style.bottom=0; f.style.background='rgba(255,255,255,0.06)'; f.style.zIndex=490; gameWrap.appendChild(f); setTimeout(()=>f.remove(),90); state.lives -= dmg; if(state.lives < 0) state.lives = 0; livesEl.textContent = state.lives; if(state.lives === 0) gameOver(); }
 
-/* ========== GET PLAYER ORIGIN (offsets) ========= */
-function getPlayerOriginOffsets(){
-  const cx = player.offsetLeft + player.offsetWidth/2;
-  const ty = player.offsetTop;
-  return { x: Math.round(cx), y: Math.round(ty) };
-}
-
-/* ========== GAME LOOP ========== */
+/* ---------- GAME LOOP ---------- */
 let lastTime = performance.now();
 function gameTick(ts){
-  const dt = Math.min(40, ts - lastTime);
-  lastTime = ts;
+  const dt = Math.min(40, ts - lastTime); lastTime = ts;
   if(state.running){
-    // auto-fire if AUTO
-    if(state.mode === 'AUTO' && ts - state.lastFire > CONFIG.AUTO_INTERVAL){
-      state.lastFire = ts; fireBurst(0,false);
-    }
-    // spawn enemies (difficulty applied)
+    // auto fire
+    if(state.mode === 'AUTO' && ts - state.lastFire > CONFIG.AUTO_INTERVAL){ state.lastFire = ts; fireBurst(0,false); }
+
+    // spawn enemies
     const base = Math.max(300, CONFIG.ENEMY_BASE - Math.round((state.difficulty/100)*500));
-    if(ts - state.lastSpawn > base){
-      state.lastSpawn = ts;
-      // random enemy type influenced by difficulty & score
-      const r = Math.random();
-      if(r < 0.15) spawnEnemy('small');
-      else if(r < 0.9) spawnEnemy('medium');
-      else spawnEnemy('large');
-    }
+    if(ts - state.lastSpawn > base){ state.lastSpawn = ts; const r=Math.random(); if(r<0.15) spawnEnemy('small'); else if(r<0.9) spawnEnemy('medium'); else spawnEnemy('large'); }
 
-    // move bullets
+    // update bullets
     for(let i=state.bullets.length-1;i>=0;i--){
-      const b = state.bullets[i];
-      b.x += b.vx * (dt/16.67);
-      b.y += b.vy * (dt/16.67);
-      const ang = angleDegFromVector(b.vx, b.vy);
-      b.el.style.transform = `translate(${b.x}px, ${b.y}px) rotate(${ang}deg)`;
-      // remove offscreen
-      if(b.y < -300 || b.x < -500 || b.x > window.innerWidth + 500){
-        if(b.el.parentNode) b.el.remove();
-        state.bullets.splice(i,1);
-      }
+      const b = state.bullets[i]; b.x += b.vx * (dt/16.67); b.y += b.vy * (dt/16.67); const ang = (Math.atan2(b.vy,b.vx)*180/Math.PI)+90; b.el.style.transform = `translate(${b.x}px, ${b.y}px) rotate(${ang}deg)`;
+      if(b.y < -300 || b.x < -500 || b.x > window.innerWidth + 500){ if(b.el.parentNode) b.el.remove(); state.bullets.splice(i,1); }
     }
 
-    // move enemies and powerups
+    // update enemies & powerups
     for(let i=state.enemies.length-1;i>=0;i--){
       const e = state.enemies[i];
-      // detect if it's a powerup object (we put objects with dataset.kind)
-      if(e && e.el && e.el.dataset && e.el.dataset.kind){
-        // this case is unlikely in this array usage; spawnPowerup used state.enemies.push(pu) but pu is an object
-      }
-      if(e instanceof HTMLElement){
-        // enemy DOM
+      if(e instanceof HTMLElement && e.classList.contains('enemyImg')){
+        // enemy image
         e._phase += 0.03;
         e.style.top = (e.offsetTop + e._vy) + 'px';
         e.style.left = (parseFloat(e.style.left) + Math.sin(e._phase) * e._wobble) + 'px';
-        // bottom reached
-        if(e.offsetTop > window.innerHeight - 110){
-          if(e.parentNode) e.remove();
-          state.enemies.splice(i,1);
-          hitPlayer(1);
-        }
-      } else if(typeof e === 'object' && e.el && e.el.dataset && e.el.dataset.kind){
-        // powerup object moved downwards
+        if(e.offsetTop > window.innerHeight - 110){ if(e.parentNode) e.remove(); state.enemies.splice(i,1); hitPlayer(1); }
+      } else if(e && e.el && e.el.dataset && e.kind){
+        // powerup object stored as {el,kind,vy}
         e.el.style.top = (parseFloat(e.el.style.top) + (e.vy || 1.2)) + 'px';
-        // collision with player
-        const pel = player.getBoundingClientRect();
-        const rel = e.el.getBoundingClientRect();
-        if(rectsIntersect(pel, rel)){
-          // apply powerup
-          applyPowerup(e.kind);
-          if(e.el.parentNode) e.el.remove();
-          state.enemies.splice(i,1);
-        } else if(parseFloat(e.el.style.top) > window.innerHeight){
-          if(e.el.parentNode) e.el.remove();
-          state.enemies.splice(i,1);
-        }
+        const pr = player.getBoundingClientRect(); const rel = e.el.getBoundingClientRect();
+        if(rectsIntersect(pr, rel)){ applyPowerup(e.kind); if(e.el.parentNode) e.el.remove(); state.enemies.splice(i,1); }
+        else if(parseFloat(e.el.style.top) > window.innerHeight){ if(e.el.parentNode) e.el.remove(); state.enemies.splice(i,1); }
+      } else if(e instanceof HTMLElement && e.classList.contains('enemyFallback')){
+        // fallback nodes same behaviour
+        e._phase += 0.03;
+        e.style.top = (e.offsetTop + e._vy) + 'px';
+        e.style.left = (parseFloat(e.style.left) + Math.sin(e._phase) * e._wobble) + 'px';
+        if(e.offsetTop > window.innerHeight - 110){ if(e.parentNode) e.remove(); state.enemies.splice(i,1); hitPlayer(1); }
       }
     }
 
-    // boss movement & attacks
+    // boss handling (kept as earlier if present)
     if(state.boss){
       const be = state.boss.el;
       if(parseFloat(be.style.top) < 24) be.style.top = (be.offsetTop + 6) + 'px';
-      else {
-        // horizontal patrol
-        if(!state.boss.vx) state.boss.vx = 2.2;
-        let nx = be.offsetLeft + state.boss.vx;
-        if(nx < 20 || nx > gameWrap.clientWidth - be.clientWidth - 20) state.boss.vx *= -1;
-        be.style.left = (be.offsetLeft + state.boss.vx) + 'px';
-        // shoot occasionally
-        if(Math.random() < 0.01) bossShoot();
-      }
-      // update hp UI
+      else { if(!state.boss.vx) state.boss.vx = 2.2; let nx = be.offsetLeft + state.boss.vx; if(nx < 20 || nx > gameWrap.clientWidth - be.clientWidth - 20) state.boss.vx *= -1; be.style.left = (be.offsetLeft + state.boss.vx) + 'px'; if(Math.random() < 0.01) bossShoot(); }
       state.boss.el.querySelector('.hpFill').style.width = (state.boss.hp / state.boss.hpMax * 100) + '%';
-      // phase change when low hp
-      if(state.boss.hp <= state.boss.hpMax/2 && state.boss.phase === 1){
-        state.boss.phase = 2;
-        // more aggressive
-        state.boss.vx *= 1.6;
-      }
+      if(state.boss.hp <= 0){ if(state.boss.el.parentNode) state.boss.el.remove(); state.boss = null; state.score += 40; scoreEl.textContent = state.score; if(state.score > state.high){ state.high = state.score; localStorage.setItem(CONFIG.HIGH_KEY, String(state.high)); highEl.textContent = state.high; } }
     }
 
-    // collisions: bullets vs enemies & powerups & boss
-    // bullets vs enemies
+    // collisions: bullets vs enemies & boss
     for(let bi = state.bullets.length-1; bi>=0; bi--){
       const b = state.bullets[bi];
-      // check against enemies
+      // against enemy images and fallbacks
       for(let ei = state.enemies.length-1; ei>=0; ei--){
         const e = state.enemies[ei];
         if(!(e instanceof HTMLElement)) continue;
-        const br = b.el.getBoundingClientRect();
-        const er = e.getBoundingClientRect();
-        if(rectsIntersect(br, er)){
-          // remove bullet
-          if(b.el.parentNode) b.el.remove();
-          state.bullets.splice(bi,1);
-          // damage enemy
-          e._hp -= (b.power ? 3 : 1);
-          // explosion
-          emitParticles(er.left + er.width/2, er.top + er.height/2, '#ff9b9b', 18);
-          if(e._hp <= 0){
-            // drop chance for powerup
-            if(Math.random() < 0.25) enemyDropPowerup(e.offsetLeft + e.clientWidth/2, e.offsetTop + e.clientHeight/2);
-            if(e.parentNode) e.remove();
-            state.enemies.splice(ei,1);
-            state.score += (e.classList.contains('small')?2:(e.classList.contains('large')?6:1));
-            scoreEl.textContent = state.score;
-            if(state.score > state.high){ state.high = state.score; localStorage.setItem(CONFIG.HIGH_KEY, String(state.high)); highEl.textContent = state.high; }
+        if(e.classList.contains('enemyImg') || e.classList.contains('enemyFallback')){
+          const br = b.el.getBoundingClientRect(); const er = e.getBoundingClientRect();
+          if(rectsIntersect(br, er)){
+            if(b.el.parentNode) b.el.remove(); state.bullets.splice(bi,1);
+            e._hp -= (b.power ? 3 : 1);
+            emitParticles(er.left + er.width/2, er.top + er.height/2, '#ff9b9b', 18);
+            if(e._hp <= 0){ if(Math.random() < 0.25) enemyDropPowerup(e.offsetLeft + e.clientWidth/2, e.offsetTop + e.clientHeight/2); if(e.parentNode) e.remove(); state.enemies.splice(ei,1); state.score += (e.classList.contains('small')?2:(e.classList.contains('large')?6:1)); scoreEl.textContent = state.score; if(state.score > state.high){ state.high = state.score; localStorage.setItem(CONFIG.HIGH_KEY, String(state.high)); highEl.textContent = state.high; } }
+            break;
           }
-          break;
         }
       }
-      // bullets hit boss
+      // bullets vs boss
       if(state.boss){
-        const brec = b.el.getBoundingClientRect();
-        const bossRect = state.boss.el.getBoundingClientRect();
-        if(rectsIntersect(brec, bossRect)){
-          // damage boss
-          state.boss.hp -= (b.power ? 10 : 4);
-          if(b.el.parentNode) b.el.remove();
-          state.bullets.splice(bi,1);
-          emitParticles(brec.left + brec.width/2, brec.top + brec.height/2, '#ffcf8b', 14);
-          if(state.boss.hp <= 0){
-            // boss dead
-            if(state.boss.el.parentNode) state.boss.el.remove();
-            state.boss = null;
-            state.score += 40;
-            scoreEl.textContent = state.score;
-            if(state.score > state.high){ state.high = state.score; localStorage.setItem(CONFIG.HIGH_KEY, String(state.high)); highEl.textContent = state.high; }
-          }
-        }
+        const brec = b.el.getBoundingClientRect(); const bossRect = state.boss.el.getBoundingClientRect();
+        if(rectsIntersect(brec, bossRect)){ state.boss.hp -= (b.power ? 10 : 4); if(b.el.parentNode) b.el.remove(); state.bullets.splice(bi,1); emitParticles(brec.left + brec.width/2, brec.top + brec.height/2, '#ffcf8b', 14); if(state.boss.hp <= 0){ if(state.boss.el.parentNode) state.boss.el.remove(); state.boss = null; state.score += 40; scoreEl.textContent = state.score; if(state.score > state.high){ state.high = state.score; localStorage.setItem(CONFIG.HIGH_KEY, String(state.high)); highEl.textContent = state.high; } } }
       }
     }
 
-    // enemies bullets colliding with player (from boss)
+    // bullets from enemies (from boss) hit player
     for(let bi = state.bullets.length-1; bi>=0; bi--){
       const b = state.bullets[bi];
       if(!b.fromEnemy) continue;
-      const br = b.el.getBoundingClientRect();
-      const pr = player.getBoundingClientRect();
-      if(rectsIntersect(br, pr)){
-        if(b.el.parentNode) b.el.remove();
-        state.bullets.splice(bi,1);
-        hitPlayer(1);
-      }
+      const br = b.el.getBoundingClientRect(); const pr = player.getBoundingClientRect();
+      if(rectsIntersect(br, pr)){ if(b.el.parentNode) b.el.remove(); state.bullets.splice(bi,1); hitPlayer(1); }
     }
 
-    // update power regen
-    if(state.power < state.powerMax){
-      state.power = Math.min(state.powerMax, state.power + 0.28 * (1 + state.difficulty/200));
-      powerFill.style.width = Math.round(state.power) + '%';
-    }
+    // power regen
+    if(state.power < state.powerMax){ state.power = Math.min(state.powerMax, state.power + 0.28 * (1 + state.difficulty/200)); powerFill.style.width = Math.round(state.power) + '%'; }
 
-    // draw particles
     drawParticles();
-
-    // joystick easing effect
     if(joy.active) stickToPlayer();
   }
-
   requestAnimationFrame(gameTick);
 }
 
-/* ========== APPLY POWERUP ========== */
+/* ---------- POWERUP EFFECT ---------- */
 function applyPowerup(kind){
-  if(kind === 'double'){ CONFIG.BURST_COUNT = Math.min(6, CONFIG.BURST_COUNT * 2); setTimeout(()=>{ CONFIG.BURST_COUNT = Math.max(3, Math.floor(CONFIG.BURST_COUNT/2)); }, 12000); }
-  if(kind === 'rapid'){ CONFIG.AUTO_INTERVAL = Math.max(80, CONFIG.AUTO_INTERVAL * 0.45); setTimeout(()=>{ CONFIG.AUTO_INTERVAL = 300; }, 9000); }
-  if(kind === 'shield'){ /* temporarily give 1 shield: ignore next hit */ state.shield = true; setTimeout(()=> state.shield = false, 8000); }
-  if(kind === 'life'){ state.lives = Math.min(9, state.lives + 1); livesEl.textContent = state.lives; }
-  if(kind === 'power'){ state.power = Math.min(state.powerMax, state.power + 40); powerFill.style.width = Math.round(state.power) + '%'; }
+  if(kind==='double'){ CONFIG.BURST_COUNT = Math.min(6, CONFIG.BURST_COUNT * 2); setTimeout(()=>{ CONFIG.BURST_COUNT = Math.max(3, Math.floor(CONFIG.BURST_COUNT/2)); }, 12000); }
+  if(kind==='rapid'){ CONFIG.AUTO_INTERVAL = Math.max(80, CONFIG.AUTO_INTERVAL * 0.45); setTimeout(()=>{ CONFIG.AUTO_INTERVAL = 300; }, 9000); }
+  if(kind==='shield'){ state.shield = true; setTimeout(()=> state.shield = false, 8000); }
+  if(kind==='life'){ state.lives = Math.min(9, state.lives + 1); livesEl.textContent = state.lives; }
+  if(kind==='power'){ state.power = Math.min(state.powerMax, state.power + 40); powerFill.style.width = Math.round(state.power) + '%'; }
 }
 
-/* ========== PLAYER POWER SHOOT ========== */
-btnPower.addEventListener('click', ()=>{
-  if(!state.running) return;
-  if(state.power < state.powerMax) return;
-  state.power = 0; powerFill.style.width = '0%';
-  // big multi-shot
-  fireBurst(0, true);
-});
+/* ---------- PLAYER POWER SHOOT ---------- */
+btnPower.addEventListener('click', ()=>{ if(!state.running) return; if(state.power < state.powerMax) return; state.power = 0; powerFill.style.width='0%'; fireBurst(0,true); });
 
-/* ========== FIRE BUTTON ========= */
-btnFire.addEventListener('pointerdown', (e)=>{
-  if(!state.running) return;
-  if(state.mode === 'MANUAL') fireBurst(0,false);
-});
-/* allow click for desktop */
-btnFire.addEventListener('click', (e)=>{ if(state.running && state.mode === 'MANUAL') fireBurst(0,false); });
+/* FIRE button */
+btnFire.addEventListener('pointerdown', ()=>{ if(!state.running) return; if(state.mode === 'MANUAL') fireBurst(0,false); });
+btnFire.addEventListener('click', ()=>{ if(state.running && state.mode === 'MANUAL') fireBurst(0,false); });
 
-/* set mode toggle */
-btnMode.addEventListener('click', ()=>{
-  state.mode = (state.mode === 'AUTO') ? 'MANUAL' : 'AUTO';
-  btnMode.textContent = state.mode;
-});
+/* top controls */
+btnMode.addEventListener('click', ()=>{ state.mode = (state.mode==='AUTO')?'MANUAL':'AUTO'; btnMode.textContent = state.mode; });
+btnPause.addEventListener('click', ()=>{ state.running = !state.running; btnPause.textContent = state.running ? 'PAUSE' : 'RESUME'; if(state.running){ overlay.style.display='none'; lastTime = performance.now(); requestAnimationFrame(gameTick); } else overlay.style.display='flex'; });
+btnMute.addEventListener('click', ()=>{ ensureAudio(); toggleMute(); });
 
-/* pause toggle */
-btnPause.addEventListener('click', ()=>{
-  state.running = !state.running;
-  btnPause.textContent = state.running ? 'PAUSE' : 'RESUME';
-  if(state.running) { overlay.style.display='none'; lastTime = performance.now(); requestAnimationFrame(gameTick); }
-  else overlay.style.display = 'flex';
-});
-
-/* mute toggle */
-btnMute.addEventListener('click', ()=> { ensureAudio(); toggleMute(); });
-
-/* ========== START / END GAME ========== */
-startBtn.addEventListener('click', ()=>{
-  ensureAudio(); startGame();
-});
-document.addEventListener('pointerdown', function first(e){ document.removeEventListener('pointerdown', first); ensureAudio(); startGame(); }, {passive:true});
+/* start / first gesture */
+startBtn.addEventListener('click', ()=>{ ensureAudio(); startGame(); });
+document.addEventListener('pointerdown', function first(){ document.removeEventListener('pointerdown', first); ensureAudio(); startGame(); }, {passive:true});
 
 function startGame(){
   overlay.style.display = 'none';
-  state.running = true; state.score = 0; state.lives = 3; state.power = 0;
-  state.bullets.forEach(b=>{ if(b.el.parentNode) b.el.remove(); }); state.bullets = [];
-  state.enemies.forEach(e=>{ if(e && e.parentNode) e.remove(); }); state.enemies = [];
+  state.running = true; state.score = 0; state.lives = 3; state.power = 0; state.bullets.forEach(b=>{ if(b.el.parentNode) b.el.remove(); }); state.bullets=[]; state.enemies.forEach(e=>{ if(e && e.el && e.el.parentNode) e.el.remove(); if(e instanceof HTMLElement && e.parentNode) e.remove(); }); state.enemies=[];
   if(state.boss && state.boss.el.parentNode) state.boss.el.remove(); state.boss = null;
   scoreEl.textContent = '0'; livesEl.textContent = state.lives;
   state.lastFire = performance.now() - 300; state.lastSpawn = performance.now() - 800;
-  // immediate spawn small wave
   for(let i=0;i<4;i++) setTimeout(()=> spawnEnemy(), i*120);
   requestAnimationFrame(gameTick);
 }
@@ -705,68 +469,27 @@ function gameOver(){
   overlay.style.display = 'flex';
   overlay.querySelector('h1').textContent = 'Game Over';
   overlay.querySelector('p').textContent = `Score: ${state.score} ${state.score > state.high ? '— New High!' : ''}`;
-  // save high
   if(state.score > state.high){ state.high = state.score; localStorage.setItem(CONFIG.HIGH_KEY, String(state.high)); highEl.textContent = state.high; }
 }
 
-/* ========== BOSS TRIGGER (by score) ========= */
-setInterval(()=>{
-  if(state.running && !state.boss && state.score >= 30 && Math.random() < 0.05){
-    spawnBoss();
-  }
-}, 1400);
+/* boss spawn trigger */
+setInterval(()=>{ if(state.running && !state.boss && state.score >= 30 && Math.random() < 0.05) spawnBoss(); }, 1400);
 
-/* ========== helper: enemyDropPowerup replacement to use state.enemies array for powerups ========== */
-function spawnPowerup(kind, x, y){
-  const el = document.createElement('div'); el.dataset.kind = kind;
-  el.style.position='absolute'; el.style.left=(x-12)+'px'; el.style.top=(y-12)+'px';
-  el.style.width='34px'; el.style.height='34px'; el.style.borderRadius='8px'; el.style.zIndex=230; el.style.display='flex'; el.style.alignItems='center'; el.style.justifyContent='center'; el.style.fontWeight='800';
-  if(kind==='double'){ el.style.background='linear-gradient(90deg,#ffd36b,#ff7b6b)'; el.textContent='2x'; }
-  if(kind==='rapid'){ el.style.background='linear-gradient(90deg,#b3ffb9,#7ee6ff)'; el.textContent='R'; }
-  if(kind==='shield'){ el.style.background='linear-gradient(90deg,#fff1a9,#ffd36b)'; el.textContent='S'; }
-  if(kind==='life'){ el.style.background='linear-gradient(90deg,#a8ffb1,#74d49b)'; el.textContent='+1'; }
-  if(kind==='power'){ el.style.background='linear-gradient(90deg,#d3b3ff,#9bd0ff)'; el.textContent='P'; }
-  gameWrap.appendChild(el);
-  state.enemies.push({ el, kind, vy:1.2 });
-}
-
-/* ========== CLOUDS SPAWN (visual) ========== */
-function spawnClouds(){
-  const layer = document.getElementById('clouds');
-  layer.innerHTML='';
-  for(let i=0;i<4;i++){
-    const c = document.createElement('div'); c.className='cloud';
-    const w = 140 + Math.random()*260;
-    c.style.width = w + 'px'; c.style.height = (w*0.36) + 'px'; c.style.borderRadius='80px';
-    c.style.left = Math.random()*100 + '%'; c.style.top = (10 + Math.random()*40) + '%'; c.style.opacity = 0.12 + Math.random()*0.35;
-    c.style.position='absolute'; c.style.background='linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))';
-    layer.appendChild(c);
-    animateCloud(c, 18 + Math.random()*24);
-  }
-}
-function animateCloud(el, dur){
-  let left = parseFloat(el.style.left) || 0;
-  function step(){ left += (100/dur)/60; if(left > 140) left = -40; el.style.left = left + '%'; if(state.running) requestAnimationFrame(step); else setTimeout(()=> requestAnimationFrame(step), 600); }
-  requestAnimationFrame(step);
-}
+/* spawn clouds */
+function spawnClouds(){ const layer=document.getElementById('clouds'); layer.innerHTML=''; for(let i=0;i<4;i++){ const c=document.createElement('div'); const w=140+Math.random()*260; c.style.width=w+'px'; c.style.height=(w*0.36)+'px'; c.style.borderRadius='80px'; c.style.left=Math.random()*100+'%'; c.style.top=(10+Math.random()*40)+'%'; c.style.opacity = 0.12 + Math.random()*0.35; c.style.position='absolute'; c.style.background='linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))'; layer.appendChild(c); animateCloud(c,18+Math.random()*24); } }
+function animateCloud(el,dur){ let left=parseFloat(el.style.left)||0; function step(){ left += (100/dur)/60; if(left>140) left=-40; el.style.left = left+'%'; if(state.running) requestAnimationFrame(step); else setTimeout(()=>requestAnimationFrame(step),600); } requestAnimationFrame(step); }
 spawnClouds();
 
-/* ========== UTIL: emitParticles wrapper calls ========== */
-function emitExplosionAtRect(rect){
-  emitParticles(rect.left + rect.width/2, rect.top + rect.height/2, null, 22);
-}
+/* utility to emit particles at rect center */
+function emitExplosionAtRect(rect){ emitParticles(rect.left + rect.width/2, rect.top + rect.height/2, null, 22); }
 
-/* ========== SAVE DIFFICULTY ========= */
-difficultyInput.addEventListener('input', (e)=>{
-  state.difficulty = parseInt(e.target.value,10);
-  localStorage.setItem(CONFIG.DIFF_KEY, String(state.difficulty));
-});
+/* helper for enemyDropPowerup calls earlier */
+function enemyDropPowerup(x,y){ const types=['double','rapid','shield','life','power']; const t = types[Math.floor(Math.random()*types.length)]; spawnPowerup(t,x,y); }
 
-/* ========== UTILITY: simple debug control ========== */
-window.fireBurst = fireBurst;
-window.spawnEnemy = spawnEnemy;
+/* expose debug helpers */
+window.fireBurst = fireBurst; window.spawnEnemy = spawnEnemy;
 
-/* ========== INITIAL TICK START (idle) ========== */
+/* start idle tick */
 requestAnimationFrame(gameTick);
 
 </script>
