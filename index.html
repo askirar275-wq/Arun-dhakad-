@@ -3,93 +3,122 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Sky Shot — Bullets Rotate With Direction</title>
+<title>Sky Shot — Enemies Added</title>
 <style>
-  :root{--bg:#031229;--accent:#3ec7ff;--accent2:#7b61ff}
+  :root{--bg:#031229;--accent:#3ec7ff;--accent2:#7b61ff;--danger:#ff6b6b}
   *{box-sizing:border-box}
   html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif;overflow:hidden}
   #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;touch-action:none}
 
   /* HUD */
-  #hud{position:absolute;left:12px;top:12px;z-index:300;display:flex;gap:10px;align-items:center}
-  .panel{background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);font-weight:700}
+  #hud{position:absolute;left:12px;top:12px;z-index:400;display:flex;gap:8px;align-items:center}
+  .panel{background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);font-weight:700;font-size:14px}
 
-  /* Player: positioned with left and bottom, uses transform to center horizontally */
-  #player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:66px;height:66px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));z-index:200;display:flex;align-items:center;justify-content:center}
+  /* Player */
+  #player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:66px;height:66px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));z-index:220;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(62,199,255,0.08)}
 
-  /* bullet (img) moved by translate(x,y) + rotate(angle) */
-  .bullet{position:absolute;left:0;top:0;width:48px;height:48px;pointer-events:none;z-index:220;will-change:transform,opacity;transform-origin:center center}
-  .bullet.missing{width:18px;height:18px;border-radius:50%;background:#fff}
+  /* Bullet (img) */
+  .bullet{position:absolute;left:0;top:0;width:48px;height:48px;pointer-events:none;z-index:350;will-change:transform;transform-origin:center center}
+  .bullet.missing{width:16px;height:16px;border-radius:50%;background:#fff}
 
-  .enemy{position:absolute;width:50px;height:50px;border-radius:10px;background:linear-gradient(180deg,#ff6666,#cc0033);z-index:150}
+  /* Enemy */
+  .enemy{position:absolute;width:56px;height:56px;border-radius:12px;background:linear-gradient(180deg,#ff6b6b,#d93c50);box-shadow:0 12px 30px rgba(204,0,51,0.12);z-index:200;border:1px solid rgba(0,0,0,0.08)}
+  .enemy.small{width:40px;height:40px;border-radius:10px}
 
-  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:400}
-  .bigBtn{padding:12px 24px;border-radius:12px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;font-weight:800}
+  /* Overlay / buttons */
+  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:500;background:linear-gradient(180deg,rgba(0,0,0,0.35),rgba(0,0,0,0.6))}
+  .bigBtn{padding:12px 26px;border-radius:14px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;font-weight:800}
+  .info{font-size:13px;opacity:.85}
+  @media (max-width:420px){ .bullet{width:40px;height:40px} .enemy{width:48px;height:48px} .panel{font-size:13px} }
 </style>
 </head>
 <body>
-<div id="gameArea">
-  <div id="hud"><div class="panel">Score: <span id="score">0</span></div><div class="panel">High: <span id="highscore">0</span></div></div>
-
-  <div id="player" aria-hidden="true">
-    <svg viewBox="0 0 64 64" width="46" height="46"><path d="M32 6 L44 28 L32 22 L20 28 Z" fill="#fff" opacity=".16"/></svg>
+<div id="gameArea" aria-label="Sky Shot Game">
+  <div id="hud">
+    <div class="panel">Score: <span id="score">0</span></div>
+    <div class="panel">High: <span id="highscore">0</span></div>
+    <div class="panel">Lives: <span id="lives">3</span></div>
   </div>
 
-  <div id="overlay">
-    <h2 style="margin:0">Sky Shot — Rotate Bullets</h2>
-    <p style="margin:0;opacity:.8">Tap to start — bullets rotate in the travel direction.</p>
+  <div id="player" aria-hidden="true">
+    <svg viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
+      <path d="M32 6 L44 28 L32 22 L20 28 Z" fill="#fff" opacity=".18"/>
+      <circle cx="32" cy="38" r="10" fill="#00141a" opacity=".12"/>
+    </svg>
+  </div>
+
+  <div id="overlay" role="dialog">
+    <h2 style="margin:0">Sky Shot</h2>
+    <p class="info" style="margin:0">Tap to start. Bullets rotate with direction. Enemies spawn from top — shoot them!</p>
     <button class="bigBtn" id="startBtn">Start</button>
-    <div style="font-size:12px;opacity:.75;margin-top:8px">Image path: <code>image/bullet.png</code></div>
+    <div class="info" style="margin-top:6px">Keep <code>image/bullet.png</code> in an <code>image/</code> folder</div>
   </div>
 </div>
 
 <script>
-/* Config */
+/* =========================
+   CONFIG
+   ========================= */
 const BULLET_IMG = 'image/bullet.png';
-const AUTO_FIRE_INTERVAL = 300;
+const AUTO_FIRE_INTERVAL = 300; // ms between auto bursts
 const BURST_COUNT = 3;
-const BURST_SPREAD = 14;
-const MAX_BULLETS = 18;
+const BURST_SPREAD = 12;
+const MAX_BULLETS = 28;
+const ENEMY_SPAWN_BASE = 900;   // base ms
+const MAX_ENEMIES = 7;
+const HIGH_KEY = 'skyshot_enemy_high_v1';
 
-/* DOM */
+/* =========================
+   DOM
+   ========================= */
 const gameArea = document.getElementById('gameArea');
 const player = document.getElementById('player');
-const startBtn = document.getElementById('startBtn');
 const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('startBtn');
 const scoreEl = document.getElementById('score');
+const highEl = document.getElementById('highscore');
+const livesEl = document.getElementById('lives');
 
-/* State */
-let state = { running:false, bullets:[], enemies:[], score:0, lastFire:0 };
+/* =========================
+   STATE
+   ========================= */
+let state = {
+  running:false,
+  bullets:[],   // {el,x,y,vx,vy,power,fromBoss}
+  enemies:[],   // DOM elements with custom props
+  score:0,
+  high: parseInt(localStorage.getItem(HIGH_KEY) || '0',10) || 0,
+  lives:3,
+  lastFire:0,
+  lastSpawn:0
+};
+highEl.textContent = state.high;
+livesEl.textContent = state.lives;
 
-/* Place player center */
-function placePlayerCenter(){
-  // keep left:50% and translateX(-50%) for responsive center; nothing required here
+/* =========================
+   Utility: player origin using offsets (reliable)
+   ========================= */
+function getPlayerOrigin(){
+  // use offsetLeft/offsetTop which is relative to offsetParent (gameArea) when player is direct child
+  const centerX = player.offsetLeft + player.offsetWidth/2;
+  const topY = player.offsetTop;
+  return { x: Math.round(centerX), y: Math.round(topY) };
 }
-window.addEventListener('resize', placePlayerCenter);
-setTimeout(placePlayerCenter,60);
 
-/* Compute origin using offsetLeft/offsetTop relative to gameArea */
-function getPlayerOriginUsingOffsets(){
-  const px = player.offsetLeft + (player.offsetWidth / 2);
-  const py = player.offsetTop;
-  return { x: Math.round(px), y: Math.round(py) };
-}
-
-/* Angle helper: compute deg rotation for sprite pointing upward by default
-   If your bullet image points to the right by default, remove +90 adjustment.
-*/
+/* =========================
+   Bullet rotation helper
+   ========================= */
 function angleDegFromVector(vx, vy){
-  // atan2 expects (y, x) -> gives radians; convert to degrees and rotate so 0 = up
-  const rad = Math.atan2(vy, vx); // vy, vx
+  const rad = Math.atan2(vy, vx);
   const deg = rad * 180 / Math.PI;
-  // our rocket image is oriented "up" visually — add 90 deg so vx=0,vy<0 -> angle=0
-  return deg + 90;
+  return deg + 90; // adjust so vy<0 gives angle ~0 (upwards)
 }
 
-/* Spawn single bullet at numeric coordinates (x,y are gameArea-relative),
-   vx, vy are pixels per frame-unit (we scale in loop). We'll compute and apply rotation.
-*/
-function spawnSingleBulletAt(x, y, vx=0, vy=-14){
+/* =========================
+   Spawn bullet (image) at gameArea coords
+   ========================= */
+function spawnSingleBulletAt(x, y, vx=0, vy=-14, power=false, fromBoss=false){
+  // cap bullets
   if(state.bullets.length >= MAX_BULLETS){
     const old = state.bullets.shift();
     if(old && old.el && old.el.parentNode) old.el.remove();
@@ -100,68 +129,190 @@ function spawnSingleBulletAt(x, y, vx=0, vy=-14){
   el.src = BULLET_IMG;
   el.onerror = ()=> el.classList.add('missing');
 
-  // center image
   const w = 48, h = 48;
   const sx = x - w/2;
-  const sy = y - h - 6; // a little gap so bullet appears above ship
+  const sy = y - h - 6;
 
-  // compute initial rotation and set transform combining translate and rotate
   const ang = angleDegFromVector(vx, vy);
   el.style.left = '0px';
   el.style.top = '0px';
   el.style.transform = `translate(${sx}px, ${sy}px) rotate(${ang}deg)`;
 
   gameArea.appendChild(el);
-  state.bullets.push({el, x: sx, y: sy, vx, vy});
+  state.bullets.push({el, x: sx, y: sy, vx, vy, power, fromBoss});
 }
 
-/* Fire burst from player origin using offsets (adds small jitter) */
-function fireBurstFromPlayer(){
-  const origin = getPlayerOriginUsingOffsets();
+/* Burst fire centered on player */
+function fireBurstFromPlayer(centerXOffset = 0){
+  const origin = getPlayerOrigin();
   for(let i=0;i<BURST_COUNT;i++){
-    const offset = (i - Math.floor(BURST_COUNT/2)) * BURST_SPREAD + (Math.random()-0.5)*4;
+    const offset = (i - Math.floor(BURST_COUNT/2)) * BURST_SPREAD + (Math.random()-0.5)*4 + centerXOffset;
     const vx = offset * 0.03;
     const vy = -14 + (Math.random()-0.5)*1.6;
-    spawnSingleBulletAt(origin.x + offset, origin.y + (Math.random()-0.5)*6, vx, vy);
+    spawnSingleBulletAt(origin.x + offset, origin.y + (Math.random()-0.5)*6, vx, vy, false, false);
   }
 }
 
-/* Loop: move bullets and update rotation while moving */
+/* =========================
+   Enemy spawn & behavior
+   ========================= */
+function spawnEnemy(){
+  if(!state.running) return;
+  if(state.enemies.length >= MAX_ENEMIES) return;
+  const e = document.createElement('div');
+  e.className = 'enemy';
+  // random size small chance
+  if(Math.random() < 0.14) e.classList.add('small');
+  const margin = 18;
+  const x = margin + Math.random() * (gameArea.clientWidth - margin*2 - 56);
+  e.style.left = x + 'px';
+  e.style.top = '-80px';
+  // attach movement props
+  e._vy = 1.6 + Math.random()*1.6;
+  e._phase = Math.random()*Math.PI*2;
+  e._wobble = 0.6 + Math.random()*1.6;
+  gameArea.appendChild(e);
+  state.enemies.push(e);
+}
+
+/* =========================
+   Collision helpers
+   ========================= */
+function rectsIntersect(A,B){
+  return !(A.bottom < B.top || A.top > B.bottom || A.right < B.left || A.left > B.right);
+}
+
+/* =========================
+   Player hit / lives
+   ========================= */
+function hitPlayer(damage){
+  // flash (simple)
+  const flash = document.createElement('div');
+  flash.style.position = 'absolute';
+  flash.style.inset = '0';
+  flash.style.background = 'rgba(255,255,255,0.04)';
+  flash.style.zIndex = 600;
+  gameArea.appendChild(flash);
+  setTimeout(()=> flash.remove(), 90);
+
+  state.lives -= damage;
+  if(state.lives < 0) state.lives = 0;
+  livesEl.textContent = state.lives;
+  if(state.lives <= 0) endGame();
+}
+
+/* =========================
+   Game loop: update bullets/enemies/collisions
+   ========================= */
 let lastFrame = performance.now();
-function loop(ts){
-  const dt = Math.min(40, ts - lastFrame);
-  lastFrame = ts;
+function gameLoop(ts){
+  const dt = Math.min(40, ts - lastFrame); lastFrame = ts;
+
   if(state.running){
+    // Auto fire every interval
     if(ts - state.lastFire > AUTO_FIRE_INTERVAL){
       state.lastFire = ts; fireBurstFromPlayer();
     }
 
-    // update bullets numeric position and rotation
-    for(let i=state.bullets.length-1;i>=0;i--){
+    // spawn enemies with base interval (faster as score grows slightly)
+    const spawnInterval = Math.max(300, ENEMY_SPAWN_BASE - Math.floor(state.score * 8));
+    if(ts - state.lastSpawn > spawnInterval){
+      state.lastSpawn = ts; spawnEnemy();
+    }
+
+    // update bullets
+    for(let i = state.bullets.length - 1; i >= 0; i--){
       const b = state.bullets[i];
       b.x += b.vx * (dt/16.67);
       b.y += b.vy * (dt/16.67);
-      // recompute angle each frame so it matches velocity (useful if vx/vy change)
       const ang = angleDegFromVector(b.vx, b.vy);
       b.el.style.transform = `translate(${b.x}px, ${b.y}px) rotate(${ang}deg)`;
-      if(b.y < -200){
+      // remove offscreen
+      if(b.y < -260 || b.x < -400 || b.x > window.innerWidth + 400){
         if(b.el.parentNode) b.el.remove();
         state.bullets.splice(i,1);
       }
     }
+
+    // update enemies
+    for(let i = state.enemies.length - 1; i >= 0; i--){
+      const e = state.enemies[i];
+      e._phase += 0.03;
+      e.style.top = (e.offsetTop + e._vy) + 'px';
+      e.style.left = (parseFloat(e.style.left) + Math.sin(e._phase) * e._wobble) + 'px';
+      // if reach bottom
+      if(e.offsetTop > window.innerHeight - 90){
+        if(e.parentNode) e.remove();
+        state.enemies.splice(i,1);
+        hitPlayer(1);
+        continue;
+      }
+    }
+
+    // collisions: bullet vs enemy
+    for(let ei = state.enemies.length - 1; ei >= 0; ei--){
+      const e = state.enemies[ei];
+      const er = e.getBoundingClientRect();
+      for(let bi = state.bullets.length - 1; bi >= 0; bi--){
+        const b = state.bullets[bi];
+        if(!b.el.parentNode) continue;
+        const br = b.el.getBoundingClientRect();
+        if(rectsIntersect(br, er)){
+          // destroy both
+          if(e.parentNode) e.remove();
+          if(b.el.parentNode) b.el.remove();
+          state.enemies.splice(ei,1);
+          state.bullets.splice(bi,1);
+          // scoring: small enemy = 2, normal = 1
+          const pts = e.classList.contains('small') ? 2 : 1;
+          state.score += pts;
+          scoreEl.textContent = state.score;
+          // save high if needed
+          if(state.score > state.high){ state.high = state.score; localStorage.setItem(HIGH_KEY, String(state.high)); highEl.textContent = state.high; }
+          break;
+        }
+      }
+    }
+
+    // (Optional) enemies vs player collision — skip for now
+
   }
-  requestAnimationFrame(loop);
+
+  lastFrame = ts;
+  requestAnimationFrame(gameLoop);
 }
 
-/* start handlers */
-startBtn.addEventListener('click', ()=> {
+/* =========================
+   Start / end game
+   ========================= */
+function startGame(){
   overlay.style.display = 'none';
-  state.running = true; state.score = 0;
+  // reset
+  state.running = true;
+  state.score = 0; state.lives = 3;
+  scoreEl.textContent = 0; livesEl.textContent = state.lives;
+  // cleanup DOM
   state.bullets.forEach(b=>{ if(b.el.parentNode) b.el.remove(); }); state.bullets = [];
-  requestAnimationFrame(loop);
-});
+  state.enemies.forEach(e=>{ if(e.parentNode) e.remove(); }); state.enemies = [];
+  state.lastFire = performance.now() - 200;
+  state.lastSpawn = performance.now();
+  // immediate spawn so player sees action
+  for(let i=0;i<4;i++) setTimeout(spawnEnemy, i*80);
+  requestAnimationFrame(gameLoop);
+}
 
-/* player move with touch/mouse — set player.left inline so offsetLeft works */
+function endGame(){
+  state.running = false;
+  overlay.style.display = 'flex';
+  overlay.querySelector('h2').textContent = 'Game Over';
+  overlay.querySelector('.info')?.remove?.(); // remove old hint if any
+  const p = document.createElement('p'); p.className = 'info'; p.style.margin = '6px 0 0 0'; p.textContent = 'Score: ' + state.score + (state.score > state.high ? ' — New High!' : '');
+  overlay.appendChild(p);
+}
+
+/* =========================
+   Input: player movement & manual fire on tap
+   ========================= */
 function setPlayerXFromClient(clientX){
   const rect = gameArea.getBoundingClientRect();
   const px = clientX - rect.left - player.offsetWidth/2;
@@ -172,13 +323,25 @@ gameArea.addEventListener('touchstart', e=>{ if(e.touches[0]) setPlayerXFromClie
 gameArea.addEventListener('touchmove', e=>{ if(e.touches[0]) setPlayerXFromClient(e.touches[0].clientX); }, {passive:true});
 gameArea.addEventListener('mousemove', e=>{ if(e.buttons) setPlayerXFromClient(e.clientX); });
 
-/* optional manual tap firing */
-gameArea.addEventListener('pointerdown', (e)=>{
+/* manual tap to fire too (useful) */
+gameArea.addEventListener('pointerdown', (ev)=>{
   if(!state.running) return;
-  // avoid firing when clicking overlay or controls in other versions
-  if(e.target.closest('button')) return;
+  // ignore clicking overlay/button
+  if(ev.target.closest('button')) return;
+  // fire burst
   fireBurstFromPlayer();
 }, {passive:true});
+
+/* start button */
+startBtn.addEventListener('click', ()=> startGame());
+
+/* first gesture to start */
+document.addEventListener('pointerdown', function first(){ document.removeEventListener('pointerdown', first); startGame(); }, {passive:true});
+
+/* =========================
+   Done
+   ========================= */
+console.log('Sky Shot with enemies loaded. Keep bullet image at:', BULLET_IMG);
 </script>
 </body>
 </html>
