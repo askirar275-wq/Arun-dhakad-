@@ -2,662 +2,183 @@
 <html lang="hi">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Sky Shot — Remake (All features)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sky Shot — Bullets Rotate With Direction</title>
 <style>
-  :root{
-    --bg:#031229; --panel:rgba(255,255,255,0.04);
-    --accent:#3ec7ff; --accent2:#7b61ff; --danger:#ff6b6b;
-  }
+  :root{--bg:#031229;--accent:#3ec7ff;--accent2:#7b61ff}
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale}
-  #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;touch-action:none;-webkit-user-select:none}
-
-  /* background shapes */
-  .bg-circles{position:absolute;inset:0;z-index:0;pointer-events:none;background:
-    radial-gradient(180px 120px at 15% 20%, rgba(255,255,255,0.02), transparent 20%),
-    radial-gradient(200px 140px at 70% 45%, rgba(255,255,255,0.02), transparent 18%);}
-  .clouds{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0.6}
+  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif;overflow:hidden}
+  #gameArea{position:relative;width:100vw;height:100vh;overflow:hidden;touch-action:none}
 
   /* HUD */
-  #hud{position:absolute;left:12px;top:12px;z-index:120;display:flex;gap:10px;align-items:center}
-  .panel{background:var(--panel);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);font-weight:800;backdrop-filter:blur(6px)}
-  .small{font-size:13px}
-  #powerBar{width:110px;height:12px;border-radius:12px;background:rgba(255,255,255,0.03);overflow:hidden;border:1px solid rgba(255,255,255,0.05)}
-  #powerFill{height:100%;width:0%;background:linear-gradient(90deg,#ffd36b,#ff7b6b)}
+  #hud{position:absolute;left:12px;top:12px;z-index:300;display:flex;gap:10px;align-items:center}
+  .panel{background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);font-weight:700}
 
-  /* Player */
-  #player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 10px 40px rgba(62,199,255,0.12);z-index:110;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.06)}
-  #player svg{width:46px;height:46px;filter:drop-shadow(0 8px 18px rgba(0,0,0,0.35))}
+  /* Player: positioned with left and bottom, uses transform to center horizontally */
+  #player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:66px;height:66px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));z-index:200;display:flex;align-items:center;justify-content:center}
 
-  /* bullets (image elements) */
-  .bullet{position:absolute;width:48px;height:48px;pointer-events:none;z-index:220;transform-origin:center center;will-change:transform,opacity}
-  .powerBullet{position:absolute;width:70px;height:70px;pointer-events:none;z-index:225;filter:drop-shadow(0 10px 30px rgba(255,120,80,0.12))}
+  /* bullet (img) moved by translate(x,y) + rotate(angle) */
+  .bullet{position:absolute;left:0;top:0;width:48px;height:48px;pointer-events:none;z-index:220;will-change:transform,opacity;transform-origin:center center}
+  .bullet.missing{width:18px;height:18px;border-radius:50%;background:#fff}
 
-  /* enemies + boss */
-  .enemy{position:absolute;width:54px;height:54px;border-radius:12px;background:linear-gradient(180deg,#ff6b6b,#d93c50);box-shadow:0 12px 30px rgba(204,0,51,0.12);z-index:105;border:1px solid rgba(0,0,0,0.12)}
-  .boss{position:absolute;width:220px;height:140px;border-radius:18px;background:linear-gradient(180deg,#ffb86b,#ff7b6b);box-shadow:0 30px 90px rgba(255,100,60,0.12);z-index:112;border:2px solid rgba(255,255,255,0.04)}
-  .hpBar{position:absolute;left:50%;transform:translateX(-50%);bottom:-16px;height:10px;border-radius:12px;background:rgba(0,0,0,0.18);width:86%;overflow:hidden;border:1px solid rgba(255,255,255,0.06)}
-  .hpFill{height:100%;width:100%;background:linear-gradient(90deg,#2effa7,#00d2ff)}
+  .enemy{position:absolute;width:50px;height:50px;border-radius:10px;background:linear-gradient(180deg,#ff6666,#cc0033);z-index:150}
 
-  /* controls */
-  #controls{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;z-index:300;display:flex;gap:10px;align-items:center}
-  .btn{outline:2px solid rgba(255,255,255,0.08);background:transparent;padding:10px 14px;border-radius:14px;color:#fff;font-weight:800;cursor:pointer;backdrop-filter:blur(6px);transition:transform .12s,box-shadow .12s}
-  .btn:active{transform:translateY(2px) scale(.985)}
-  .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;border:0}
-  .btn.ghost{background:transparent;border:2px solid rgba(255,255,255,0.06)}
-  .pulse{animation:pl 1.6s ease-in-out infinite}
-  @keyframes pl{0%{box-shadow:0 6px 18px rgba(62,199,255,0.06)}50%{box-shadow:0 14px 36px rgba(62,199,255,0.12)}100%{box-shadow:0 6px 18px rgba(62,199,255,0.06)}}
-
-  /* overlay */
-  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:400;background:linear-gradient(180deg,rgba(0,0,0,0.35),rgba(0,0,0,0.55))}
-  .bigBtn{padding:12px 26px;border-radius:16px;border:0;font-weight:900;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001}
-
-  /* misc */
-  .hitFlash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .08s;background:rgba(255,255,255,0.04);z-index:350}
-  @media (max-width:420px){
-    #player{width:62px;height:62px}
-    .bullet{width:40px;height:40px}
-    .powerBullet{width:56px;height:56px}
-    .boss{width:180px;height:110px}
-    .hpBar{bottom:-12px}
-  }
+  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:400}
+  .bigBtn{padding:12px 24px;border-radius:12px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;font-weight:800}
 </style>
 </head>
 <body>
-<div id="gameArea" tabindex="0" aria-label="Sky Shot game">
-  <div class="bg-circles"></div>
-  <div class="clouds" id="clouds"></div>
-
-  <div id="hud">
-    <div class="panel small">Score: <span id="score">0</span></div>
-    <div class="panel small">High: <span id="highscore">0</span></div>
-    <div class="panel small" title="Power">
-      <div style="font-size:12px;opacity:.9">Power</div>
-      <div id="powerBar"><div id="powerFill"></div></div>
-    </div>
-    <div class="panel small" title="Difficulty" style="display:flex;flex-direction:column;align-items:center">
-      <div style="font-size:12px;opacity:.9">Difficulty</div>
-      <input id="difficulty" type="range" min="0" max="100" value="40" style="width:120px">
-    </div>
-  </div>
+<div id="gameArea">
+  <div id="hud"><div class="panel">Score: <span id="score">0</span></div><div class="panel">High: <span id="highscore">0</span></div></div>
 
   <div id="player" aria-hidden="true">
-    <svg viewBox="0 0 64 64" aria-hidden="true">
-      <path d="M32 6 L44 28 L32 22 L20 28 Z" fill="#fff" opacity=".18"/>
-      <circle cx="32" cy="38" r="10" fill="#00141a" opacity=".12"/>
-    </svg>
+    <svg viewBox="0 0 64 64" width="46" height="46"><path d="M32 6 L44 28 L32 22 L20 28 Z" fill="#fff" opacity=".16"/></svg>
   </div>
 
-  <div class="hitFlash" id="hitFlash"></div>
-
-  <div id="controls">
-    <button class="btn ghost" id="btnPause">PAUSE</button>
-    <button class="btn" id="btnMode">AUTO</button>
-    <button class="btn" id="btnMute">MUTE</button>
-    <button class="btn primary pulse" id="btnPower">POWER</button>
-  </div>
-
-  <div id="overlay" role="dialog" aria-hidden="false">
-    <h1 style="margin:0">Sky Shot</h1>
-    <p style="margin:0;opacity:.9">Tap anywhere to start. Tap screen to fire in MANUAL mode.</p>
+  <div id="overlay">
+    <h2 style="margin:0">Sky Shot — Rotate Bullets</h2>
+    <p style="margin:0;opacity:.8">Tap to start — bullets rotate in the travel direction.</p>
     <button class="bigBtn" id="startBtn">Start</button>
-    <div style="opacity:.8;font-size:13px;margin-top:8px">Images: <code>image/bullet.png</code> (required)</div>
+    <div style="font-size:12px;opacity:.75;margin-top:8px">Image path: <code>image/bullet.png</code></div>
   </div>
 </div>
 
 <script>
-/* =========================
-   CONFIG - change here if needed
-   ========================= */
-const CONFIG = {
-  BULLET_IMG: 'image/bullet.png',     // required path (rocket image)
-  POWER_BULLET_IMG: null,             // optional, or null
-  AUTO_FIRE_INTERVAL: 300,
-  BURST_COUNT: 3,
-  BURST_SPREAD: 12,
-  MAX_BULLETS: 22,
-  ENEMY_SPAWN_BASE: 700,
-  BOSS_SCORE_AT: 30,
-  START_ENEMY_BURST: 4,
-  HIGH_SCORE_KEY: 'skyshot_high_v2',
-  MUTED_KEY: 'skyshot_mute_v2',
-  DIFF_KEY: 'skyshot_diff_v2'
-};
+/* Config */
+const BULLET_IMG = 'image/bullet.png';
+const AUTO_FIRE_INTERVAL = 300;
+const BURST_COUNT = 3;
+const BURST_SPREAD = 14;
+const MAX_BULLETS = 18;
 
-/* =========================
-   DOM elements
-   ========================= */
+/* DOM */
 const gameArea = document.getElementById('gameArea');
 const player = document.getElementById('player');
-const scoreEl = document.getElementById('score');
-const highEl = document.getElementById('highscore');
-const powerFill = document.getElementById('powerFill');
-const difficultyInput = document.getElementById('difficulty');
-const clouds = document.getElementById('clouds');
-const overlay = document.getElementById('overlay');
 const startBtn = document.getElementById('startBtn');
-const btnPause = document.getElementById('btnPause');
-const btnMode = document.getElementById('btnMode');
-const btnMute = document.getElementById('btnMute');
-const btnPower = document.getElementById('btnPower');
-const hitFlash = document.getElementById('hitFlash');
+const overlay = document.getElementById('overlay');
+const scoreEl = document.getElementById('score');
 
-/* =========================
-   GAME STATE
-   ========================= */
-let state = {
-  running:false,
-  score:0,
-  high: parseInt(localStorage.getItem(CONFIG.HIGH_SCORE_KEY) || '0',10) || 0,
-  bullets:[],   // {el,x,y,vx,vy,power}
-  enemies:[],
-  boss: null,
-  lives:3,
-  power:0,      // 0..100
-  powerMax:100,
-  powerCooldown:false,
-  mode:'AUTO',  // AUTO or MANUAL
-  muted: localStorage.getItem(CONFIG.MUTED_KEY) === '1',
-  difficulty: parseInt(localStorage.getItem(CONFIG.DIFF_KEY) || '40',10) || 40,
-  lastFire:0,
-  lastSpawn:0
-};
+/* State */
+let state = { running:false, bullets:[], enemies:[], score:0, lastFire:0 };
 
-/* init UI */
-highEl.textContent = state.high;
-difficultyInput.value = state.difficulty;
-
-/* =========================
-   Audio: lightweight synth (WebAudio)
-   ========================= */
-let audioCtx = null, masterGain = null;
-function ensureAudio(){
-  if(audioCtx) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  masterGain = audioCtx.createGain();
-  masterGain.gain.value = state.muted ? 0 : 1;
-  masterGain.connect(audioCtx.destination);
+/* Place player center */
+function placePlayerCenter(){
+  // keep left:50% and translateX(-50%) for responsive center; nothing required here
 }
-function toggleMute(){
-  state.muted = !state.muted;
-  localStorage.setItem(CONFIG.MUTED_KEY, state.muted ? '1' : '0');
-  if(!audioCtx) ensureAudio();
-  masterGain.gain.value = state.muted ? 0 : 1;
-  btnMute.textContent = state.muted ? 'UNMUTE' : 'MUTE';
-  btnMute.classList.toggle('on', state.muted);
-}
-btnMute.textContent = state.muted ? 'UNMUTE' : 'MUTE';
-
-/* simple synth helpers */
-function env(g,t,attack=0.002,decay=0.08){ g.cancelScheduledValues(t); g.setValueAtTime(0.0001,t); g.exponentialRampToValueAtTime(1,t+attack); g.exponentialRampToValueAtTime(0.0001,t+attack+decay); }
-function playShot(){
-  if(!audioCtx || state.muted) return;
-  const t = audioCtx.currentTime;
-  const o = audioCtx.createOscillator(); o.type='triangle'; o.frequency.value=900+Math.random()*140;
-  const g = audioCtx.createGain(); g.gain.value = 0.0001; o.connect(g); g.connect(masterGain); env(g,t,0.002,0.05); o.start(t); o.stop(t+0.12);
-}
-function playPower(){
-  if(!audioCtx || state.muted) return;
-  const t = audioCtx.currentTime;
-  const o1 = audioCtx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=600;
-  const g1 = audioCtx.createGain(); g1.gain.value=0.0001; o1.connect(g1); g1.connect(masterGain); env(g1,t,0.002,0.18);
-  o1.start(t); o1.stop(t+0.28);
-}
-function playExplosion(){
-  if(!audioCtx || state.muted) return;
-  const t = audioCtx.currentTime;
-  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.15, audioCtx.sampleRate);
-  const d = buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(d.length*0.6));
-  const src = audioCtx.createBufferSource(); src.buffer = buf;
-  const g = audioCtx.createGain(); g.gain.value = 0.0001; src.connect(g); g.connect(masterGain); env(g,t,0.002,0.18);
-  src.start(t); src.stop(t+0.18);
-}
-
-/* =========================
-   Preload bullet image
-   ========================= */
-let bulletLoaded = false;
-const bulletProbe = new Image();
-bulletProbe.src = CONFIG.BULLET_IMG;
-bulletProbe.onload = ()=> { bulletLoaded = true; };
-bulletProbe.onerror = ()=> { bulletLoaded = false; console.warn('Bullet image not loaded at', CONFIG.BULLET_IMG); };
-
-/* =========================
-   Background clouds (light)
-   ========================= */
-function spawnClouds(){
-  clouds.innerHTML = '';
-  for(let i=0;i<3;i++){
-    const c = document.createElement('div'); c.className='cloud';
-    const w = 180 + Math.random()*320;
-    c.style.width = w + 'px';
-    c.style.height = (w*0.36) + 'px';
-    c.style.borderRadius = '80px';
-    c.style.top = (6 + Math.random()*40) + '%';
-    c.style.left = (Math.random()*120 - 30) + '%';
-    c.style.opacity = 0.12 + Math.random()*0.5;
-    c.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))';
-    clouds.appendChild(c);
-    animateCloud(c, 18 + Math.random()*28);
-  }
-}
-function animateCloud(el, dur){
-  let left = parseFloat(el.style.left) || -30;
-  function step(){ left += (100/dur)/60; if(left > 120) left = -40; el.style.left = left + '%'; if(state.running) requestAnimationFrame(step); else setTimeout(()=> requestAnimationFrame(step), 800); }
-  requestAnimationFrame(step);
-}
-
-/* =========================
-   Player placement & input
-   ========================= */
-function placePlayerCenter(){ const r = gameArea.getBoundingClientRect(); player.style.left = Math.max(8, r.width/2 - player.offsetWidth/2) + 'px'; }
 window.addEventListener('resize', placePlayerCenter);
 setTimeout(placePlayerCenter,60);
 
-function setPlayerXFromClient(clientX){
-  const rect = gameArea.getBoundingClientRect();
-  const x = Math.max(8, Math.min(rect.width - player.offsetWidth - 8, clientX - rect.left - player.offsetWidth/2));
-  player.style.left = x + 'px';
+/* Compute origin using offsetLeft/offsetTop relative to gameArea */
+function getPlayerOriginUsingOffsets(){
+  const px = player.offsetLeft + (player.offsetWidth / 2);
+  const py = player.offsetTop;
+  return { x: Math.round(px), y: Math.round(py) };
 }
-gameArea.addEventListener('touchstart', e=>{ if(e.touches[0]) setPlayerXFromClient(e.touches[0].clientX); }, {passive:true});
-gameArea.addEventListener('touchmove', e=>{ if(e.touches[0]) setPlayerXFromClient(e.touches[0].clientX); }, {passive:true});
-gameArea.addEventListener('mousemove', e=> setPlayerXFromClient(e.clientX));
 
-/* manual tap-to-fire when MANUAL mode */
-gameArea.addEventListener('pointerdown', (e)=>{
-  if(!state.running) return;
-  if(state.mode === 'MANUAL'){
-    // don't block UI buttons (they are above)
-    if(e.target.closest('.btn') || e.target.closest('#overlay')) return;
-    // compute offset influence for angled shots
-    const gameRect = gameArea.getBoundingClientRect();
-    const tx = e.clientX - gameRect.left;
-    const px = player.offsetLeft + player.offsetWidth/2;
-    const offsetFromCenter = tx - px;
-    fireBurst(offsetFromCenter * 0.12);
-  }
-}, {passive:true});
+/* Angle helper: compute deg rotation for sprite pointing upward by default
+   If your bullet image points to the right by default, remove +90 adjustment.
+*/
+function angleDegFromVector(vx, vy){
+  // atan2 expects (y, x) -> gives radians; convert to degrees and rotate so 0 = up
+  const rad = Math.atan2(vy, vx); // vy, vx
+  const deg = rad * 180 / Math.PI;
+  // our rocket image is oriented "up" visually — add 90 deg so vx=0,vy<0 -> angle=0
+  return deg + 90;
+}
 
-/* =========================
-   Bullet spawn & movement (numeric x,y)
-   ========================= */
-function spawnSingleBulletAt(x, y, vx, vy, power=false){
-  if(state.bullets.length >= CONFIG.MAX_BULLETS){
+/* Spawn single bullet at numeric coordinates (x,y are gameArea-relative),
+   vx, vy are pixels per frame-unit (we scale in loop). We'll compute and apply rotation.
+*/
+function spawnSingleBulletAt(x, y, vx=0, vy=-14){
+  if(state.bullets.length >= MAX_BULLETS){
     const old = state.bullets.shift();
     if(old && old.el && old.el.parentNode) old.el.remove();
   }
-  let el;
-  if(power && CONFIG.POWER_BULLET_IMG){
-    el = document.createElement('img'); el.className='powerBullet'; el.src = CONFIG.POWER_BULLET_IMG;
-  } else {
-    el = document.createElement('img'); el.className='bullet'; el.src = CONFIG.BULLET_IMG;
-  }
+  const el = document.createElement('img');
+  el.className = 'bullet';
   el.draggable = false;
+  el.src = BULLET_IMG;
   el.onerror = ()=> el.classList.add('missing');
 
-  // compute start offsets (center)
-  const w = parseInt(getComputedStyle(el).width) || (power?70:48);
-  const h = parseInt(getComputedStyle(el).height) || (power?70:48);
+  // center image
+  const w = 48, h = 48;
   const sx = x - w/2;
-  const sy = y - h - 6;
+  const sy = y - h - 6; // a little gap so bullet appears above ship
 
-  el.style.left = '0px'; el.style.top = '0px';
-  el.style.transform = `translate(${sx}px, ${sy}px)`;
+  // compute initial rotation and set transform combining translate and rotate
+  const ang = angleDegFromVector(vx, vy);
+  el.style.left = '0px';
+  el.style.top = '0px';
+  el.style.transform = `translate(${sx}px, ${sy}px) rotate(${ang}deg)`;
+
   gameArea.appendChild(el);
-  state.bullets.push({el, x: sx, y: sy, vx, vy, power});
-  // sound
-  if(power) playPower(); else playShot();
+  state.bullets.push({el, x: sx, y: sy, vx, vy});
 }
 
-/* burst fire centered on player */
-function fireBurst(centerXOffset = 0){
-  // origin relative to gameArea
-  const gameRect = gameArea.getBoundingClientRect();
-  const pr = player.getBoundingClientRect();
-  const originX = pr.left - gameRect.left + pr.width/2;
-  const originY = pr.top - gameRect.top;
-  for(let i=0;i<CONFIG.BURST_COUNT;i++){
-    const offset = (i - Math.floor(CONFIG.BURST_COUNT/2)) * CONFIG.BURST_SPREAD + (Math.random()-0.5)*4 + centerXOffset;
+/* Fire burst from player origin using offsets (adds small jitter) */
+function fireBurstFromPlayer(){
+  const origin = getPlayerOriginUsingOffsets();
+  for(let i=0;i<BURST_COUNT;i++){
+    const offset = (i - Math.floor(BURST_COUNT/2)) * BURST_SPREAD + (Math.random()-0.5)*4;
     const vx = offset * 0.03;
     const vy = -14 + (Math.random()-0.5)*1.6;
-    spawnSingleBulletAt(originX + offset, originY + (Math.random()-0.5)*6, vx, vy, false);
+    spawnSingleBulletAt(origin.x + offset, origin.y + (Math.random()-0.5)*6, vx, vy);
   }
 }
 
-/* power shoot (consumes power) */
-function powerShoot(){
-  if(!state.running) return;
-  if(state.power < state.powerMax || state.powerCooldown) return;
-  state.power = 0; state.powerCooldown = true; updatePowerUI();
-  // triple powerful bullets
-  for(let i=0;i<3;i++){
-    setTimeout(()=> {
-      // wide power bullet: spawn with stronger vy/vx
-      const center = getPlayerOrigin();
-      const spread = (i-1) * 32;
-      spawnSingleBulletAt(center.x + spread, center.y - 4, (spread)*0.02, -18, true);
-    }, i*100);
-  }
-  setTimeout(()=> state.powerCooldown = false, 1600);
-}
-
-/* helper to get player's center relative to gameArea */
-function getPlayerOrigin(){
-  const gameRect = gameArea.getBoundingClientRect();
-  const pr = player.getBoundingClientRect();
-  return { x: pr.left - gameRect.left + pr.width/2, y: pr.top - gameRect.top };
-}
-
-/* =========================
-   Enemies & boss
-   ========================= */
-function spawnEnemy(){
-  if(!state.running || state.boss) return;
-  const maxEnemies = Math.round(2 + (state.difficulty/100)*7); // apply difficulty
-  if(state.enemies.length >= maxEnemies) return;
-  const e = document.createElement('div'); e.className='enemy';
-  const w = gameArea.clientWidth; const margin = 20;
-  const x = margin + Math.random()*(w - margin*2 - 50);
-  e.style.left = x + 'px'; e.style.top = '-70px';
-  e._vy = 1.6 + Math.random()*1.6; e._phase = Math.random()*Math.PI*2; e._wobble = 0.6 + Math.random()*1.4;
-  gameArea.appendChild(e);
-  state.enemies.push(e);
-}
-
-function spawnBoss(){
-  if(state.boss) return;
-  const b = document.createElement('div'); b.className='boss';
-  b.dataset.hp = 220;
-  b.style.left = (gameArea.clientWidth/2 - 110) + 'px';
-  b.style.top = '-160px';
-  const hpWrap = document.createElement('div'); hpWrap.className='hpBar';
-  const hpFill = document.createElement('div'); hpFill.className='hpFill';
-  hpWrap.appendChild(hpFill); b.appendChild(hpWrap);
-  gameArea.appendChild(b);
-  state.boss = { el: b, hpFill };
-}
-
-/* boss shooting */
-function bossShoot(b){
-  const shots = 4;
-  for(let i=0;i<shots;i++){
-    const left = b.offsetLeft + b.clientWidth/2 - 8 + (i - (shots-1)/2)*18;
-    const top = b.offsetTop + b.clientHeight - 8;
-    // aim at player center
-    const pcenter = getPlayerOrigin();
-    let vx = (pcenter.x - left), vy = (pcenter.y - top); const mag = Math.sqrt(vx*vx + vy*vy) || 1;
-    vx = vx/mag * 3.2; vy = vy/mag * 3.2;
-    spawnSingleBulletAt(left, top, vx, vy, false);
-  }
-}
-
-/* =========================
-   Game Loop
-   ========================= */
+/* Loop: move bullets and update rotation while moving */
 let lastFrame = performance.now();
-function gameLoop(ts){
-  const dt = Math.min(40, ts - lastFrame); lastFrame = ts;
-
+function loop(ts){
+  const dt = Math.min(40, ts - lastFrame);
+  lastFrame = ts;
   if(state.running){
-    // Auto fire
-    if(state.mode === 'AUTO' && (ts - state.lastFire > CONFIG.AUTO_FIRE_INTERVAL)){
-      state.lastFire = ts; fireBurst();
+    if(ts - state.lastFire > AUTO_FIRE_INTERVAL){
+      state.lastFire = ts; fireBurstFromPlayer();
     }
 
-    // enemy spawn interval influenced by difficulty
-    const base = CONFIG.ENEMY_SPAWN_BASE - Math.round((state.difficulty/100)*400); // faster on higher diff
-    if(ts - state.lastSpawn > Math.max(300, base)){
-      state.lastSpawn = ts;
-      spawnEnemy();
-    }
-
-    // bullets movement (numeric)
+    // update bullets numeric position and rotation
     for(let i=state.bullets.length-1;i>=0;i--){
       const b = state.bullets[i];
-      b.x += b.vx * (dt/16.67); b.y += b.vy * (dt/16.67);
-      b.el.style.transform = `translate(${b.x}px, ${b.y}px) rotate(0deg)`;
-      // remove offscreen
-      if(b.y < -220 || b.x < -400 || b.x > window.innerWidth + 400){
+      b.x += b.vx * (dt/16.67);
+      b.y += b.vy * (dt/16.67);
+      // recompute angle each frame so it matches velocity (useful if vx/vy change)
+      const ang = angleDegFromVector(b.vx, b.vy);
+      b.el.style.transform = `translate(${b.x}px, ${b.y}px) rotate(${ang}deg)`;
+      if(b.y < -200){
         if(b.el.parentNode) b.el.remove();
         state.bullets.splice(i,1);
       }
     }
-
-    // enemies movement
-    for(let i=state.enemies.length-1;i>=0;i--){
-      const e = state.enemies[i];
-      e._phase += 0.03;
-      e.style.top = (e.offsetTop + e._vy) + 'px';
-      e.style.left = (parseFloat(e.style.left) + Math.sin(e._phase) * e._wobble) + 'px';
-      if(e.offsetTop > window.innerHeight - 110){
-        // enemy reached bottom -> remove and reduce life
-        if(e.parentNode) e.remove();
-        state.enemies.splice(i,1);
-        hitPlayer(1);
-      }
-    }
-
-    // boss logic
-    if(state.boss){
-      const B = state.boss;
-      const bel = B.el;
-      if(parseFloat(bel.style.top) < 30) bel.style.top = (bel.offsetTop + 6) + 'px';
-      else {
-        // move horizontally
-        if(!B.vx) B.vx = 2.2;
-        let nx = bel.offsetLeft + B.vx;
-        if(nx < 10 || nx > gameArea.clientWidth - bel.clientWidth - 10) B.vx *= -1;
-        bel.style.left = (bel.offsetLeft + B.vx) + 'px';
-        if(Math.random() < 0.008) bossShoot(bel);
-      }
-      // bullets vs boss handled in collision check below
-    }
-
-    // particles omitted for performance (can be added)
-
-    // collisions: bullets vs enemies
-    for(let ei = state.enemies.length-1; ei>=0; ei--){
-      const e = state.enemies[ei];
-      const er = e.getBoundingClientRect();
-      for(let bi = state.bullets.length-1; bi>=0; bi--){
-        const b = state.bullets[bi];
-        const br = b.el.getBoundingClientRect();
-        if(!(br.bottom < er.top || br.top > er.bottom || br.right < er.left || br.left > er.right)){
-          // hit enemy
-          if(e.parentNode) e.remove();
-          if(b.el.parentNode) b.el.remove();
-          state.enemies.splice(ei,1); state.bullets.splice(bi,1);
-          state.score += b.power ? 3 : 1;
-          playExplosion();
-          break;
-        }
-      }
-    }
-
-    // bullets vs boss
-    if(state.boss){
-      const brecBoss = state.boss.el.getBoundingClientRect();
-      for(let bi=state.bullets.length-1; bi>=0; bi--){
-        const b = state.bullets[bi];
-        const br = b.el.getBoundingClientRect();
-        if(!(br.bottom < brecBoss.top || br.top > brecBoss.bottom || br.right < brecBoss.left || br.left > brecBoss.right)){
-          // hit boss
-          const dmg = b.power ? 12 : 4;
-          let hp = parseInt(state.boss.el.dataset.hp || '0',10) - dmg;
-          state.boss.el.dataset.hp = Math.max(0, hp);
-          const perc = Math.max(0, hp)/220*100;
-          state.boss.hpFill.style.width = perc + '%';
-          if(b.el.parentNode) b.el.remove();
-          state.bullets.splice(bi,1);
-          if(hp <= 0){
-            // boss destroyed
-            playExplosion(); state.score += 30;
-            if(state.boss.el.parentNode) state.boss.el.remove(); state.boss = null;
-          }
-          break;
-        }
-      }
-    }
-
-    // bullets vs player (boss bullets)
-    for(let bi=state.bullets.length-1; bi>=0; bi--){
-      const b = state.bullets[bi];
-      if(b.fromBoss){
-        const pr = player.getBoundingClientRect();
-        const br = b.el.getBoundingClientRect();
-        if(!(br.bottom < pr.top || br.top > pr.bottom || br.right < pr.left || br.left > pr.right)){
-          if(b.el.parentNode) b.el.remove();
-          state.bullets.splice(bi,1);
-          hitPlayer(1);
-        }
-      }
-    }
-
-    // save highscore every frame if bigger
-    if(state.score > state.high){
-      state.high = state.score;
-      localStorage.setItem(CONFIG.HIGH_SCORE_KEY, String(state.high));
-      highEl.textContent = state.high;
-    }
-
-    updatePower(); // regen power
-    scoreEl.textContent = state.score;
   }
-
-  lastFrame = ts;
-  requestAnimationFrame(gameLoop);
+  requestAnimationFrame(loop);
 }
 
-/* =========================
-   Power regen & UI
-   ========================= */
-let powerTimer = null;
-function updatePower(){
-  // simple regen
-  if(state.running && state.power < state.powerMax) state.power = Math.min(state.powerMax, state.power + 0.35);
-  powerFill.style.width = Math.round(state.power) + '%';
-}
-
-/* =========================
-   Player hit/lives/gameover
-   ========================= */
-function hitPlayer(dmg){
-  // flash
-  hitFlash.style.opacity = '1'; setTimeout(()=> hitFlash.style.opacity='0', 90);
-  state.lives -= dmg;
-  if(state.lives <= 0) endGame();
-}
-
-/* =========================
-   Start / End / Pause
-   ========================= */
-function startGame(){
-  // ensure audio available
-  ensureAudio();
+/* start handlers */
+startBtn.addEventListener('click', ()=> {
   overlay.style.display = 'none';
-  state.running = true; state.score = 0; state.lives = 3; state.power = 0; state.bullets.forEach(b=>{ if(b.el.parentNode) b.el.remove(); }); state.bullets=[]; state.enemies.forEach(e=>e.remove()); state.enemies=[];
-  // load difficulty
-  state.difficulty = parseInt(localStorage.getItem(CONFIG.DIFF_KEY) || difficultyInput.value || '40',10);
-  difficultyInput.value = state.difficulty;
-  spawnClouds();
-  // immediate enemy burst
-  for(let i=0;i<CONFIG.START_ENEMY_BURST;i++) setTimeout(spawnEnemy, i*100);
-  // maybe spawn boss threshold reset
-  if(state.boss){ if(state.boss.el.parentNode) state.boss.el.remove(); state.boss = null; }
-  requestAnimationFrame(gameLoop);
-}
-function endGame(){
-  state.running = false;
-  // remove all actors
-  state.bullets.forEach(b=>{ if(b.el.parentNode) b.el.remove(); }); state.bullets=[];
-  state.enemies.forEach(e=>{ if(e.parentNode) e.remove(); }); state.enemies=[];
-  if(state.boss){ if(state.boss.el.parentNode) state.boss.el.remove(); state.boss = null; }
-  overlay.style.display = 'flex';
-  overlay.querySelector('h1').textContent = 'Game Over';
-  overlay.querySelector('p').textContent = 'Score: ' + state.score + (state.score > state.high ? ' — New High!' : '');
-  startBtn.textContent = 'Play Again';
-}
-
-/* pause/resume */
-btnPause.addEventListener('click', ()=>{
-  state.running = !state.running;
-  if(state.running){ btnPause.textContent = 'PAUSE'; overlay.style.display = 'none'; requestAnimationFrame(gameLoop); spawnClouds(); }
-  else { btnPause.textContent = 'RESUME'; overlay.style.display = 'flex'; overlay.querySelector('h1').textContent = 'Paused'; overlay.querySelector('p').textContent = 'Tap RESUME to continue'; }
+  state.running = true; state.score = 0;
+  state.bullets.forEach(b=>{ if(b.el.parentNode) b.el.remove(); }); state.bullets = [];
+  requestAnimationFrame(loop);
 });
 
-/* mode toggle */
-btnMode.addEventListener('click', ()=>{
-  state.mode = (state.mode === 'AUTO') ? 'MANUAL' : 'AUTO';
-  btnMode.textContent = state.mode;
-  btnMode.classList.toggle('toggle', state.mode === 'MANUAL');
-});
-
-/* start button */
-startBtn.addEventListener('click', ()=>{
-  ensureAudio(); startGame();
-});
-
-/* first gesture auto-start + audio resume */
-function onFirstGesture(e){
-  document.removeEventListener('pointerdown', onFirstGesture, {passive:true});
-  ensureAudio();
-  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
-  btnMute.textContent = state.muted ? 'UNMUTE' : 'MUTE';
-  startGame();
+/* player move with touch/mouse — set player.left inline so offsetLeft works */
+function setPlayerXFromClient(clientX){
+  const rect = gameArea.getBoundingClientRect();
+  const px = clientX - rect.left - player.offsetWidth/2;
+  const clamped = Math.max(6, Math.min(gameArea.clientWidth - player.offsetWidth - 6, px));
+  player.style.left = clamped + 'px';
 }
-document.addEventListener('pointerdown', onFirstGesture, {passive:true});
+gameArea.addEventListener('touchstart', e=>{ if(e.touches[0]) setPlayerXFromClient(e.touches[0].clientX); }, {passive:true});
+gameArea.addEventListener('touchmove', e=>{ if(e.touches[0]) setPlayerXFromClient(e.touches[0].clientX); }, {passive:true});
+gameArea.addEventListener('mousemove', e=>{ if(e.buttons) setPlayerXFromClient(e.clientX); });
 
-/* mute */
-btnMute.addEventListener('click', ()=> toggleMute());
-
-/* power button */
-btnPower.addEventListener('click', ()=> powerShoot());
-
-/* difficulty slider save */
-difficultyInput.addEventListener('input', (e)=>{
-  state.difficulty = parseInt(e.target.value,10);
-  localStorage.setItem(CONFIG.DIFF_KEY, String(state.difficulty));
-});
-
-/* helper fireBurst exposed to UI (for testing) */
-window.fireBurst = fireBurst;
-
-/* =========================
-   Safety / spawn boss condition
-   ========================= */
-setInterval(()=>{
-  // If score passes threshold and boss not active, spawn boss sometimes
-  if(state.running && !state.boss && state.score >= CONFIG.BOSS_SCORE_AT && Math.random() < 0.08){
-    spawnBoss();
-  }
-}, 1400);
-
-/* =========================
-   Utility: getOrigin
-   ========================= */
-function getPlayerOrigin(){
-  const gameRect = gameArea.getBoundingClientRect();
-  const pr = player.getBoundingClientRect();
-  return { x: pr.left - gameRect.left + pr.width/2, y: pr.top - gameRect.top };
-}
-
-/* =========================
-   Initial UI/Load
-   ========================= */
-placePlayerCenter();
-spawnClouds();
-btnMode.textContent = state.mode;
-btnMute.textContent = state.muted ? 'UNMUTE' : 'MUTE';
-highEl.textContent = state.high;
-powerFill.style.width = state.power + '%';
-
-/* start animation loop idle */
-requestAnimationFrame(gameLoop);
-
-/* small helper: if bullet image missing, show warning in console */
-setTimeout(()=>{ if(!bulletLoaded) console.warn('Put your bullet PNG at:', CONFIG.BULLET_IMG); }, 800);
-
+/* optional manual tap firing */
+gameArea.addEventListener('pointerdown', (e)=>{
+  if(!state.running) return;
+  // avoid firing when clicking overlay or controls in other versions
+  if(e.target.closest('button')) return;
+  fireBurstFromPlayer();
+}, {passive:true});
 </script>
 </body>
 </html>
