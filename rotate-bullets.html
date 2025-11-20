@@ -1,0 +1,81 @@
+<!-- save as rotate-bullets.html -->
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Rotate Bullets — Simple</title>
+<style>
+  html,body{height:100%;margin:0;background:#031229;color:#fff;font-family:Arial;overflow:hidden}
+  #g{position:relative;width:100vw;height:100vh}
+  #player{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:66px;height:66px;background:linear-gradient(135deg,#3ec7ff,#7b61ff);border-radius:14px;display:flex;align-items:center;justify-content:center;z-index:20}
+  .bullet{position:absolute;left:0;top:0;width:40px;height:40px;pointer-events:none;transform-origin:center center;will-change:transform;z-index:15}
+  #hud{position:absolute;left:12px;top:12px;z-index:30}
+  #start{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:40}
+  button{padding:12px 20px;border-radius:12px;border:0;background:#7b61ff;color:#001;font-weight:700}
+</style>
+</head>
+<body>
+<div id="g">
+  <div id="player">▲</div>
+  <div id="hud">Score: <span id="s">0</span></div>
+  <div id="start"><button id="go">Start</button></div>
+</div>
+
+<script>
+const BULLET_IMG = 'image/bullet.png'; // keep image/bullet.png or will use tiny fallback
+let imgs = {};
+const probe = new Image(); probe.src = BULLET_IMG; probe.onload = ()=> imgs.bullet = probe; probe.onerror = ()=> imgs.bullet = null;
+
+const g = document.getElementById('g'), player = document.getElementById('player'), sEl = document.getElementById('s'), startOverlay = document.getElementById('start');
+let bullets = [], running=false, lastFire=0, score=0;
+
+function getOrigin(){
+  const pr = player.getBoundingClientRect(); const gr = g.getBoundingClientRect();
+  return { x: pr.left - gr.left + pr.width/2, y: pr.top - gr.top };
+}
+
+function angleDeg(vx,vy){ return Math.atan2(vy,vx)*180/Math.PI + 90; }
+
+function spawnBullet(x,y,vx,vy){
+  if(bullets.length>24){ const old = bullets.shift(); if(old.el.parentNode) old.el.remove(); }
+  const el = document.createElement('img'); el.className='bullet';
+  el.src = imgs.bullet ? imgs.bullet.src : 'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><circle cx='24' cy='12' r='8' fill='%23ffd36b'/></svg>`);
+  el.style.transform = `translate(${x}px, ${y}px) rotate(${angleDeg(vx,vy)}deg)`;
+  g.appendChild(el);
+  bullets.push({el,x,y,vx,vy});
+}
+
+function burst(){
+  const o = getOrigin();
+  for(let i=0;i<3;i++){
+    const off = (i-1)*12 + (Math.random()-0.5)*4;
+    spawnBullet(o.x+off, o.y + (Math.random()-0.5)*4, off*0.03, -14 + (Math.random()-0.5)*1.2);
+  }
+}
+
+function loop(ts){
+  if(!running){ requestAnimationFrame(loop); return; }
+  if(ts - lastFire > 300){ lastFire = ts; burst(); }
+  for(let i=bullets.length-1;i>=0;i--){
+    const b = bullets[i];
+    b.x += b.vx; b.y += b.vy;
+    b.el.style.transform = `translate(${b.x}px, ${b.y}px) rotate(${angleDeg(b.vx,b.vy)}deg)`;
+    if(b.y < -200){ if(b.el.parentNode) b.el.remove(); bullets.splice(i,1); }
+  }
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('go').addEventListener('click', ()=>{
+  startOverlay.style.display='none'; running=true; score=0; sEl.textContent=0; lastFire=performance.now()-200; requestAnimationFrame(loop);
+});
+
+// simple move by pointer
+let dragging=false;
+window.addEventListener('pointerdown', e=>{ dragging=true; moveTo(e.clientX); });
+window.addEventListener('pointermove', e=>{ if(dragging) moveTo(e.clientX); });
+window.addEventListener('pointerup', ()=> dragging=false);
+function moveTo(clientX){ const rect=g.getBoundingClientRect(); const px = clientX - rect.left - player.offsetWidth/2; const x = Math.max(6, Math.min(rect.width - player.offsetWidth - 6, px)); player.style.left = x + 'px'; }
+</script>
+</body>
+</html>
