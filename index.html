@@ -1,10 +1,9 @@
-<!-- Save as index.html and open in Chrome -->
 <!DOCTYPE html>
 <html lang="hi">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Sky Shot — Uses your GitHub images</title>
+<title>Sky Shot — Enemies Attack Downwards</title>
 <style>
 :root{--bg:#031229;--accent:#3ec7ff;--accent2:#7b61ff}
 *{box-sizing:border-box}
@@ -15,6 +14,7 @@ html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter
 #player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:72px;height:72px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;z-index:200;box-shadow:0 12px 40px rgba(62,199,255,0.12)}
 #player svg{width:46px;height:46px}
 .bullet{position:absolute;left:0;top:0;width:48px;height:48px;pointer-events:none;z-index:260;transform-origin:center center}
+.enemyBullet{position:absolute;left:0;top:0;width:18px;height:18px;border-radius:50%;background:linear-gradient(180deg,#ff8b8b,#ff3b3b);z-index:215;pointer-events:none}
 img.enemy{position:absolute;left:0;top:0;pointer-events:none;z-index:210;will-change:transform;display:block}
 img.enemy.small{width:64px;height:64px}
 img.enemy.medium{width:96px;height:96px}
@@ -23,7 +23,7 @@ img.enemy.large{width:160px;height:110px}
 .btn{padding:10px 14px;border-radius:14px;border:2px solid rgba(255,255,255,0.12);background:transparent;color:#fff;cursor:pointer}
 #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:linear-gradient(180deg,rgba(0,0,0,0.35),rgba(0,0,0,0.65));z-index:400}
 .big{padding:12px 28px;border-radius:16px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;font-weight:900}
-@media(max-width:420px){ img.enemy.large{width:140px;height:96px} .bullet{width:40px;height:40px} }
+@media(max-width:420px){ img.enemy.large{width:140px;height:96px} .bullet{width:40px;height:40px} .enemyBullet{width:14px;height:14px} }
 </style>
 </head>
 <body>
@@ -31,6 +31,7 @@ img.enemy.large{width:160px;height:110px}
   <div id="hud">
     <div class="panel">Score: <span id="score">0</span></div>
     <div class="panel">High: <span id="high">0</span></div>
+    <div class="panel">Lives: <span id="lives">3</span></div>
   </div>
 
   <div id="player" aria-hidden="true">
@@ -44,68 +45,30 @@ img.enemy.large{width:160px;height:110px}
   </div>
 
   <div id="overlay">
-    <h2 style="margin:0">Sky Shot — Your GitHub sprites</h2>
-    <p style="margin:0;opacity:.9">Using images from: <code>https://raw.githubusercontent.com/askirar275-wq/Arun-dhakad-/main/image/</code></p>
+    <h2 style="margin:0">Sky Shot — Enemies Attack</h2>
+    <p style="margin:0;opacity:.9">Enemies now shoot downwards at the player — dodge their bullets. Use drag to move ship.</p>
     <button class="big" id="go">Play</button>
-    <small style="opacity:.85;margin-top:8px">If anything still shows fallback, press refresh to clear cache.</small>
+    <small style="opacity:.85;margin-top:8px">If sprites are missing, page will use embedded placeholders.</small>
   </div>
 </div>
 
 <script>
-/* ================= DIRECT RAW URLS (your repo) =================
-   Base path is the one you gave:
-   https://askirar275-wq.github.io/Arun-dhakad-/
-   Raw file base (used below): https://raw.githubusercontent.com/askirar275-wq/Arun-dhakad-/main/image/
-   I try several likely filename variants (space/underscore) in order,
-   but primary URLs are the raw.githubusercontent.com ones.
-=============================================================== */
-
+/* ===== CONFIG (direct raw URLs) ===== */
 const RAW_BASE = 'https://raw.githubusercontent.com/askirar275-wq/Arun-dhakad-/main/image/';
-
-// candidate lists (most likely names first)
-const CANDIDATES = {
-  bullet: [ 'bullet.png' ],
-  enemy_small: [ 'enemy_small.png', 'enemy%20_small.png', 'enemy _small.png', 'enemy-small.png' ],
-  enemy_med:   [ 'enemy_medium.png', 'enemy%20_medium.png', 'enemy _medium.png', 'enemy-medium.png', 'enemy_med.png' ],
-  enemy_large: [ 'enemy_large.png', 'enemy%20_large.png', 'enemy _large.png', 'enemy-large.png' ]
+const SPRITES = {
+  bullet: RAW_BASE + 'bullet.png',
+  enemy_small: RAW_BASE + 'enemy_small.png',
+  enemy_med: RAW_BASE + 'enemy_medium.png',
+  enemy_large: RAW_BASE + 'enemy_large.png'
 };
-
-// small embedded SVG fallback data-uris (still <img>, no red box)
 const FALLBACK = {
   bullet: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><circle cx='24' cy='12' r='8' fill='#ffd36b'/></svg>`)}`,
-  enemy_small: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect rx='12' width='64' height='64' fill='#ff6b6b'/><text x='50%' y='55%' text-anchor='middle' fill='#fff' font-size='18' font-family='Arial' font-weight='700'>EN</text></svg>`)}`,
-  enemy_med: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect rx='16' width='96' height='96' fill='#ff7b7b'/><text x='50%' y='56%' text-anchor='middle' fill='#fff' font-size='22' font-family='Arial' font-weight='700'>EN</text></svg>`)}`,
-  enemy_large: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='160' height='110'><rect rx='18' width='160' height='110' fill='#ff8b8b'/><text x='50%' y='60%' text-anchor='middle' fill='#fff' font-size='28' font-family='Arial' font-weight='800'>EN</text></svg>`)}`,
+  enemy_small: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><rect rx='12' width='64' height='64' fill='#ff6b6b'/></svg>`)}`,
+  enemy_med: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect rx='16' width='96' height='96' fill='#ff7b7b'/></svg>`)}`,
+  enemy_large: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='160' height='110'><rect rx='18' width='160' height='110' fill='#ff8b8b'/></svg>`)}`,
 };
 
-/* try each candidate raw URL; return first that loads successfully */
-function probeFirst(cands){
-  return new Promise(resolve => {
-    let i = 0;
-    function tryOne(){
-      if(i >= cands.length){ resolve(null); return; }
-      const url = RAW_BASE + cands[i];
-      const img = new Image();
-      img.src = url;
-      img.onload = () => resolve(url);
-      img.onerror = () => { i++; tryOne(); };
-    }
-    tryOne();
-  });
-}
-
-/* probe all images on startup */
-const chosen = {};
-async function probeAll(){
-  chosen.bullet = await probeFirst(CANDIDATES.bullet) || FALLBACK.bullet;
-  chosen.enemy_small = await probeFirst(CANDIDATES.enemy_small) || FALLBACK.enemy_small;
-  chosen.enemy_med = await probeFirst(CANDIDATES.enemy_med) || FALLBACK.enemy_med;
-  chosen.enemy_large = await probeFirst(CANDIDATES.enemy_large) || FALLBACK.enemy_large;
-  console.log('Chosen image sources:', chosen);
-}
-probeAll(); // start probing
-
-/* ---------------- Game core (simple auto-fire + enemies) ---------------- */
+/* ===== DOM ===== */
 const game = document.getElementById('game');
 const overlay = document.getElementById('overlay');
 const goBtn = document.getElementById('go');
@@ -114,23 +77,27 @@ const fireBtn = document.getElementById('fire');
 const pauseBtn = document.getElementById('pause');
 const scoreEl = document.getElementById('score');
 const highEl = document.getElementById('high');
+const livesEl = document.getElementById('lives');
 
+/* ===== STATE ===== */
 let state = {
-  running:false, bullets:[], enemies:[], lastFire:0, lastSpawn:0, score:0,
-  high: parseInt(localStorage.getItem('sky_high')||'0',10) || 0
+  running:false, bullets:[], enemies:[], enemyBullets:[], lastFire:0, lastSpawn:0, score:0,
+  high: parseInt(localStorage.getItem('sky_high')||'0',10) || 0, lives:3
 };
-highEl.textContent = state.high;
+highEl.textContent = state.high; livesEl.textContent = state.lives;
 
+/* ===== SETTINGS ===== */
 const MAX_BULLETS = 28, AUTO_FIRE = 300, BURST = 3, SPREAD = 12;
 
+/* ===== HELPERS ===== */
 function getPlayerOrigin(){
-  const g = game.getBoundingClientRect();
-  const p = document.getElementById('player').getBoundingClientRect();
-  return { x: p.left - g.left + p.width/2, y: p.top - g.top };
+  const gRect = game.getBoundingClientRect();
+  const pRect = document.getElementById('player').getBoundingClientRect();
+  return { x: pRect.left - gRect.left + pRect.width/2, y: pRect.top - gRect.top };
 }
-
 function angleDeg(vx, vy){ return Math.atan2(vy, vx) * 180 / Math.PI + 90; }
 
+/* ===== SPAWN BULLET (player) ===== */
 function spawnBullet(x,y,vx=0,vy=-14){
   if(state.bullets.length >= MAX_BULLETS){
     const old = state.bullets.shift();
@@ -139,7 +106,7 @@ function spawnBullet(x,y,vx=0,vy=-14){
   const el = document.createElement('img');
   el.className = 'bullet';
   el.draggable = false;
-  el.src = chosen.bullet || FALLBACK.bullet;
+  el.src = SPRITES.bullet || FALLBACK.bullet;
   el.onerror = function(){ this.onerror=null; this.src = FALLBACK.bullet; };
   const w = 48, h = 48;
   const sx = x - w/2, sy = y - h - 6;
@@ -148,47 +115,54 @@ function spawnBullet(x,y,vx=0,vy=-14){
   state.bullets.push({el,x:sx,y:sy,vx,vy});
 }
 
-function fireBurst(){
-  const o = getPlayerOrigin();
-  for(let i=0;i<BURST;i++){
-    const offset = (i - Math.floor(BURST/2)) * SPREAD + (Math.random()-0.5)*4;
-    const vx = offset * 0.03;
-    const vy = -14 + (Math.random()-0.5)*1.6;
-    spawnBullet(o.x + offset, o.y + (Math.random()-0.5)*6, vx, vy);
-  }
+/* ===== ENEMY BULLETS (downwards / aimed) ===== */
+function spawnEnemyBullet(x,y,vx,vy){
+  const el = document.createElement('div');
+  el.className = 'enemyBullet';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  game.appendChild(el);
+  state.enemyBullets.push({el,x,y,vx,vy});
 }
 
+/* ===== ENEMY SPAWN (and attack behavior) ===== */
 function spawnEnemy(size='medium'){
-  if(state.enemies.length > 9) return;
-  let key='enemy_med', cls='medium', w=96, hp=2;
-  if(size==='small'){ key='enemy_small'; cls='small'; w=64; hp=1; }
-  if(size==='large'){ key='enemy_large'; cls='large'; w=160; hp=6; }
+  // limit enemies
+  if(state.enemies.length > 8) return;
+  let src = SPRITES.enemy_med, cls='medium', w=96, hp=2, shootChance=0.01;
+  if(size==='small'){ src = SPRITES.enemy_small; cls='small'; w=64; hp=1; shootChance = 0.008; }
+  if(size==='large'){ src = SPRITES.enemy_large; cls='large'; w=160; hp=5; shootChance = 0.02; }
   const el = document.createElement('img');
   el.className = 'enemy ' + cls;
   el.draggable = false;
-  el.src = chosen[key] || FALLBACK[key];
-  el.onerror = function(){ this.onerror=null; this.src = FALLBACK[key]; };
+  el.src = src || FALLBACK[cls==='small'?'enemy_small':cls==='large'?'enemy_large':'enemy_med'];
+  el.onerror = function(){ this.onerror=null; this.src = FALLBACK[cls==='small'?'enemy_small':cls==='large'?'enemy_large':'enemy_med']; };
   const margin = 12;
   const x = margin + Math.random() * (game.clientWidth - margin*2 - w);
   el.style.left = x + 'px';
   el.style.top = '-120px';
-  el._vy = 1.2 + Math.random()*1.6;
+  el._vy = 1.1 + Math.random()*1.8;
   el._phase = Math.random() * Math.PI * 2;
   el._wob = 0.6 + Math.random()*1.4;
   el._hp = hp;
+  el._shootChance = shootChance; // chance per frame to start shooting
+  el._shootTimer = 0; // cooldown
   game.appendChild(el);
   state.enemies.push(el);
 }
 
-/* main loop */
+/* ===== MAIN LOOP (movement, enemy shooting, collisions) ===== */
 let last = performance.now();
 function loop(ts){
   const dt = Math.min(40, ts - last); last = ts;
   if(state.running){
+    // auto-fire player
     if(ts - state.lastFire > AUTO_FIRE){ state.lastFire = ts; fireBurst(); }
-    if(ts - state.lastSpawn > 900){ state.lastSpawn = ts; const r=Math.random(); if(r<0.12) spawnEnemy('small'); else if(r<0.9) spawnEnemy('medium'); else spawnEnemy('large'); }
 
-    // bullets
+    // spawn enemies occasionally
+    if(ts - state.lastSpawn > 900){ state.lastSpawn = ts; const r=Math.random(); if(r < 0.12) spawnEnemy('small'); else if(r < 0.9) spawnEnemy('medium'); else spawnEnemy('large'); }
+
+    // update player bullets
     for(let i=state.bullets.length-1;i>=0;i--){
       const b = state.bullets[i];
       b.x += b.vx * (dt/16.67);
@@ -200,27 +174,70 @@ function loop(ts){
       }
     }
 
-    // enemies
+    // update enemies: move and probabilistically shoot at player
     for(let i=state.enemies.length-1;i>=0;i--){
       const e = state.enemies[i];
       e._phase += 0.03;
       e.style.top = (e.offsetTop + e._vy) + 'px';
       e.style.left = (parseFloat(e.style.left) + Math.sin(e._phase) * e._wob) + 'px';
-      if(e.offsetTop > window.innerHeight - 110){
+
+      // if enemy reaches bottom -> remove and penalize player
+      if(e.offsetTop > window.innerHeight - 140){
         if(e.parentNode) e.remove();
         state.enemies.splice(i,1);
+        playerHit();
+        continue;
+      }
+
+      // shooting logic: when enemy is visible (y > 10) it may shoot
+      if(e.offsetTop > 8 && Math.random() < e._shootChance){
+        // aim toward player with slight spread
+        const p = getPlayerOrigin();
+        const ex = e.offsetLeft + (e.clientWidth/2 || 32);
+        const ey = e.offsetTop + (e.clientHeight || 48);
+        let vx = (p.x - ex), vy = (p.y - ey);
+        const mag = Math.max(1, Math.sqrt(vx*vx + vy*vy));
+        vx = vx / mag * (2.2 + Math.random()*1.2);
+        vy = vy / mag * (2.2 + Math.random()*1.2);
+        // spawn enemy bullet at bottom-center of enemy
+        spawnEnemyBullet(ex, ey, vx, vy);
       }
     }
 
-    // collisions
-    for(let bi=state.bullets.length-1;bi>=0;bi--){
+    // update enemy bullets: move and check collision with player
+    for(let i=state.enemyBullets.length-1;i>=0;i--){
+      const b = state.enemyBullets[i];
+      b.x += b.vx * (dt/16.67);
+      b.y += b.vy * (dt/16.67);
+      b.el.style.transform = `translate(${b.x}px, ${b.y}px)`;
+      // remove if off-screen
+      if(b.y > window.innerHeight + 40 || b.x < -200 || b.x > window.innerWidth + 200){
+        if(b.el.parentNode) b.el.remove();
+        state.enemyBullets.splice(i,1);
+        continue;
+      }
+      // collision with player
+      const pr = player.getBoundingClientRect();
+      const br = b.el.getBoundingClientRect();
+      if(!(br.bottom < pr.top || br.top > pr.bottom || br.right < pr.left || br.left > pr.right)){
+        if(b.el.parentNode) b.el.remove();
+        state.enemyBullets.splice(i,1);
+        playerHit();
+        continue;
+      }
+    }
+
+    // collisions: player bullets vs enemies
+    for(let bi=state.bullets.length-1; bi>=0; bi--){
       const b = state.bullets[bi];
       const br = b.el.getBoundingClientRect();
       for(let ei=state.enemies.length-1; ei>=0; ei--){
         const e = state.enemies[ei];
         const er = e.getBoundingClientRect();
         if(!(br.bottom < er.top || br.top > er.bottom || br.right < er.left || br.left > er.right)){
-          if(b.el.parentNode) b.el.remove(); state.bullets.splice(bi,1);
+          // hit enemy
+          if(b.el.parentNode) b.el.remove();
+          state.bullets.splice(bi,1);
           e._hp -= 1;
           if(e._hp <= 0){
             if(e.parentNode) e.remove();
@@ -233,12 +250,32 @@ function loop(ts){
         }
       }
     }
-
   }
   requestAnimationFrame(loop);
 }
 
-/* Input */
+/* ===== player hit & lives ===== */
+function playerHit(){
+  // simple invulnerability blink could be added; for now immediate hit
+  state.lives -= 1;
+  livesEl.textContent = state.lives;
+  // visual flash
+  const f = document.createElement('div'); f.style.position='absolute'; f.style.inset='0'; f.style.background='rgba(255,255,255,0.06)'; f.style.zIndex='490'; game.appendChild(f); setTimeout(()=>f.remove(),100);
+  if(state.lives <= 0) gameOver();
+}
+
+/* ===== fireBurst (player) ===== */
+function fireBurst(){
+  const o = getPlayerOrigin();
+  for(let i=0;i<BURST;i++){
+    const offset = (i - Math.floor(BURST/2)) * SPREAD + (Math.random()-0.5)*4;
+    const vx = offset * 0.03;
+    const vy = -14 + (Math.random()-0.5)*1.6;
+    spawnBullet(o.x + offset, o.y + (Math.random()-0.5)*6, vx, vy);
+  }
+}
+
+/* ===== Game controls & input (drag to move) ===== */
 let dragging=false;
 window.addEventListener('pointerdown', e=>{ dragging=true; movePlayer(e.clientX); });
 window.addEventListener('pointermove', e=>{ if(dragging) movePlayer(e.clientX); });
@@ -251,8 +288,8 @@ function movePlayer(clientX){
 }
 
 /* Buttons */
-goBtn.addEventListener('click', ()=> { overlay.style.display='none'; state.running=true; state.score=0; scoreEl.textContent=0; document.querySelectorAll('img.enemy,img.bullet').forEach(n=>n.remove()); state.enemies=[]; state.bullets=[]; state.lastFire = performance.now()-200; state.lastSpawn = performance.now(); requestAnimationFrame(loop); });
-startBtn.addEventListener('click', ()=> goBtn.click());
+goBtn.addEventListener('click', ()=> startGame());
+startBtn.addEventListener('click', ()=> startGame());
 fireBtn.addEventListener('click', ()=> { if(state.running){ const p=getPlayerOrigin(); spawnBullet(p.x,p.y,0,-16); }});
 pauseBtn.addEventListener('click', ()=> { state.running = !state.running; pauseBtn.textContent = state.running ? 'Pause' : 'Resume'; if(state.running) requestAnimationFrame(loop); else overlay.style.display='flex'; });
 
@@ -261,6 +298,28 @@ function center(){ const r = game.getBoundingClientRect(); player.style.left = M
 window.addEventListener('resize', center);
 setTimeout(center,60);
 
+/* ===== start / gameOver ===== */
+function startGame(){
+  overlay.style.display = 'none';
+  state.running = true;
+  state.score = 0; state.lives = 3;
+  scoreEl.textContent = state.score; livesEl.textContent = state.lives;
+  // cleanup existing elements
+  document.querySelectorAll('img.enemy,img.bullet,.enemyBullet').forEach(n=>n.remove());
+  state.bullets = []; state.enemies = []; state.enemyBullets = [];
+  state.lastFire = performance.now() - 300; state.lastSpawn = performance.now() - 400;
+  requestAnimationFrame(loop);
+}
+function gameOver(){
+  state.running = false;
+  overlay.style.display = 'flex';
+  overlay.querySelector('h2').textContent = 'Game Over';
+  overlay.querySelector('p').textContent = `Score: ${state.score} — Tap Play to retry`;
+  if(state.score > state.high){ state.high = state.score; localStorage.setItem('sky_high', String(state.high)); highEl.textContent = state.high; }
+}
+
+/* initial loop */
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
