@@ -2,39 +2,32 @@
 <html lang="hi">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Sky Shot — Enemy Images</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sky Shot — Enemies as Images Only</title>
 <style>
-:root{--bg:#031229;--accent:#3ec7ff;--accent2:#7b61ff}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif;overflow:hidden}
-#game{position:relative;width:100vw;height:100vh;touch-action:none;overflow:hidden}
-
-/* HUD */
-#hud{position:absolute;left:12px;top:12px;z-index:220;display:flex;gap:10px;align-items:center}
-.panel{background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
-
-/* player */
-#player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;z-index:200;box-shadow:0 12px 40px rgba(62,199,255,0.12)}
-#player svg{width:46px;height:46px}
-
-/* bullet */
-.bullet{position:absolute;left:0;top:0;width:48px;height:48px;pointer-events:none;z-index:260;transform-origin:center center;will-change:transform}
-
-/* enemy images */
-.enemy{position:absolute;left:0;top:0;pointer-events:none;z-index:210;will-change:transform}
-.enemy.small{width:64px;height:64px}
-.enemy.medium{width:96px;height:96px}
-.enemy.large{width:160px;height:110px}
-
-/* fallback (hidden if image present) */
-.enemyFallback{position:absolute;background:linear-gradient(180deg,#ff6b6b,#d93c50);border-radius:12px;color:#fff;display:flex;align-items:center;justify-content:center;z-index:210}
-
-/* controls */
-#controls{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:300;display:flex;gap:12px}
-.btn{padding:10px 14px;border-radius:14px;border:2px solid rgba(255,255,255,0.12);background:transparent;color:#fff;cursor:pointer}
-#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:linear-gradient(180deg,rgba(0,0,0,0.35),rgba(0,0,0,0.65));z-index:400}
-.big{padding:12px 28px;border-radius:16px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;font-weight:900}
+  :root{--bg:#031229;--accent:#3ec7ff;--accent2:#7b61ff}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif;overflow:hidden}
+  #game{position:relative;width:100vw;height:100vh;touch-action:none;overflow:hidden}
+  /* HUD */
+  #hud{position:absolute;left:12px;top:12px;z-index:220;display:flex;gap:10px;align-items:center}
+  .panel{background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
+  /* Player */
+  #player{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:70px;height:70px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;z-index:200;box-shadow:0 12px 40px rgba(62,199,255,0.12);border:2px solid rgba(255,255,255,0.04)}
+  #player svg{width:46px;height:46px}
+  /* bullets */
+  .bullet{position:absolute;left:0;top:0;width:48px;height:48px;pointer-events:none;z-index:260;transform-origin:center center;will-change:transform}
+  /* enemies as images only */
+  img.enemy{position:absolute;left:0;top:0;pointer-events:none;z-index:210;will-change:transform;display:block}
+  img.enemy.small{width:64px;height:64px}
+  img.enemy.medium{width:96px;height:96px}
+  img.enemy.large{width:160px;height:110px}
+  /* controls */
+  #controls{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;z-index:300;display:flex;gap:12px}
+  .btn{padding:10px 14px;border-radius:14px;border:2px solid rgba(255,255,255,0.12);background:transparent;color:#fff;cursor:pointer}
+  #overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:linear-gradient(180deg,rgba(0,0,0,0.35),rgba(0,0,0,0.65));z-index:400}
+  .big{padding:12px 28px;border-radius:16px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#001;font-weight:900}
+  @media(max-width:420px){ img.enemy.large{width:140px;height:96px} .bullet{width:40px;height:40px} }
 </style>
 </head>
 <body>
@@ -46,7 +39,7 @@ html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter
   </div>
 
   <div id="player" aria-hidden="true">
-    <svg viewBox="0 0 64 64"><path d="M32 6 L44 28 L32 22 L20 28 Z" fill="#fff" opacity=".16"/><circle cx="32" cy="38" r="10" fill="#00141a" opacity=".12"/></svg>
+    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6 L44 28 L32 22 L20 28 Z" fill="#fff" opacity=".16"/><circle cx="32" cy="38" r="10" fill="#00141a" opacity=".12"/></svg>
   </div>
 
   <div id="controls">
@@ -55,27 +48,27 @@ html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter
   </div>
 
   <div id="overlay">
-    <h2 style="margin:0">Sky Shot — Enemy Images</h2>
-    <p style="margin:0;opacity:.85">Red boxes replaced by images. Put optional sprites in <code>image/</code> folder (names below).</p>
+    <h2 style="margin:0">Sky Shot — Images-only Enemies</h2>
+    <p style="margin:0;opacity:.85">External PNGs (optional) are used if present; otherwise embedded SVGs replace them — still via `<img>` so no red boxes.</p>
     <button class="big" id="start">Start Game</button>
     <small style="opacity:.9;margin-top:6px">Optional sprites: image/enemy_small.png, image/enemy_medium.png, image/enemy_large.png, image/bullet.png</small>
   </div>
 </div>
 
 <script>
-/* ---------- Config ---------- */
+/* ---------- SETTINGS ---------- */
 const SPR = {
   bullet: 'image/bullet.png',
   enemy_small: 'image/enemy_small.png',
   enemy_med: 'image/enemy_medium.png',
   enemy_large: 'image/enemy_large.png'
 };
-const MAX_BULLETS = 22;
+const MAX_BULLETS = 24;
 const AUTO_FIRE = 300;
 const BURST = 3;
 const SPREAD = 12;
 
-/* ---------- Built-in SVG placeholders (used if external image not found) ---------- */
+/* ---------- EMBEDDED SVG DATA URIs (fallback) ---------- */
 const FALLBACK = {
   bullet: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><circle cx='24' cy='12' r='8' fill='#ffd36b'/></svg>`)}`,
   enemy_small: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><rect rx='12' width='64' height='64' fill='#ff6b6b'/><text x='50%' y='55%' text-anchor='middle' fill='#fff' font-size='18' font-family='Arial' font-weight='700'>EN</text></svg>`)}`,
@@ -83,7 +76,7 @@ const FALLBACK = {
   enemy_large: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='160' height='110' viewBox='0 0 160 110'><rect rx='18' width='160' height='110' fill='#ff8b8b'/><text x='50%' y='60%' text-anchor='middle' fill='#fff' font-size='28' font-family='Arial' font-weight='800'>EN</text></svg>`)}`,
 };
 
-/* ---------- DOM ---------- */
+/* ---------- DOM & STATE ---------- */
 const game = document.getElementById('game');
 const player = document.getElementById('player');
 const overlay = document.getElementById('overlay');
@@ -94,51 +87,56 @@ const pwrEl = document.getElementById('pwr');
 const fireBtn = document.getElementById('fire');
 const pauseBtn = document.getElementById('pause');
 
-/* ---------- State ---------- */
 let state = {
-  running: false,
-  bullets: [],
-  enemies: [],
-  lastFire: 0,
-  lastSpawn: 0,
-  score: 0,
+  running:false,
+  bullets:[],
+  enemies:[],
+  lastFire:0,
+  lastSpawn:0,
+  score:0,
   high: parseInt(localStorage.getItem('sky_high')||'0',10) || 0
 };
 highEl.textContent = state.high;
 
-/* ---------- Preload images with fallback ---------- */
-const imgs = {};
-function loadWithFallback(key, src, fallback){
-  const i = new Image();
-  i.src = src;
-  i.onload = ()=> imgs[key] = i;
-  i.onerror = ()=> { i.src = fallback; imgs[key] = i; };
+/* ---------- image probe (attempt load external files into cache) ---------- */
+const cached = {};
+function tryLoad(key, src, fallback){
+  const img = new Image();
+  img.src = src;
+  img.onload = ()=> { cached[key] = img.src; };
+  img.onerror = ()=> { cached[key] = fallback; };
+  // also set fallback quickly to avoid undefined
+  setTimeout(()=> { if(!cached[key]) cached[key] = fallback; }, 400);
 }
-loadWithFallback('bullet', SPR.bullet, FALLBACK.bullet);
-loadWithFallback('enemy_small', SPR.enemy_small, FALLBACK.enemy_small);
-loadWithFallback('enemy_med', SPR.enemy_med, FALLBACK.enemy_med);
-loadWithFallback('enemy_large', SPR.enemy_large, FALLBACK.enemy_large);
+tryLoad('bullet', SPR.bullet, FALLBACK.bullet);
+tryLoad('enemy_small', SPR.enemy_small, FALLBACK.enemy_small);
+tryLoad('enemy_med', SPR.enemy_med, FALLBACK.enemy_med);
+tryLoad('enemy_large', SPR.enemy_large, FALLBACK.enemy_large);
 
-/* ---------- Utils ---------- */
+/* ---------- helpers ---------- */
 function getPlayerOrigin(){
   const gRect = game.getBoundingClientRect();
   const pRect = player.getBoundingClientRect();
-  const x = pRect.left - gRect.left + pRect.width/2;
-  const y = pRect.top - gRect.top;
-  return {x: Math.round(x), y: Math.round(y)};
+  return { x: pRect.left - gRect.left + pRect.width/2, y: pRect.top - gRect.top };
 }
 function angleDeg(vx, vy){ return Math.atan2(vy, vx) * 180 / Math.PI + 90; }
 
-/* ---------- Spawn bullet ---------- */
+/* ---------- spawn bullet (always <img>) ---------- */
 function spawnBullet(x,y,vx=0,vy=-14){
   if(state.bullets.length >= MAX_BULLETS){
     const old = state.bullets.shift();
-    if(old.el.parentNode) old.el.remove();
+    if(old.el && old.el.parentNode) old.el.remove();
   }
   const img = document.createElement('img');
   img.className = 'bullet';
   img.draggable = false;
-  img.src = imgs.bullet ? imgs.bullet.src : FALLBACK.bullet;
+  // choose cached src (either external path or fallback)
+  img.src = cached['bullet'] || FALLBACK.bullet;
+  // safety onerror: if something goes wrong, force fallback and remove onerror to avoid loop
+  img.onerror = function(){
+    this.onerror = null;
+    this.src = FALLBACK.bullet;
+  };
   const w = 48, h = 48;
   const sx = x - w/2, sy = y - h - 6;
   const ang = angleDeg(vx, vy);
@@ -147,7 +145,7 @@ function spawnBullet(x,y,vx=0,vy=-14){
   state.bullets.push({el: img, x: sx, y: sy, vx, vy});
 }
 
-/* ---------- Fire burst ---------- */
+/* ---------- fire burst ---------- */
 function fireBurst(){
   const o = getPlayerOrigin();
   for(let i=0;i<BURST;i++){
@@ -158,44 +156,40 @@ function fireBurst(){
   }
 }
 
-/* ---------- Spawn enemy (image) ---------- */
+/* ---------- spawn enemy: ALWAYS an <img> element; onerror -> fallback svg ---------- */
 function spawnEnemy(size='medium'){
-  if(state.enemies.length > 8) return;
+  if(state.enemies.length > 9) return;
   let key='enemy_med', cls='medium', hp=2, w=96;
-  if(size==='small'){ key='enemy_small'; cls='small'; hp=1; w=64; }
-  if(size==='large'){ key='enemy_large'; cls='large'; hp=6; w=160; }
-  const img = document.createElement('img');
-  img.className = 'enemy ' + cls;
-  img.draggable = false;
-  img.src = imgs[key] ? imgs[key].src : (FALLBACK[key] || FALLBACK.enemy_med);
+  if(size === 'small'){ key='enemy_small'; cls='small'; hp=1; w=64; }
+  if(size === 'large'){ key='enemy_large'; cls='large'; hp=6; w=160; }
+  const el = document.createElement('img');
+  el.className = 'enemy ' + cls;
+  el.draggable = false;
+  // set candidate src: prefer cached external if available, else fallback
+  el.src = cached[key] || FALLBACK[key];
+  // if external image fails to load, use embedded svg fallback — still an <img>
+  el.onerror = function(){
+    this.onerror = null;
+    this.src = FALLBACK[key] || FALLBACK['enemy_med'];
+  };
   const margin = 12;
   const x = margin + Math.random() * (game.clientWidth - margin*2 - w);
-  img.style.left = x + 'px';
-  img.style.top = '-120px';
-  img._vy = 1.2 + Math.random()*1.6;
-  img._phase = Math.random()*Math.PI*2;
-  img._wob = 0.6 + Math.random()*1.4;
-  img._hp = hp;
-  game.appendChild(img);
-  state.enemies.push(img);
+  el.style.left = x + 'px';
+  el.style.top = '-120px';
+  el._vy = 1.2 + Math.random()*1.6;
+  el._phase = Math.random() * Math.PI * 2;
+  el._wob = 0.6 + Math.random()*1.4;
+  el._hp = hp;
+  game.appendChild(el);
+  state.enemies.push(el);
 }
 
-/* ---------- Remove off-screen or dead ---------- */
-function cleanEntityList(list){
-  for(let i=list.length-1;i>=0;i--){
-    const e = list[i];
-    if(e.el && e.el.parentNode === null) list.splice(i,1);
-  }
-}
-
-/* ---------- Tick loop ---------- */
+/* ---------- main loop ---------- */
 let last = performance.now();
 function loop(ts){
   const dt = Math.min(40, ts - last); last = ts;
   if(state.running){
-    // auto-fire
     if(ts - state.lastFire > AUTO_FIRE){ state.lastFire = ts; fireBurst(); }
-    // spawn enemies
     if(ts - state.lastSpawn > 800){
       state.lastSpawn = ts;
       const r = Math.random();
@@ -204,7 +198,7 @@ function loop(ts){
       else spawnEnemy('large');
     }
 
-    // bullets update
+    // update bullets
     for(let i=state.bullets.length-1;i>=0;i--){
       const b = state.bullets[i];
       b.x += b.vx * (dt/16.67);
@@ -217,20 +211,19 @@ function loop(ts){
       }
     }
 
-    // enemies update
+    // update enemies
     for(let i=state.enemies.length-1;i>=0;i--){
       const e = state.enemies[i];
       e._phase += 0.03;
       e.style.top = (e.offsetTop + e._vy) + 'px';
       e.style.left = (parseFloat(e.style.left) + Math.sin(e._phase) * e._wob) + 'px';
-      // if reaches bottom
       if(e.offsetTop > window.innerHeight - 110){
         if(e.parentNode) e.remove();
         state.enemies.splice(i,1);
       }
     }
 
-    // collision bullets vs enemies
+    // collisions
     for(let bi=state.bullets.length-1; bi>=0; bi--){
       const b = state.bullets[bi];
       const br = b.el.getBoundingClientRect();
@@ -242,9 +235,6 @@ function loop(ts){
           if(b.el.parentNode) b.el.remove();
           state.bullets.splice(bi,1);
           e._hp -= 1;
-          // small explosion (simple)
-          const cx = er.left + er.width/2, cy = er.top + er.height/2;
-          // remove enemy if hp <=0
           if(e._hp <= 0){
             if(e.parentNode) e.remove();
             state.enemies.splice(ei,1);
@@ -256,29 +246,27 @@ function loop(ts){
         }
       }
     }
-
   }
   requestAnimationFrame(loop);
 }
 
-/* ---------- Simple Input: drag left-right ---------- */
-let dragging = false;
-window.addEventListener('pointerdown', e=>{ dragging=true; movePlayerTo(e.clientX); });
-window.addEventListener('pointermove', e=>{ if(dragging) movePlayerTo(e.clientX); });
+/* ---------- input: drag player left-right ---------- */
+let dragging=false;
+window.addEventListener('pointerdown', e=>{ dragging=true; movePlayer(e.clientX); });
+window.addEventListener('pointermove', e=>{ if(dragging) movePlayer(e.clientX); });
 window.addEventListener('pointerup', ()=> dragging=false);
-function movePlayerTo(clientX){
-  const r = game.getBoundingClientRect();
-  const px = clientX - r.left - player.offsetWidth/2;
-  const x = Math.max(6, Math.min(r.width - player.offsetWidth - 6, px));
+function movePlayer(clientX){
+  const rect = game.getBoundingClientRect();
+  const px = clientX - rect.left - player.offsetWidth/2;
+  const x = Math.max(6, Math.min(rect.width - player.offsetWidth - 6, px));
   player.style.left = x + 'px';
 }
 
-/* ---------- Buttons ---------- */
+/* ---------- UI buttons ---------- */
 startBtn.addEventListener('click', ()=> {
   overlay.style.display = 'none';
   state.running = true; state.score = 0; scoreEl.textContent = 0;
-  // clear existing
-  document.querySelectorAll('.enemy,.bullet').forEach(n=>n.remove());
+  document.querySelectorAll('img.enemy,img.bullet').forEach(n=>n.remove());
   state.enemies = []; state.bullets = [];
   state.lastFire = performance.now() - 200;
   state.lastSpawn = performance.now();
@@ -287,12 +275,12 @@ startBtn.addEventListener('click', ()=> {
 fireBtn.addEventListener('click', ()=> { if(state.running) fireBurst(); });
 pauseBtn.addEventListener('click', ()=> { state.running = !state.running; pauseBtn.textContent = state.running ? 'PAUSE' : 'RESUME'; if(state.running) requestAnimationFrame(loop); else overlay.style.display='flex'; });
 
-/* ---------- make sure player centered on resize ---------- */
+/* initial player center */
 function placePlayerCenter(){ const r = game.getBoundingClientRect(); player.style.left = Math.max(8, (r.width/2 - player.offsetWidth/2)) + 'px'; }
 window.addEventListener('resize', placePlayerCenter);
 setTimeout(placePlayerCenter,50);
 
-/* Start idle loop (not running until start) */
+/* start idle animation loop */
 requestAnimationFrame(loop);
 </script>
 </body>
