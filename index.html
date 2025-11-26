@@ -3,25 +3,33 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Galaxy Shooter — Boss Image Added</title>
+<title>Galaxy Shooter — Advanced</title>
 <style>
-:root{--accent:#7ef9ff;--glass:rgba(255,255,255,0.06)}
+:root{
+  --accent:#7ef9ff; --accent2:#b388ff; --glass:rgba(255,255,255,0.06);
+}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;margin:0;background:#000;font-family:Inter,system-ui,Arial;color:#eafcff}
-#gameBox{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
+html,body{height:100%;margin:0;background:#000;font-family:Inter,system-ui,Arial;color:#eafcff;overflow:hidden}
+#gameBox{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
 canvas{display:block;width:100%;height:100%}
-.hud{position:absolute;left:12px;top:12px;z-index:40;display:flex;gap:10px}
+.hud{position:absolute;left:12px;top:12px;z-index:60;display:flex;gap:10px;align-items:center}
 .chip{padding:8px 12px;border-radius:10px;background:var(--glass);border:2px solid rgba(255,255,255,0.06);font-weight:700}
-.controls{position:absolute;right:12px;top:12px;display:flex;gap:8px;z-index:40}
+.controls{position:absolute;right:12px;top:12px;display:flex;gap:8px;z-index:60}
 .btn{padding:8px 10px;border-radius:12px;border:2px solid var(--accent);background:transparent;color:var(--accent);font-weight:700;cursor:pointer}
-.btn.secondary{border-color:#b388ff;color:#b388ff}
-.mControls{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;z-index:45;pointer-events:none}
+.btn.secondary{border-color:var(--accent2);color:var(--accent2)}
+.mControls{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;z-index:50;pointer-events:none}
 .circle{width:60px;height:60px;border-radius:50%;border:2px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;color:#fff;pointer-events:auto}
 .fireBtn{width:72px;height:72px;border-radius:12px;border:2px solid var(--accent);background:transparent;pointer-events:auto;font-weight:800;color:var(--accent)}
-#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:60;pointer-events:none}
-.menu{width:92%;max-width:520px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:20px;border-radius:12px;pointer-events:auto;text-align:center;border:2px solid rgba(255,255,255,0.04)}
-h2{margin:6px 0 8px}
-@media(max-width:520px){.circle{width:52px;height:52px}.fireBtn{width:64px;height:64px}}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;pointer-events:none}
+.menu{width:92%;max-width:640px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:20px;border-radius:12px;pointer-events:auto;text-align:center;border:2px solid rgba(255,255,255,0.04)}
+.hsmall{font-size:13px;color:#cbd5e1}
+.topRow{display:flex;gap:10px;justify-content:center;margin-top:8px}
+.joystick{position:absolute;left:14px;bottom:110px;width:140px;height:140px;border-radius:999px;z-index:70;pointer-events:auto;display:flex;align-items:center;justify-content:center;opacity:.9}
+.joyBase{width:110px;height:110px;border-radius:999px;background:rgba(255,255,255,0.02);border:2px solid rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center}
+.joyKnob{width:48px;height:48px;border-radius:999px;background:rgba(126,249,255,0.06);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:800}
+.scoreList{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.scoreItem{background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px}
+@media(max-width:520px){ .circle{width:52px;height:52px}.fireBtn{width:64px;height:64px} }
 </style>
 </head>
 <body>
@@ -30,13 +38,13 @@ h2{margin:6px 0 8px}
 
   <div class="hud">
     <div class="chip" id="scoreUI">Score: 0</div>
-    <div class="chip" id="killsUI">Kills: 0</div>
-    <div class="chip" id="powerUI">Bullet: 1</div>
+    <div class="chip" id="levelUI">Level: 1</div>
+    <div class="chip" id="livesUI">Lives: ♥♥♥</div>
   </div>
 
   <div class="controls">
     <button class="btn" id="autoBtn">Auto: OFF</button>
-    <button class="btn" id="pauseBtn">Pause</button>
+    <button class="btn" id="muteBtn">Mute</button>
     <button class="btn secondary" id="resetBtn">Reset</button>
   </div>
 
@@ -50,85 +58,151 @@ h2{margin:6px 0 8px}
     </div>
   </div>
 
+  <!-- Virtual joystick (optional) -->
+  <div class="joystick" id="joystick" style="display:none">
+    <div class="joyBase" id="joyBase">
+      <div class="joyKnob" id="joyKnob">●</div>
+    </div>
+  </div>
+
   <div id="overlay">
     <div class="menu" id="menuPanel">
-      <h2>Galaxy Shooter</h2>
-      <p style="color:#cbd5e1">Swipe anywhere to move in 2D. Auto-fire available. Kill 50 enemies to spawn the boss. Pickups use repo images.</p>
-      <div style="margin-top:12px">
+      <h2>Galaxy Shooter — Advanced</h2>
+      <p class="hsmall">Swipe or use the joystick (enable) to move in 2D. Auto-fire, powerups, waves, multi-phase boss, sounds, and local high scores are included.</p>
+
+      <div class="topRow">
         <button class="btn" id="startBtn">Start Game</button>
         <button class="btn secondary" id="howBtn">How to Play</button>
+        <button class="btn" id="toggleJoy">Joystick: OFF</button>
+      </div>
+
+      <div class="scoreList" id="scoresBox" style="margin-top:12px"></div>
+
+      <div class="topRow" style="margin-top:12px">
+        <button class="btn" id="clearScores">Clear Scores</button>
+        <button class="btn secondary" id="creditsBtn">Credits</button>
       </div>
     </div>
   </div>
+
 </div>
 
 <script>
-/* Uses images from folder "image/" (next to this file)
-Make sure you added: image/boss.png
-Other required files (already expected):
-- image/player.png
-- image/bullet.png
-- image/enemy_small.png
-- image/enemy_medium.png
-- image/enemy_large.png
-- image/powerup_double.png
-- image/powerup_life.png
-- image/powerup_power.png
-- image/powerup_rapid.png
-- image/powerup_shield.png
-*/
+/* =========================
+ Advanced Galaxy Shooter
+ - Place required images in folder "image/" next to this file:
+   player.png, bullet.png, enemy_small.png, enemy_medium.png, enemy_large.png,
+   powerup_double.png, powerup_life.png, powerup_power.png, powerup_rapid.png, powerup_shield.png
+   optional: boss.png
+ ========================= */
 
+/* ---------- Setup ---------- */
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-
-function fit(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+function fit(){ canvas.width = innerWidth; canvas.height = innerHeight; }
 window.addEventListener('resize', fit);
 fit();
 
-/* load images */
+/* ---------- Load images ---------- */
 const IMG = {};
 const files = [
   {k:'player', src:'image/player.png'},
-  {k:'bullet',  src:'image/bullet.png'},
+  {k:'bullet', src:'image/bullet.png'},
   {k:'enemy_small', src:'image/enemy_small.png'},
   {k:'enemy_medium', src:'image/enemy_medium.png'},
   {k:'enemy_large', src:'image/enemy_large.png'},
   {k:'powerup_double', src:'image/powerup_double.png'},
-  {k:'powerup_life',   src:'image/powerup_life.png'},
-  {k:'powerup_power',  src:'image/powerup_power.png'},
-  {k:'powerup_rapid',  src:'image/powerup_rapid.png'},
+  {k:'powerup_life', src:'image/powerup_life.png'},
+  {k:'powerup_power', src:'image/powerup_power.png'},
+  {k:'powerup_rapid', src:'image/powerup_rapid.png'},
   {k:'powerup_shield', src:'image/powerup_shield.png'},
-  {k:'boss', src:'image/boss.png'} // <-- boss image added
+  {k:'boss', src:'image/boss.png'} // optional
 ];
-let loadedCount=0;
+let loadedCount = 0;
 for(const f of files){
   const im = new Image();
   IMG[f.k] = im;
   im.onload = ()=> loadedCount++;
-  im.onerror = ()=> { console.warn('Failed load', f.src); loadedCount++; };
+  im.onerror = ()=> { console.warn('Image failed:', f.src); loadedCount++; };
   im.src = f.src;
 }
 
-/* state */
-let running=false, paused=false, autoFire=false;
-let score=0, kills=0;
+/* ---------- Audio (simple) ---------- */
+let audioCtx = null;
+function ensureAudio(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function sfx(freq=800, type='sine', duration=0.05, vol=0.06){
+  try {
+    if(!audioCtx) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.value = vol;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + duration);
+  } catch(e){}
+}
+/* quick samples */
+function playShoot(){ sfx(1100,'sine',0.03,0.04); }
+function playPickup(){ sfx(1500,'triangle',0.06,0.06); }
+function playExplode(){ sfx(220,'sawtooth',0.15,0.08); }
+function playBossHit(){ sfx(320,'square',0.08,0.08); }
+
+/* ---------- State ---------- */
+let running=false, paused=false, muted=false, autoFire=false;
+let score=0, level=1, lives=3, highScores = [];
 let bullets=[], enemies=[], pickups=[], particles=[];
 let boss=null, bossSpawned=false;
-let lastTS=0, spawnTimer=0, autoTimer=null;
+let lastTS=0, spawnTimer=0, autoTimer=null, waveTimer=0;
+let joystickEnabled=false;
 
-/* player */
+/* ---------- Player ---------- */
 const player = {
-  x: canvas.width/2 - 48, y: canvas.height - 160,
-  w: 96, h: 96, speed:7, tx:null, ty:null,
-  cooldown:0, fireRate:220, bulletPower:1, double:false, shield:0, alive:true
+  x: canvas.width/2 - 48,
+  y: canvas.height - 160,
+  w: 96, h: 96,
+  speed: 7,
+  tx: null, ty: null,
+  cooldown: 0, fireRate: 220, bulletPower:1, double:false, shield:0,
+  alive: true
 };
 
-/* helpers */
-const rand=(a,b)=> a + Math.random()*(b-a);
-const clamp=(v,a,b)=> Math.max(a,Math.min(b,v));
+/* ---------- Helpers ---------- */
+const rand = (a,b) => a + Math.random()*(b-a);
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 function roundRect(ctx,x,y,w,h,r=6){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 
-/* shooting */
+/* ---------- Load/Save Highscores ---------- */
+function loadScores(){
+  try{
+    const s = localStorage.getItem('galaxy_scores_v1');
+    if(s) highScores = JSON.parse(s);
+    else highScores = [];
+  }catch(e){ highScores = []; }
+}
+function saveScores(){
+  try{ localStorage.setItem('galaxy_scores_v1', JSON.stringify(highScores)); }catch(e){}
+}
+function addHighScore(n){
+  highScores.push({score:n, date: Date.now()});
+  highScores.sort((a,b)=> b.score - a.score);
+  if(highScores.length > 5) highScores.length = 5;
+  saveScores();
+  renderScores();
+}
+function renderScores(){
+  const box = document.getElementById('scoresBox');
+  box.innerHTML = '';
+  if(highScores.length === 0){ box.innerHTML = '<div class="scoreItem">No scores yet</div>'; return; }
+  for(const s of highScores){
+    const d = new Date(s.date);
+    const el = document.createElement('div'); el.className = 'scoreItem'; el.textContent = `${s.score} — ${d.toLocaleDateString()}`; box.appendChild(el);
+  }
+}
+
+/* ---------- Game features ---------- */
+
+/* Shoot (player) */
 function shoot(){
   if(!running || paused || !player.alive) return;
   const now = performance.now();
@@ -136,38 +210,60 @@ function shoot(){
   player.cooldown = now;
   const size = 10 + Math.min(player.bulletPower-1,10)*3;
   const dmg = Math.max(1, Math.floor(player.bulletPower/2));
-  bullets.push({ x: player.x + player.w/2, y: player.y + 6, w:size, h:size*1.6, vy:-12, dmg, img: IMG.bullet, hostile:false });
+  // central bullet
+  bullets.push({x: player.x + player.w/2, y: player.y + 8, w:size, h:size*1.6, vy:-12, dmg, img: IMG.bullet, hostile:false});
+  // double
   if(player.double){
-    bullets.push({ x: player.x + 12, y: player.y + 6, w:size, h:size*1.6, vy:-12, dmg, img: IMG.bullet, hostile:false });
-    bullets.push({ x: player.x + player.w - 12, y: player.y + 6, w:size, h:size*1.6, vy:-12, dmg, img: IMG.bullet, hostile:false });
+    bullets.push({x: player.x + 12, y: player.y + 8, w:size, h:size*1.6, vy:-12, dmg, img: IMG.bullet, hostile:false});
+    bullets.push({x: player.x + player.w - 12, y: player.y + 8, w:size, h:size*1.6, vy:-12, dmg, img: IMG.bullet, hostile:false});
   }
+  if(!muted) playShoot();
 }
 
-/* auto-fire */
+/* Auto-fire setup */
 function setupAuto(){
-  if(autoTimer){ clearInterval(autoTimer); autoTimer=null; }
+  if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
   if(autoFire) autoTimer = setInterval(()=> { if(running && !paused) shoot(); }, Math.max(60, Math.round(player.fireRate*0.9)));
 }
 
-/* spawn enemy types */
-function spawnEnemy(){
-  const r = Math.random();
-  if(r < 0.5){
-    enemies.push({ x: rand(30, canvas.width-110), y:-60, w:64, h:64, vy:1.6 + Math.random()*0.6, hp:1, img: IMG.enemy_small, score:1 });
-  } else if(r < 0.85){
-    enemies.push({ x: rand(40, canvas.width-160), y:-80, w:96, h:96, vy:1.2 + Math.random()*0.6, hp:2, img: IMG.enemy_medium, score:2 });
-  } else {
-    enemies.push({ x: rand(60, canvas.width-260), y:-110, w:140, h:140, vy:0.9 + Math.random()*0.5, hp:4, img: IMG.enemy_large, score:4 });
+/* Spawn enemy formations & waves */
+let waveIndex = 0;
+function spawnWave(type, count=6){
+  // type: 'v','line','circle','swarm'
+  if(type === 'v'){
+    const center = canvas.width/2;
+    for(let i=0;i<count;i++){
+      const offset = (i - Math.floor(count/2))*70;
+      enemies.push({x: center + offset, y:-100 - i*30, w:64, h:64, vy:1.4 + Math.random()*0.4, hp:1, img: IMG.enemy_small, score:1});
+    }
+  } else if(type === 'line'){
+    const spacing = Math.max(60, Math.floor(canvas.width / count) - 10);
+    for(let i=0;i<count;i++){
+      enemies.push({x: 40 + i*spacing, y:-80, w:72, h:72, vy:1.2+Math.random()*0.5, hp:1, img: IMG.enemy_small, score:1});
+    }
+  } else if(type === 'circle'){
+    const cx = canvas.width/2, cy = -20;
+    for(let i=0;i<count;i++){
+      const a = (i/count) * Math.PI*2;
+      enemies.push({x: cx + Math.cos(a)*160, y: cy + Math.sin(a)*60 - 80, w:96, h:96, vy:1 + Math.random()*0.6, hp:2, img: IMG.enemy_medium, score:2});
+    }
+  } else { // swarm random
+    for(let i=0;i<count;i++){
+      const r = Math.random();
+      if(r < 0.6) enemies.push({x: rand(40, canvas.width-80), y:-40 - i*20, w:64, h:64, vy:1.6 + Math.random()*0.6, hp:1, img: IMG.enemy_small, score:1});
+      else if(r < 0.9) enemies.push({x: rand(60, canvas.width-140), y:-60 - i*20, w:96, h:96, vy:1.2 + Math.random()*0.7, hp:2, img: IMG.enemy_medium, score:2});
+      else enemies.push({x: rand(80, canvas.width-180), y:-90 - i*30, w:140, h:140, vy:1 + Math.random()*0.5, hp:4, img: IMG.enemy_large, score:4});
+    }
   }
 }
 
-/* spawn boss (uses IMG.boss now) */
+/* spawn boss */
 function spawnBoss(){
-  boss = { x: canvas.width/2 - 220, y:-260, w:440, h:220, vy:0.8, hp: 200 + Math.floor(kills/50)*40, maxHp:200 + Math.floor(kills/50)*40, img: IMG.boss, timer:0 };
+  boss = { x: canvas.width/2 - 220, y:-280, w:440, h:220, vy:0.8, hp: 220 + (level-1)*80, maxHp:220 + (level-1)*80, phase:1, timer:0, img: IMG.boss && IMG.boss.complete? IMG.boss : null, enraged:false };
   bossSpawned = true;
 }
 
-/* drop pickups */
+/* pickups drop & collect */
 function dropPickup(x,y){
   const r = Math.random();
   let kind;
@@ -176,20 +272,20 @@ function dropPickup(x,y){
   else if(r < 0.54) kind = 'powerup_double';
   else if(r < 0.72) kind = 'powerup_shield';
   else kind = 'powerup_life';
-  pickups.push({ x, y, w:36, h:36, vy:1.2, kind, img: IMG[kind] });
+  pickups.push({x, y, w:36, h:36, vy:1.2, kind, img: IMG[kind], timer: (kind==='powerup_rapid'?9000: (kind==='powerup_double'?10000:0))});
 }
-
-/* collect pickup effects */
 function collectPickup(p){
-  if(p.kind === 'powerup_double'){ player.double = true; setTimeout(()=> player.double=false, 10000); }
-  if(p.kind === 'powerup_power'){ player.bulletPower = Math.min(16, player.bulletPower + 1); }
+  if(p.kind === 'powerup_double'){ player.double = true; setTimeout(()=> player.double = false, 10000); }
+  if(p.kind === 'powerup_power'){ player.bulletPower = Math.min(18, player.bulletPower + 1); }
   if(p.kind === 'powerup_rapid'){ const prev = player.fireRate; player.fireRate = Math.max(60, player.fireRate - 90); setTimeout(()=> player.fireRate = prev, 9000); }
   if(p.kind === 'powerup_shield'){ player.shield = (player.shield||0) + 2; setTimeout(()=> player.shield = Math.max(0, (player.shield||0) - 2), 12000); }
-  if(p.kind === 'powerup_life'){ score += 5; }
-  for(let i=0;i<8;i++) particles.push({ x:p.x, y:p.y, vx:rand(-2,2), vy:rand(-4,0), life:rand(20,50), size:rand(1,3), col:'#9fffb6' });
+  if(p.kind === 'powerup_life'){ lives = Math.min(5, lives + 1); updateLives(); }
+  if(!muted) playPickup();
+  for(let i=0;i<8;i++) particles.push({x:p.x, y:p.y, vx:rand(-2,2), vy:rand(-4,0), life:rand(20,50), size:rand(1,3), col:'#9fffb6'});
 }
 
-/* pointer swipe 2D */
+/* ---------- Movement controls ---------- */
+/* Pointer swipe 2D */
 let pointerDown=false;
 function getPointerPos(e){
   const r = canvas.getBoundingClientRect();
@@ -197,7 +293,7 @@ function getPointerPos(e){
   if(e.touches && e.touches[0]){ cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
   if(cx==null) return null;
   const x = (cx - r.left) / r.width * canvas.width;
-  const y = (cy - r.top)  / r.height* canvas.height;
+  const y = (cy - r.top)  / r.height * canvas.height;
   return {x,y};
 }
 function onPointerDown(e){ pointerDown=true; const p=getPointerPos(e); if(!p) return; player.tx = clamp(p.x - player.w/2, 8, canvas.width - player.w - 8); player.ty = clamp(p.y - player.h/2, 8, canvas.height - player.h - 8); }
@@ -210,29 +306,89 @@ canvas.addEventListener('touchstart', onPointerDown, {passive:false});
 canvas.addEventListener('touchmove', onPointerMove, {passive:false});
 canvas.addEventListener('touchend', onPointerUp, {passive:false});
 
-/* keyboard + mobile left/right */
+/* Virtual joystick (bottom-left) */
+const joy = document.getElementById('joystick');
+const joyKnob = document.getElementById('joyKnob');
+let joyActive = false, joyCenter={x:0,y:0};
+function enableJoystick(on){
+  joystickEnabled = on;
+  joy.style.display = on? 'block' : 'none';
+  document.getElementById('toggleJoy').textContent = 'Joystick: ' + (on? 'ON':'OFF');
+}
+document.getElementById('toggleJoy').addEventListener('click', ()=> enableJoystick(!joystickEnabled));
+function initJoystick(){
+  const rect = joy.getBoundingClientRect();
+  joyCenter.x = rect.left + rect.width/2;
+  joyCenter.y = rect.top + rect.height/2;
+}
+window.addEventListener('resize', initJoystick);
+initJoystick();
+
+function joyDown(e){
+  joyActive = true; initJoystick(); moveKnob(e);
+}
+function joyMove(e){
+  if(!joyActive) return; moveKnob(e);
+}
+function joyUp(e){
+  joyActive = false; joyKnob.style.transform = 'translate(0px,0px)'; player.tx = null; player.ty = null;
+}
+function moveKnob(e){
+  const r = joy.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
+  let cx = e.clientX || (e.touches && e.touches[0].clientX);
+  let cy = e.clientY || (e.touches && e.touches[0].clientY);
+  if(cx == null) return;
+  const localX = cx - r.left - r.width/2;
+  const localY = cy - r.top - r.height/2;
+  const max = r.width/2 - 12;
+  const dx = clamp(localX, -max, max);
+  const dy = clamp(localY, -max, max);
+  joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+  // map to player target relative movement
+  const moveX = dx / max * 6 * player.speed;
+  const moveY = dy / max * 6 * player.speed;
+  // set continuous target while joystick held
+  player.tx = clamp(player.x + moveX, 8, canvas.width - player.w - 8);
+  player.ty = clamp(player.y + moveY, 8, canvas.height - player.h - 8);
+}
+document.getElementById('joyBase').addEventListener('pointerdown', joyDown);
+window.addEventListener('pointermove', joyMove);
+window.addEventListener('pointerup', joyUp);
+document.getElementById('joyBase').addEventListener('touchstart', joyDown, {passive:false});
+window.addEventListener('touchmove', joyMove, {passive:false});
+window.addEventListener('touchend', joyUp, {passive:false});
+
+/* ---------- Keyboard & mobile left/right ---------- */
 const keys = {};
-window.addEventListener('keydown', e=>{ keys[e.code]=true; if(e.code==='Space') shoot(); if(e.code==='KeyP') togglePause(); });
-window.addEventListener('keyup', e=>{ keys[e.code]=false; });
-document.getElementById('leftBtn').addEventListener('pointerdown', ()=> keys['ArrowLeft']=true);
-document.getElementById('leftBtn').addEventListener('pointerup', ()=> keys['ArrowLeft']=false);
-document.getElementById('rightBtn').addEventListener('pointerdown', ()=> keys['ArrowRight']=true);
-document.getElementById('rightBtn').addEventListener('pointerup', ()=> keys['ArrowRight']=false);
+window.addEventListener('keydown', e => { keys[e.code] = true; if(e.code==='Space') shoot(); if(e.code==='KeyP') togglePause(); });
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+document.getElementById('leftBtn').addEventListener('pointerdown', ()=> keys['ArrowLeft'] = true);
+document.getElementById('leftBtn').addEventListener('pointerup', ()=> keys['ArrowLeft'] = false);
+document.getElementById('rightBtn').addEventListener('pointerdown', ()=> keys['ArrowRight'] = true);
+document.getElementById('rightBtn').addEventListener('pointerup', ()=> keys['ArrowRight'] = false);
 
-/* buttons */
-document.getElementById('startBtn').addEventListener('click', ()=> { if(allLoaded()) startGame(); else if(confirm('Some images still loading. Start anyway?')) startGame(); });
-document.getElementById('howBtn').addEventListener('click', ()=> alert('Swipe to move in 2D. Auto toggles continuous fire. Collect powerups. Kill 50 small enemies to spawn boss.'));
-document.getElementById('fireBtn').addEventListener('click', shoot);
+/* ---------- UI hooks ---------- */
+document.getElementById('startBtn').addEventListener('click', ()=> {
+  if(loadedCount < files.length) {
+    if(!confirm('Images still loading. Start anyway?')) return;
+  }
+  startGame();
+});
+document.getElementById('howBtn').addEventListener('click', ()=> alert('Swipe or joystick to move in 2D. Auto toggles continuous fire. Pickups give power, double, rapid, shield & life. Kill 50 small enemies to spawn boss.'));
 document.getElementById('autoBtn').addEventListener('click', ()=> { autoFire = !autoFire; document.getElementById('autoBtn').textContent = 'Auto: ' + (autoFire? 'ON':'OFF'); setupAuto(); });
-document.getElementById('pauseBtn').addEventListener('click', ()=> { togglePause(); });
+document.getElementById('muteBtn').addEventListener('click', ()=> { muted = !muted; document.getElementById('muteBtn').textContent = muted? 'Unmute':'Mute'; if(muted) audioCtx && audioCtx.suspend(); else audioCtx && audioCtx.resume(); });
 document.getElementById('resetBtn').addEventListener('click', ()=> location.reload());
+document.getElementById('fireBtn').addEventListener('click', shoot);
+document.getElementById('clearScores').addEventListener('click', ()=> { if(confirm('Clear saved high scores?')){ highScores=[]; saveScores(); renderScores(); }});
+document.getElementById('creditsBtn').addEventListener('click', ()=> alert('Made with ❤️ — assets loaded from image/ folder'));
 
-function allLoaded(){ return loadedCount >= files.length; }
-
-/* update loop */
+/* ---------- Gameplay update & draw ---------- */
 function update(dt){
   if(!running || paused) return;
-  if(player.tx!=null && player.ty!=null){
+
+  // Player movement: joystick target or swipe or keyboard
+  if(player.tx != null && player.ty != null){
     player.x += (player.tx - player.x) * 0.22;
     player.y += (player.ty - player.y) * 0.22;
   } else {
@@ -241,150 +397,280 @@ function update(dt){
     if(keys['ArrowUp']||keys['KeyW']) player.y -= player.speed;
     if(keys['ArrowDown']||keys['KeyS']) player.y += player.speed;
   }
-  player.x = clamp(player.x,8, canvas.width - player.w - 8);
-  player.y = clamp(player.y,8, canvas.height - player.h - 8);
+  player.x = clamp(player.x, 8, canvas.width - player.w - 8);
+  player.y = clamp(player.y, 8, canvas.height - player.h - 8);
 
+  // automatic spawning by waves
   spawnTimer += dt;
-  if(!boss && spawnTimer > 900){ spawnTimer = 0; spawnEnemy(); }
-  if(!bossSpawned && kills >= 50) spawnBoss();
+  waveTimer += dt;
+  if(waveTimer > Math.max(4000, 8000 - level*400)){
+    waveTimer = 0;
+    const types = ['v','line','circle','swarm'];
+    spawnWave(types[waveIndex % types.length], 6 + Math.floor(level/2));
+    waveIndex++;
+  }
 
-  for(let i=bullets.length-1;i>=0;i--){ const b = bullets[i]; b.y += b.vy; if(b.y < -60 || b.y > canvas.height + 80) bullets.splice(i,1); }
+  if(!boss && spawnTimer > Math.max(400, 900 - level*20)){
+    spawnTimer = 0;
+    // also sometimes spawn small groups
+    if(Math.random() < 0.6) spawnWave('swarm', 3 + Math.floor(level/3));
+    else spawnWave('line', 4 + Math.floor(level/3));
+  }
 
+  // spawn boss on kills threshold
+  if(!bossSpawned && kills >= 50 * level){
+    spawnBoss();
+  }
+
+  // bullets movement
+  for(let i=bullets.length-1;i>=0;i--){
+    const b = bullets[i];
+    b.y += b.vy;
+    if(b.y < -80 || b.y > canvas.height + 200) bullets.splice(i,1);
+  }
+
+  // enemies movement & collisions
   for(let i=enemies.length-1;i>=0;i--){
     const e = enemies[i];
-    e.y += e.vy; e.x += Math.sin((performance.now()/400) + (e.x)) * 0.3;
+    e.y += e.vy;
+    e.x += Math.sin((performance.now()/400)+e.x) * 0.3;
+    // collide with bullets
     for(let bi=bullets.length-1; bi>=0; bi--){
-      const b = bullets[bi]; if(b.hostile) continue;
+      const b = bullets[bi];
+      if(b.hostile) continue;
       const bx = b.x - b.w/2, by = b.y - b.h/2;
       if(!(bx + b.w < e.x || bx > e.x + e.w || by + b.h < e.y || by > e.y + e.h)){
-        e.hp -= b.dmg || 1; bullets.splice(bi,1);
+        e.hp -= b.dmg || 1;
+        bullets.splice(bi,1);
         if(e.hp <= 0){
-          kills += 1; score += e.score || 1;
+          score += e.score || 1;
+          kills++;
           dropPickup(e.x + e.w/2, e.y + e.h/2);
-          for(let p=0;p<10;p++) particles.push({ x:e.x + e.w/2, y:e.y + e.h/2, vx:rand(-2,2), vy:rand(-4,1), life:rand(20,50), size:rand(1,3), col:'#ff9b9b'});
+          for(let p=0;p<8;p++) particles.push({x:e.x + e.w/2, y:e.y + e.h/2, vx:rand(-2,2), vy:rand(-4,1), life:rand(20,60), size:rand(1,3), col:'#ff9b9b'});
           enemies.splice(i,1);
         }
         break;
       }
     }
-    if(e.y > canvas.height + 80) enemies.splice(i,1);
+    if(e.y > canvas.height + 120) enemies.splice(i,1);
   }
 
+  // boss behavior (multi-phase)
   if(boss){
-    boss.timer += dt; boss.y += boss.vy; boss.x += Math.sin(boss.timer/800) * 1.2; boss.x = clamp(boss.x, 20, canvas.width - boss.w - 20);
-    if(boss.timer > 900){ boss.timer = 0; for(let k=-1;k<=1;k++) bullets.push({ x: boss.x + boss.w/2 + k*44, y: boss.y + boss.h, vy:4.6, w:12, h:14, hostile:true }); }
-    for(let bi=bullets.length-1;bi>=0;bi--){
-      const b = bullets[bi]; if(b.hostile) continue;
+    boss.timer += dt;
+    boss.y += boss.vy;
+    boss.x += Math.sin(boss.timer/600) * (boss.phase === 1 ? 1.2 : 3.2);
+    boss.x = clamp(boss.x, 20, canvas.width - boss.w - 20);
+    // attacks based on phase
+    if(boss.phase === 1){
+      if(boss.timer > 1000){
+        boss.timer = 0;
+        // shoot slow spread
+        for(let k=-2;k<=2;k++) bullets.push({x: boss.x + boss.w/2 + k*28, y: boss.y + boss.h, vy: 3.2 + Math.abs(k)*0.3, w:12, h:14, hostile:true});
+        if(!muted) playBossHit();
+      }
+    } else {
+      // enraged: faster bullets and homing small bursts
+      if(boss.timer > 700){
+        boss.timer = 0;
+        for(let k=-1;k<=1;k++) bullets.push({x: boss.x + boss.w/2 + k*44, y: boss.y + boss.h, vy: 4.6, w:12, h:14, hostile:true});
+        // homing mini: spawn enemies that head toward player
+        for(let i=0;i<2;i++){
+          enemies.push({x: boss.x + rand(40,boss.w-40), y: boss.y + boss.h + 8, w:44, h:44, vy:2.2, hp:1, img: IMG.enemy_small, score:1});
+        }
+        if(!muted) playBossHit();
+      }
+    }
+    // boss hit by bullets
+    for(let bi=bullets.length-1; bi>=0; bi--){
+      const b = bullets[bi];
+      if(b.hostile) continue;
       const bx = b.x - b.w/2, by = b.y - b.h/2;
       if(!(bx + b.w < boss.x || bx > boss.x + boss.w || by + b.h < boss.y || by > boss.y + boss.h)){
-        boss.hp -= b.dmg || 1; bullets.splice(bi,1);
+        boss.hp -= b.dmg || 1;
+        bullets.splice(bi,1);
+        if(!muted) playBossHit();
+        // phase change threshold
+        if(boss.phase === 1 && boss.hp < boss.maxHp * 0.5){
+          boss.phase = 2; boss.enraged = true;
+        }
         if(boss.hp <= 0){
-          for(let p=0;p<60;p++) particles.push({ x:boss.x + boss.w/2, y:boss.y + boss.h/2, vx:rand(-6,6), vy:rand(-6,2), life:rand(40,90), size:rand(2,5), col:'#ffd27e'});
-          score += 300; boss = null; bossSpawned=false; kills = 0;
+          // boss dies: huge particles + screen shake
+          for(let p=0;p<120;p++) particles.push({x:boss.x + boss.w/2, y:boss.y + boss.h/2, vx:rand(-8,8), vy:rand(-8,4), life:rand(40,110), size:rand(2,6), col:'#ffd27e'});
+          score += 400 + level*20;
+          boss = null; bossSpawned=false; kills = 0; level++;
+          // small reward
+          player.bulletPower = Math.min(20, player.bulletPower + 1);
         }
         break;
       }
     }
   }
 
+  // hostile bullets vs player
   for(let i=bullets.length-1;i>=0;i--){
-    const b = bullets[i]; if(!b.hostile) continue;
+    const b = bullets[i];
+    if(!b.hostile) continue;
     const bx = b.x - b.w/2, by = b.y - b.h/2;
     if(!(bx + b.w < player.x || bx > player.x + player.w || by + b.h < player.y || by > player.y + player.h)){
       bullets.splice(i,1);
-      if(player.shield && player.shield > 0){ player.shield -= 1; } else { player.alive = false; running = false; showGameOver(); return; }
+      if(player.shield && player.shield > 0){ player.shield -= 1; }
+      else { lives--; updateLives(); if(lives <= 0){ player.alive = false; running = false; showGameOver(); return; } }
     }
   }
 
+  // pickups movement & collection
   for(let i=pickups.length-1;i>=0;i--){
-    const p = pickups[i]; p.y += p.vy;
-    if(Math.abs((player.x + player.w/2) - p.x) < 36 && Math.abs((player.y + player.h/2) - p.y) < 36){ collectPickup(p); pickups.splice(i,1); continue; }
+    const p = pickups[i];
+    p.y += p.vy;
+    if(Math.abs((player.x + player.w/2) - p.x) < 36 && Math.abs((player.y + player.h/2) - p.y) < 36){
+      collectPickup(p);
+      pickups.splice(i,1);
+      continue;
+    }
     if(p.y > canvas.height + 80) pickups.splice(i,1);
   }
 
-  for(let i=particles.length-1;i>=0;i--){ const pt = particles[i]; pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.12; pt.life -= 1; if(pt.life<=0) particles.splice(i,1); }
+  // particles
+  for(let i=particles.length-1;i>=0;i--){
+    const pt = particles[i]; pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.12; pt.life -= 1; if(pt.life <= 0) particles.splice(i,1);
+  }
 
+  // level/score UI
   document.getElementById('scoreUI').textContent = 'Score: ' + score;
-  document.getElementById('killsUI').textContent = 'Kills: ' + kills;
-  document.getElementById('powerUI').textContent = 'Bullet: ' + player.bulletPower;
+  document.getElementById('levelUI').textContent = 'Level: ' + level;
 }
 
-/* draw */
+/* ---------- Draw ---------- */
 function draw(){
-  const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#000814'); g.addColorStop(1,'#001028'); ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#fff';
-  for(let i=0;i<50;i++){ const x = (i*73 + performance.now()/10*(i%3+1))%canvas.width; const y = ((i*31) + performance.now()/200*(i%4+1))%canvas.height; ctx.globalAlpha = 0.6 - (i%5)*0.08; ctx.fillRect(x,y,2,2); }
+  // background gradient
+  const g = ctx.createLinearGradient(0,0,0,canvas.height);
+  g.addColorStop(0,'#000814'); g.addColorStop(1,'#001028');
+  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // stars
+  ctx.fillStyle = '#fff';
+  for(let i=0;i<60;i++){
+    const x = (i*73 + performance.now()/10*(i%3+1))%canvas.width;
+    const y = ((i*31) + performance.now()/200*(i%4+1))%canvas.height;
+    ctx.globalAlpha = 0.6 - (i%5)*0.07;
+    ctx.fillRect(x,y,2,2);
+  }
   ctx.globalAlpha = 1;
 
+  // player draw
   const bob = Math.sin(performance.now()/240) * 4;
-  ctx.save(); ctx.translate(player.x + player.w/2, player.y + player.h/2 + bob); ctx.rotate(Math.sin(performance.now()/200)/20);
-  if(IMG.player && IMG.player.complete && IMG.player.naturalWidth) ctx.drawImage(IMG.player, -player.w/2, -player.h/2, player.w, player.h);
-  else { ctx.fillStyle='#bfefff'; ctx.beginPath(); ctx.moveTo(-player.w/2+10, player.h/2-8); ctx.lineTo(0,-player.h/2); ctx.lineTo(player.w/2-10, player.h/2-8); ctx.closePath(); ctx.fill(); }
+  ctx.save();
+  ctx.translate(player.x + player.w/2, player.y + player.h/2 + bob);
+  ctx.rotate(Math.sin(performance.now()/200)/20);
+  if(IMG.player && IMG.player.complete && IMG.player.naturalWidth){
+    ctx.drawImage(IMG.player, -player.w/2, -player.h/2, player.w, player.h);
+  } else {
+    ctx.fillStyle = '#bfefff';
+    ctx.beginPath(); ctx.moveTo(-player.w/2+10, player.h/2-8); ctx.lineTo(0,-player.h/2); ctx.lineTo(player.w/2-10, player.h/2-8); ctx.closePath(); ctx.fill();
+  }
   ctx.restore();
 
+  // shield visual
+  if(player.shield && player.shield > 0){
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(player.x + player.w/2, player.y + player.h/2, Math.max(player.w, player.h)/1.1, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(150,255,220,0.18)'; ctx.lineWidth = 6; ctx.stroke();
+    ctx.restore();
+  }
+
+  // bullets
   for(const b of bullets){
     if(b.img && b.img.complete && b.img.naturalWidth) ctx.drawImage(b.img, b.x - b.w/2, b.y - b.h/2, b.w, b.h);
-    else { ctx.fillStyle = b.hostile? '#ff9b9b':'#aefcff'; roundRect(ctx, b.x - b.w/2, b.y - b.h/2, b.w, b.h, 4); ctx.fill(); }
+    else { ctx.fillStyle = b.hostile? '#ff9b9b' : '#aefcff'; roundRect(ctx, b.x - b.w/2, b.y - b.h/2, b.w, b.h, 4); ctx.fill(); }
   }
 
+  // enemies
   for(const e of enemies){
     if(e.img && e.img.complete && e.img.naturalWidth) ctx.drawImage(e.img, e.x, e.y, e.w, e.h);
-    else { ctx.fillStyle='#ff8b7f'; roundRect(ctx,e.x,e.y,e.w,e.h,8); ctx.fill(); }
+    else { ctx.fillStyle = '#ff8b7f'; roundRect(ctx, e.x, e.y, e.w, e.h, 8); ctx.fill(); }
   }
 
+  // pickups
   for(const p of pickups){
     if(p.img && p.img.complete && p.img.naturalWidth) ctx.drawImage(p.img, p.x - p.w/2, p.y - p.h/2, p.w, p.h);
-    else { ctx.beginPath(); ctx.fillStyle='#9fffb6'; ctx.arc(p.x,p.y,p.w/2,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#001'; ctx.fillText('+', p.x, p.y); }
+    else { ctx.beginPath(); ctx.fillStyle = '#9fffb6'; ctx.arc(p.x,p.y,p.w/2,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#001'; ctx.fillText('+', p.x, p.y); }
   }
 
+  // boss
   if(boss){
     if(boss.img && boss.img.complete && boss.img.naturalWidth) ctx.drawImage(boss.img, boss.x, boss.y, boss.w, boss.h);
-    else { ctx.fillStyle='#ffaa66'; roundRect(ctx,boss.x,boss.y,boss.w,boss.h,12); ctx.fill(); }
-    ctx.fillStyle='rgba(255,255,255,0.06)'; roundRect(ctx,boss.x+20,boss.y+boss.h+8,boss.w-40,10,6); ctx.fill();
-    ctx.fillStyle='#7ef9ff'; roundRect(ctx,boss.x+20,boss.y+boss.h+8,(boss.w-40) * Math.max(0, boss.hp/boss.maxHp),10,6); ctx.fill();
+    else { ctx.fillStyle = boss.phase === 1 ? '#ffaa66' : '#ff6b6b'; roundRect(ctx,boss.x,boss.y,boss.w,boss.h,12); ctx.fill(); }
+    // boss hp
+    ctx.fillStyle='rgba(255,255,255,0.06)'; roundRect(ctx,boss.x+20,boss.y + boss.h + 8,boss.w-40,10,6); ctx.fill();
+    ctx.fillStyle='#7ef9ff'; roundRect(ctx,boss.x+20,boss.y + boss.h + 8,(boss.w-40) * Math.max(0,boss.hp/boss.maxHp),10,6); ctx.fill();
   }
 
-  for(const pt of particles){ ctx.fillStyle = pt.col || '#fff'; ctx.globalAlpha = Math.max(0, Math.min(1, pt.life/80)); ctx.fillRect(pt.x,pt.y,pt.size,pt.size); ctx.globalAlpha = 1; }
+  // particles
+  for(const pt of particles){ ctx.fillStyle = pt.col || '#fff'; ctx.globalAlpha = clamp(pt.life/80,0,1); ctx.fillRect(pt.x, pt.y, pt.size, pt.size); ctx.globalAlpha = 1; }
 }
 
-/* main loop */
+/* ---------- Main loop ---------- */
 let raf = null;
 function loop(ts){
   if(!running || paused){ raf = requestAnimationFrame(loop); return; }
   if(!lastTS) lastTS = ts;
-  const dt = Math.min(40, ts - lastTS);
+  const dt = Math.min(45, ts - lastTS);
   lastTS = ts;
   update(dt);
   draw();
   raf = requestAnimationFrame(loop);
 }
 
-/* start/pause/gameover */
+/* ---------- Start / Pause / Game Over ---------- */
 function startGame(){
-  if(!allLoaded() && !confirm('Some images still loading — start anyway?')) return;
-  bullets=[]; enemies=[]; pickups=[]; particles=[]; boss=null; bossSpawned=false; score=0; kills=0;
-  player.bulletPower=1; player.alive=true; player.x = canvas.width/2 - player.w/2; player.y = canvas.height - player.h - 60;
-  running=true; paused=false; document.getElementById('overlay').style.display='none';
-  setupAuto(); lastTS = performance.now(); if(raf) cancelAnimationFrame(raf); loop(lastTS);
+  loadScores();
+  renderScores();
+  bullets=[]; enemies=[]; pickups=[]; particles=[];
+  boss=null; bossSpawned=false; score=0; level=1; lives=3; player.bulletPower=1; player.double=false; player.shield=0; player.alive=true;
+  player.x = canvas.width/2 - player.w/2; player.y = canvas.height - player.h - 60;
+  document.getElementById('overlay').style.display = 'none';
+  running = true; paused = false;
+  setupAuto();
+  lastTS = performance.now(); loop(lastTS);
+  updateLives();
 }
 function togglePause(){ paused = !paused; document.getElementById('pauseBtn').textContent = paused? 'Resume':'Pause'; if(!paused){ lastTS = performance.now(); loop(lastTS); } }
-function showGameOver(){ document.getElementById('overlay').style.display='flex'; document.getElementById('menuPanel').querySelector('h2').textContent = 'Game Over'; }
-function allLoaded(){ return loadedCount >= files.length; }
+function showGameOver(){
+  // save score
+  addHighScore(score);
+  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('menuPanel').querySelector('h2').textContent = 'Game Over — Score: ' + score;
+  running = false;
+}
 
-/* UI hooks */
-document.getElementById('startBtn').addEventListener('click', startGame);
-document.getElementById('howBtn').addEventListener('click', ()=> alert('Swipe to move in 2D. Auto-fire toggle. Collect powerups. Kill 50 to spawn boss.'));
-document.getElementById('fireBtn').addEventListener('click', shoot);
+/* ---------- Helpers for UI ---------- */
+function updateLives(){
+  const hearts = '♥'.repeat(Math.max(0,lives));
+  document.getElementById('livesUI').textContent = 'Lives: ' + hearts;
+}
+
+/* ---------- Local scores & rendering ---------- */
+loadScores();
+renderScores();
+
+/* ---------- Misc ---------- */
+/* Unlock audio on first touch/mousedown */
+document.addEventListener('touchstart', ()=> { if(!audioCtx) try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }, {once:true});
+document.addEventListener('mousedown', ()=> { if(!audioCtx) try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }, {once:true});
+
+/* ---------- expose some buttons ---------- */
+document.getElementById('startBtn').addEventListener('click', ()=> startGame());
+document.getElementById('fireBtn').addEventListener('click', ()=> shoot());
 document.getElementById('autoBtn').addEventListener('click', ()=> { autoFire = !autoFire; document.getElementById('autoBtn').textContent = 'Auto: ' + (autoFire? 'ON':'OFF'); setupAuto(); });
-document.getElementById('pauseBtn').addEventListener('click', ()=> { togglePause(); });
+document.getElementById('muteBtn').addEventListener('click', ()=> { muted = !muted; document.getElementById('muteBtn').textContent = muted? 'Unmute':'Mute'; if(muted) audioCtx && audioCtx.suspend(); else audioCtx && audioCtx.resume(); });
 document.getElementById('resetBtn').addEventListener('click', ()=> location.reload());
 
-/* unlock audio placeholder */
-document.addEventListener('touchstart', ()=>{}, {once:true});
-document.addEventListener('mousedown', ()=>{}, {once:true});
-
-// keep overlay visible initially
+/* ---------- initial UI state ---------- */
 document.getElementById('overlay').style.display = 'flex';
+updateLives();
+
 </script>
 </body>
 </html>
